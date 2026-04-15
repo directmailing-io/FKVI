@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,13 +22,28 @@ export default function ContactPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await fetch('/api/companies/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const { data, error: sbErr } = await supabase
+        .from('companies')
+        .insert({
+          company_name: form.company_name,
+          first_name: form.first_name,
+          last_name: form.last_name,
+          phone: form.phone,
+          email: form.email,
+        })
+        .select()
+        .single()
+
+      if (sbErr) {
+        if (sbErr.code === '23505') {
+          throw new Error('Eine Anfrage mit dieser E-Mail-Adresse existiert bereits.')
+        }
+        if (sbErr.code === '42501') {
+          throw new Error('Registrierung momentan nicht möglich. Bitte kontaktieren Sie uns direkt.')
+        }
+        throw new Error(sbErr.message)
+      }
+
       setSuccess(true)
     } catch (err) {
       setError(err.message || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.')

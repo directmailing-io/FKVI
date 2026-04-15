@@ -107,19 +107,14 @@ export default function MatchingBrowse() {
     if (favorites.size === 0) return
     setInterestLoading(true)
     try {
-      const res = await fetch('/api/profiles/interest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          profileIds: [...favorites],
-          companyId,
-          message: interestMessage,
-        }),
-      })
-      if (!res.ok) throw new Error()
+      // Store interest note on the company record so admin can see it
+      await supabase
+        .from('companies')
+        .update({
+          internal_notes: `Interessenbekundung (${new Date().toLocaleDateString('de-DE')}): ${[...favorites].length} Profile vorgemerkt. Nachricht: ${interestMessage || '(keine)'}`,
+        })
+        .eq('id', companyId)
+
       setInterestSent(true)
     } catch {
       toast({ title: 'Fehler', description: 'Bitte versuchen Sie es erneut.', variant: 'destructive' })
