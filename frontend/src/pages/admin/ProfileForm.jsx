@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
@@ -9,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { MultiSelect } from '@/components/ui/multi-select'
 import {
@@ -18,10 +19,192 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
+// ─── Field helper — defined OUTSIDE component to avoid focus-jumping bug ──────
+const Field = ({ label, children, required }) => (
+  <div className="space-y-1.5">
+    <Label>
+      {label}
+      {required && <span className="text-red-500 ml-0.5">*</span>}
+    </Label>
+    {children}
+  </div>
+)
+
+// ─── Error translation ─────────────────────────────────────────────────────────
+function translateError(msg) {
+  if (!msg) return 'Unbekannter Fehler.'
+  if (msg.includes('profiles_german_recognition_check'))
+    return 'Bitte wähle einen gültigen Wert für "Anerkennung in Deutschland" aus.'
+  if (msg.includes('profiles_gender_check'))
+    return 'Bitte wähle ein Geschlecht aus.'
+  if (msg.includes('profiles_marital_status_check'))
+    return 'Bitte wähle einen Familienstand aus.'
+  if (msg.includes('profiles_work_time_preference_check'))
+    return 'Bitte wähle eine Arbeitszeitpräferenz aus.'
+  if (msg.includes('profiles_status_check'))
+    return 'Ungültiger Profilstatus.'
+  if (msg.includes('duplicate key') || msg.includes('unique_violation'))
+    return 'Ein Datensatz mit diesen Daten existiert bereits.'
+  if (msg.includes('storage'))
+    return 'Fehler beim Bildupload. Bitte prüfe das Dateiformat (JPG/PNG, max. 5 MB).'
+  if (msg.includes('JWT') || msg.includes('auth'))
+    return 'Sitzung abgelaufen – bitte neu einloggen.'
+  return msg
+}
+
+// ─── Test data generator ──────────────────────────────────────────────────────
+function generateTestData() {
+  const firstNames = ['Maria', 'Ana', 'Elena', 'Sofia', 'Irina', 'Nguyen Thi', 'Priya', 'Fatima', 'Olga', 'Jana']
+  const lastNames = ['Santos', 'Popescu', 'Kim', 'Müller-Reyes', 'Horvath', 'Tran', 'Patel', 'Al-Hassan', 'Novak', 'García']
+  const nationalities = ['Philippinen', 'Rumänien', 'Vietnam', 'Indien', 'Mexiko', 'Ukraine', 'Bosnien', 'Tunesien', 'Georgien', 'Kosovo']
+  const recognitions = ['anerkannt', 'in_bearbeitung', 'nicht_beantragt', 'abgelehnt']
+  const genders = ['weiblich', 'männlich', 'divers']
+  const maritalStatuses = ['ledig', 'verheiratet', 'geschieden', 'verwitwet']
+  const workTimes = WORK_TIME_OPTIONS
+  const states = GERMAN_STATES.slice(0, 4)
+  const facilities = FACILITY_TYPES.slice(0, 3)
+  const specs = SPECIALIZATIONS.slice(0, 3)
+  const expAreas = EXPERIENCE_AREAS.slice(0, 4)
+
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)]
+  const pickN = (arr, n) => arr.slice().sort(() => Math.random() - 0.5).slice(0, n)
+  const year = 1985 + Math.floor(Math.random() * 15)
+
+  return {
+    status: 'draft',
+    first_name: pick(firstNames),
+    last_name: pick(lastNames),
+    gender: pick(genders),
+    age: String(25 + Math.floor(Math.random() * 20)),
+    nationality: pick(nationalities),
+    marital_status: pick(maritalStatuses),
+    children_count: String(Math.floor(Math.random() * 3)),
+    has_drivers_license: Math.random() > 0.4,
+    state_preferences: pickN(states, 2),
+    nationwide: false,
+    preferred_facility_types: pickN(facilities, 2),
+    work_time_preference: pick(workTimes),
+    profile_image_url: '',
+    vimeo_video_url: '',
+    vimeo_video_id: '',
+    school_education: pick(['Abitur', 'Mittlere Reife', 'Hochschulreife', 'Berufsschule']),
+    nursing_education: pick(['Gesundheits- und Krankenpfleger/in', 'Altenpfleger/in', 'Kinderkrankenpfleger/in', 'Pflegefachkraft']),
+    education_duration: pick(['2 Jahre', '3 Jahre', '3,5 Jahre', '4 Jahre']),
+    graduation_year: String(year),
+    german_recognition: pick(recognitions),
+    education_notes: 'Ausbildung erfolgreich abgeschlossen. Alle Zeugnisse liegen vor.',
+    specializations: pickN(specs, 2),
+    additional_qualifications: pickN(['Wundmanagement', 'Kinästhetik', 'Diabetes-Beratung', 'Palliative Care'], 2),
+    total_experience_years: String(2 + Math.floor(Math.random() * 10)),
+    germany_experience_years: String(Math.floor(Math.random() * 3)),
+    experience_areas: pickN(expAreas, 3),
+    language_skills: [
+      { language: 'Deutsch', level: pick(['B1', 'B2', 'C1']) },
+      { language: 'Englisch', level: pick(['A2', 'B1', 'B2']) },
+    ],
+    fkvi_competency_proof: `Bestanden am ${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}.0${Math.floor(Math.random() * 9) + 1}.2024`,
+    internal_notes: 'Testdaten – bitte vor Veröffentlichung prüfen.',
+  }
+}
+
+// ─── Image Cropper Dialog ─────────────────────────────────────────────────────
+function ImageCropperDialog({ src, onDone, onCancel }) {
+  const [crop, setCrop] = useState()
+  const [completedCrop, setCompletedCrop] = useState()
+  const imgRef = useRef(null)
+  const canvasRef = useRef(null)
+
+  const onImageLoad = useCallback((e) => {
+    const { naturalWidth: width, naturalHeight: height } = e.currentTarget
+    const initialCrop = centerCrop(
+      makeAspectCrop({ unit: '%', width: 80 }, 1, width, height),
+      width,
+      height
+    )
+    setCrop(initialCrop)
+  }, [])
+
+  const handleApply = () => {
+    const image = imgRef.current
+    const canvas = canvasRef.current
+    if (!completedCrop || !image || !canvas) return
+
+    const scaleX = image.naturalWidth / image.width
+    const scaleY = image.naturalHeight / image.height
+    const ctx = canvas.getContext('2d')
+
+    const pixelRatio = window.devicePixelRatio
+    canvas.width = Math.floor(completedCrop.width * scaleX * pixelRatio)
+    canvas.height = Math.floor(completedCrop.height * scaleY * pixelRatio)
+
+    ctx.scale(pixelRatio, pixelRatio)
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(
+      image,
+      completedCrop.x * scaleX,
+      completedCrop.y * scaleY,
+      completedCrop.width * scaleX,
+      completedCrop.height * scaleY,
+      0,
+      0,
+      completedCrop.width * scaleX,
+      completedCrop.height * scaleY
+    )
+
+    canvas.toBlob(blob => {
+      if (!blob) return
+      const file = new File([blob], 'cropped.jpg', { type: 'image/jpeg' })
+      const url = URL.createObjectURL(blob)
+      onDone(file, url)
+    }, 'image/jpeg', 0.9)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+            <Crop className="h-4 w-4" />Bild zuschneiden
+          </h2>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-xs text-gray-500">Ziehe den Rahmen, um das Profilbild zuzuschneiden (1:1 Format).</p>
+        <div className="flex justify-center max-h-80 overflow-auto">
+          <ReactCrop
+            crop={crop}
+            onChange={(_, pct) => setCrop(pct)}
+            onComplete={(c) => setCompletedCrop(c)}
+            aspect={1}
+            circularCrop={false}
+          >
+            <img
+              ref={imgRef}
+              src={src}
+              alt="Zuschneiden"
+              onLoad={onImageLoad}
+              style={{ maxHeight: '320px', maxWidth: '100%' }}
+            />
+          </ReactCrop>
+        </div>
+        <canvas ref={canvasRef} className="hidden" />
+        <div className="flex gap-3 justify-end pt-2">
+          <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
+          <Button onClick={handleApply} disabled={!completedCrop}>
+            <Crop className="h-4 w-4 mr-2" />Zuschnitt übernehmen
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Empty profile defaults ───────────────────────────────────────────────────
 const EMPTY_PROFILE = {
   status: 'draft',
   first_name: '', last_name: '', gender: '', age: '',
@@ -37,6 +220,7 @@ const EMPTY_PROFILE = {
   fkvi_competency_proof: '', internal_notes: '',
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function ProfileForm() {
   const { id } = useParams()
   const isEdit = id && id !== 'neu'
@@ -49,9 +233,9 @@ export default function ProfileForm() {
   const [saving, setSaving] = useState(false)
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
+  const [cropSrc, setCropSrc] = useState(null)   // raw image waiting to be cropped
   const [videoFile, setVideoFile] = useState(null)
   const [videoUploading, setVideoUploading] = useState(false)
-  const [videoProgress, setVideoProgress] = useState(0)
   const [error, setError] = useState('')
   const imageRef = useRef()
   const videoRef = useRef()
@@ -73,11 +257,21 @@ export default function ProfileForm() {
 
   const set = (field, value) => setProfile(prev => ({ ...prev, [field]: value }))
 
+  // Raw file selected → open crop dialog
   const handleImageChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+    const url = URL.createObjectURL(file)
+    setCropSrc(url)
+    // reset input so same file can be selected again
+    e.target.value = ''
+  }
+
+  // Crop completed → set cropped file + preview
+  const handleCropDone = (croppedFile, croppedUrl) => {
+    setImageFile(croppedFile)
+    setImagePreview(croppedUrl)
+    setCropSrc(null)
   }
 
   const handleVideoUpload = async () => {
@@ -97,7 +291,7 @@ export default function ProfileForm() {
       setVideoFile(null)
       toast({ title: 'Video hochgeladen', description: 'Das Video wurde erfolgreich zu Vimeo hochgeladen.', variant: 'success' })
     } catch (err) {
-      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+      toast({ title: 'Fehler', description: translateError(err.message), variant: 'destructive' })
     } finally {
       setVideoUploading(false)
     }
@@ -109,7 +303,6 @@ export default function ProfileForm() {
     try {
       let imageUrl = profile.profile_image_url
 
-      // Upload image if new
       if (imageFile) {
         const ext = imageFile.name.split('.').pop()
         const path = `profiles/${Date.now()}.${ext}`
@@ -119,6 +312,9 @@ export default function ProfileForm() {
         imageUrl = urlData.publicUrl
       }
 
+      // Convert empty enum strings to null to avoid DB CHECK constraint violations
+      const nullIfEmpty = (v) => (v === '' || v === undefined ? null : v)
+
       const payload = {
         ...profile,
         profile_image_url: imageUrl,
@@ -127,6 +323,10 @@ export default function ProfileForm() {
         graduation_year: profile.graduation_year ? parseInt(profile.graduation_year) : null,
         total_experience_years: profile.total_experience_years ? parseFloat(profile.total_experience_years) : null,
         germany_experience_years: profile.germany_experience_years ? parseFloat(profile.germany_experience_years) : null,
+        gender: nullIfEmpty(profile.gender),
+        marital_status: nullIfEmpty(profile.marital_status),
+        work_time_preference: nullIfEmpty(profile.work_time_preference),
+        german_recognition: nullIfEmpty(profile.german_recognition),
       }
       delete payload.id
       delete payload.created_at
@@ -142,7 +342,6 @@ export default function ProfileForm() {
         profileId = data.id
       }
 
-      // Save documents
       if (isEdit) {
         await supabase.from('profile_documents').delete().eq('profile_id', profileId)
       }
@@ -155,10 +354,16 @@ export default function ProfileForm() {
       toast({ title: 'Gespeichert', description: 'Das Profil wurde erfolgreich gespeichert.', variant: 'success' })
       if (!isEdit) navigate(`/admin/fachkraefte/${profileId}`)
     } catch (err) {
-      setError(err.message || 'Speichern fehlgeschlagen')
+      setError(translateError(err.message || 'Speichern fehlgeschlagen'))
     } finally {
       setSaving(false)
     }
+  }
+
+  const fillTestData = () => {
+    const data = generateTestData()
+    setProfile(prev => ({ ...prev, ...data }))
+    toast({ title: 'Testdaten eingefüllt', description: 'Alle Felder wurden mit Beispieldaten befüllt.' })
   }
 
   const addLanguage = () => {
@@ -194,441 +399,458 @@ export default function ProfileForm() {
     </div>
   )
 
-  const Field = ({ label, children, required }) => (
-    <div className="space-y-1.5">
-      <Label>{label}{required && <span className="text-red-500 ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  )
-
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/fachkraefte')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isEdit ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Profil bearbeiten' : 'Neue Fachkraft'}
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">{isEdit ? `ID: ${id}` : 'Neues Profil anlegen'}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={profile.status} onValueChange={v => set('status', v)}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(PROFILE_STATUS_LABELS).map(([key, label]) => (
-                <SelectItem key={key} value={key}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Speichern...</> : <><Save className="mr-2 h-4 w-4" />Speichern</>}
-          </Button>
-        </div>
-      </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+    <>
+      {/* Image crop dialog */}
+      {cropSrc && (
+        <ImageCropperDialog
+          src={cropSrc}
+          onDone={handleCropDone}
+          onCancel={() => setCropSrc(null)}
+        />
       )}
 
-      <Tabs defaultValue="personal">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="personal">Person</TabsTrigger>
-          <TabsTrigger value="education">Ausbildung</TabsTrigger>
-          <TabsTrigger value="experience">Erfahrung</TabsTrigger>
-          <TabsTrigger value="media">Medien</TabsTrigger>
-          <TabsTrigger value="documents">Dokumente</TabsTrigger>
-        </TabsList>
-
-        {/* TAB: Person */}
-        <TabsContent value="personal" className="space-y-6 mt-6">
-          {/* Profile Image */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Profilbild</h3>
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 shrink-0">
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Profilbild" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="h-8 w-8 text-gray-300" />
-                )}
-              </div>
-              <div className="space-y-2">
-                <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-                <Button variant="outline" size="sm" onClick={() => imageRef.current.click()}>
-                  <Upload className="h-3.5 w-3.5 mr-2" />Bild hochladen
-                </Button>
-                {imageFile && <p className="text-xs text-gray-500">{imageFile.name}</p>}
-                <p className="text-xs text-gray-400">JPG, PNG, max. 5 MB</p>
-              </div>
-            </div>
+      <div className="space-y-6 max-w-4xl">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/admin/fachkraefte')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isEdit ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Profil bearbeiten' : 'Neue Fachkraft'}
+            </h1>
+            <p className="text-gray-500 text-sm mt-0.5">{isEdit ? `ID: ${id}` : 'Neues Profil anlegen'}</p>
           </div>
-
-          {/* Personal Data */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Persönliche Daten</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Vorname">
-                <Input value={profile.first_name} onChange={e => set('first_name', e.target.value)} placeholder="Vorname" />
-              </Field>
-              <Field label="Nachname">
-                <Input value={profile.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Nachname" />
-              </Field>
-              <Field label="Geschlecht">
-                <Select value={profile.gender} onValueChange={v => set('gender', v)}>
-                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="männlich">Männlich</SelectItem>
-                    <SelectItem value="weiblich">Weiblich</SelectItem>
-                    <SelectItem value="divers">Divers</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Alter">
-                <Input type="number" value={profile.age} onChange={e => set('age', e.target.value)} placeholder="z.B. 32" min="18" max="70" />
-              </Field>
-              <Field label="Nationalität">
-                <Input value={profile.nationality} onChange={e => set('nationality', e.target.value)} placeholder="z.B. Philippinen" />
-              </Field>
-              <Field label="Familienstand">
-                <Select value={profile.marital_status} onValueChange={v => set('marital_status', v)}>
-                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ledig">Ledig</SelectItem>
-                    <SelectItem value="verheiratet">Verheiratet</SelectItem>
-                    <SelectItem value="geschieden">Geschieden</SelectItem>
-                    <SelectItem value="verwitwet">Verwitwet</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Anzahl Kinder">
-                <Input type="number" value={profile.children_count} onChange={e => set('children_count', e.target.value)} min="0" />
-              </Field>
-            </div>
-            <div className="flex items-center gap-3 pt-2">
-              <Switch checked={profile.has_drivers_license} onCheckedChange={v => set('has_drivers_license', v)} />
-              <Label>Führerschein Klasse B</Label>
-            </div>
-          </div>
-
-          {/* Preferences */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Präferenzen</h3>
-            <div className="flex items-center gap-3">
-              <Switch checked={profile.nationwide} onCheckedChange={v => set('nationwide', v)} />
-              <Label>Bundesweit einsetzbar</Label>
-            </div>
-            {!profile.nationwide && (
-              <Field label="Bevorzugte Bundesländer">
-                <MultiSelect
-                  options={GERMAN_STATES}
-                  value={profile.state_preferences}
-                  onChange={v => set('state_preferences', v)}
-                  placeholder="Bundesländer auswählen..."
-                />
-              </Field>
-            )}
-            <Field label="Bevorzugter Einrichtungstyp">
-              <MultiSelect
-                options={FACILITY_TYPES}
-                value={profile.preferred_facility_types}
-                onChange={v => set('preferred_facility_types', v)}
-                placeholder="Einrichtungstypen auswählen..."
-              />
-            </Field>
-            <Field label="Arbeitszeitpräferenz">
-              <Select value={profile.work_time_preference} onValueChange={v => set('work_time_preference', v)}>
-                <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
-                <SelectContent>
-                  {WORK_TIME_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-
-          {/* Language Skills */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Sprachkenntnisse</h3>
-              <Button variant="outline" size="sm" onClick={addLanguage}>
-                <Plus className="h-3.5 w-3.5 mr-1" />Sprache
-              </Button>
-            </div>
-            {(profile.language_skills || []).length === 0 ? (
-              <p className="text-sm text-gray-400">Noch keine Sprachkenntnisse erfasst.</p>
-            ) : (
-              <div className="space-y-3">
-                {(profile.language_skills || []).map((lang, idx) => (
-                  <div key={idx} className="flex gap-3 items-center">
-                    <Input
-                      value={lang.language}
-                      onChange={e => updateLanguage(idx, 'language', e.target.value)}
-                      placeholder="Sprache (z.B. Deutsch)"
-                      className="flex-1"
-                    />
-                    <Select value={lang.level} onValueChange={v => updateLanguage(idx, 'level', v)}>
-                      <SelectTrigger className="w-40"><SelectValue placeholder="Niveau" /></SelectTrigger>
-                      <SelectContent>
-                        {['A1','A2','B1','B2','C1','C2','Muttersprache'].map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button variant="ghost" size="icon" onClick={() => removeLanguage(idx)} className="shrink-0">
-                      <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                    </Button>
-                  </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={fillTestData} title="Alle Felder mit Testdaten befüllen">
+              <FlaskConical className="h-3.5 w-3.5 mr-2" />Test
+            </Button>
+            <Select value={profile.status} onValueChange={v => set('status', v)}>
+              <SelectTrigger className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PROFILE_STATUS_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Speichern...</>
+                : <><Save className="mr-2 h-4 w-4" />Speichern</>}
+            </Button>
+          </div>
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Tabs defaultValue="personal">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="personal">Person</TabsTrigger>
+            <TabsTrigger value="education">Ausbildung</TabsTrigger>
+            <TabsTrigger value="experience">Erfahrung</TabsTrigger>
+            <TabsTrigger value="media">Medien</TabsTrigger>
+            <TabsTrigger value="documents">Dokumente</TabsTrigger>
+          </TabsList>
+
+          {/* ── TAB: Person ────────────────────────────────────────────── */}
+          <TabsContent value="personal" className="space-y-6 mt-6">
+
+            {/* Profile Image */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Profilbild</h3>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 shrink-0">
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Profilbild" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="h-8 w-8 text-gray-300" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                  <Button variant="outline" size="sm" onClick={() => imageRef.current.click()}>
+                    <Upload className="h-3.5 w-3.5 mr-2" />
+                    {imagePreview ? 'Bild ändern' : 'Bild hochladen'}
+                  </Button>
+                  {imageFile && (
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <Crop className="h-3 w-3" />{imageFile.name} (zugeschnitten)
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400">JPG, PNG, max. 5 MB · wird automatisch zugeschnitten</p>
+                </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Internal Notes */}
-          <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3">
-            <h3 className="font-semibold text-amber-900 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />Interne Bemerkungen
-            </h3>
-            <p className="text-xs text-amber-700">Diese Notizen sind nur für FKVI-Admins sichtbar und werden nie an Unternehmen weitergegeben.</p>
-            <Textarea
-              value={profile.internal_notes}
-              onChange={e => set('internal_notes', e.target.value)}
-              placeholder="Interne Anmerkungen, Besonderheiten..."
-              rows={3}
-            />
-          </div>
-        </TabsContent>
+            {/* Personal Data */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Persönliche Daten</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Vorname" required>
+                  <Input value={profile.first_name} onChange={e => set('first_name', e.target.value)} placeholder="Vorname" />
+                </Field>
+                <Field label="Nachname" required>
+                  <Input value={profile.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Nachname" />
+                </Field>
+                <Field label="Geschlecht">
+                  <Select value={profile.gender || ''} onValueChange={v => set('gender', v)}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="männlich">Männlich</SelectItem>
+                      <SelectItem value="weiblich">Weiblich</SelectItem>
+                      <SelectItem value="divers">Divers</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Alter">
+                  <Input type="number" value={profile.age} onChange={e => set('age', e.target.value)} placeholder="z.B. 32" min="18" max="70" />
+                </Field>
+                <Field label="Nationalität" required>
+                  <Input value={profile.nationality} onChange={e => set('nationality', e.target.value)} placeholder="z.B. Philippinen" />
+                </Field>
+                <Field label="Familienstand">
+                  <Select value={profile.marital_status || ''} onValueChange={v => set('marital_status', v)}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ledig">Ledig</SelectItem>
+                      <SelectItem value="verheiratet">Verheiratet</SelectItem>
+                      <SelectItem value="geschieden">Geschieden</SelectItem>
+                      <SelectItem value="verwitwet">Verwitwet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Anzahl Kinder">
+                  <Input type="number" value={profile.children_count} onChange={e => set('children_count', e.target.value)} min="0" />
+                </Field>
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <Switch checked={profile.has_drivers_license} onCheckedChange={v => set('has_drivers_license', v)} />
+                <Label>Führerschein Klasse B</Label>
+              </div>
+            </div>
 
-        {/* TAB: Ausbildung */}
-        <TabsContent value="education" className="space-y-6 mt-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Schulbildung & Ausbildung</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Schulbildung">
-                <Input value={profile.school_education} onChange={e => set('school_education', e.target.value)} placeholder="z.B. Abitur" />
+            {/* Preferences */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Präferenzen</h3>
+              <div className="flex items-center gap-3">
+                <Switch checked={profile.nationwide} onCheckedChange={v => set('nationwide', v)} />
+                <Label>Bundesweit einsetzbar</Label>
+              </div>
+              {!profile.nationwide && (
+                <Field label="Bevorzugte Bundesländer">
+                  <MultiSelect
+                    options={GERMAN_STATES}
+                    value={profile.state_preferences}
+                    onChange={v => set('state_preferences', v)}
+                    placeholder="Bundesländer auswählen..."
+                  />
+                </Field>
+              )}
+              <Field label="Bevorzugter Einrichtungstyp">
+                <MultiSelect
+                  options={FACILITY_TYPES}
+                  value={profile.preferred_facility_types}
+                  onChange={v => set('preferred_facility_types', v)}
+                  placeholder="Einrichtungstypen auswählen..."
+                />
               </Field>
-              <Field label="Pflegeausbildung">
-                <Input value={profile.nursing_education} onChange={e => set('nursing_education', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
-              </Field>
-              <Field label="Ausbildungsdauer">
-                <Input value={profile.education_duration} onChange={e => set('education_duration', e.target.value)} placeholder="z.B. 3 Jahre" />
-              </Field>
-              <Field label="Abschlussjahr">
-                <Input type="number" value={profile.graduation_year} onChange={e => set('graduation_year', e.target.value)} placeholder="z.B. 2018" min="1990" max="2030" />
-              </Field>
-              <Field label="Anerkennung in Deutschland">
-                <Select value={profile.german_recognition} onValueChange={v => set('german_recognition', v)}>
+              <Field label="Arbeitszeitpräferenz">
+                <Select value={profile.work_time_preference || ''} onValueChange={v => set('work_time_preference', v)}>
                   <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="anerkannt">Anerkannt</SelectItem>
-                    <SelectItem value="in_bearbeitung">In Bearbeitung</SelectItem>
-                    <SelectItem value="nicht_beantragt">Nicht beantragt</SelectItem>
-                    <SelectItem value="abgelehnt">Abgelehnt</SelectItem>
+                    {WORK_TIME_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </Field>
             </div>
-            <Field label="Bemerkungen zur Ausbildung">
-              <Textarea
-                value={profile.education_notes}
-                onChange={e => set('education_notes', e.target.value)}
-                placeholder="Weitere Details zur Ausbildung..."
-                rows={3}
-              />
-            </Field>
-          </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Qualifikationen</h3>
-            <Field label="Spezialisierungen">
-              <MultiSelect
-                options={SPECIALIZATIONS}
-                value={profile.specializations}
-                onChange={v => set('specializations', v)}
-                placeholder="Spezialisierungen auswählen..."
-              />
-            </Field>
-            <Field label="Zusatzqualifikationen">
-              <MultiSelect
-                options={['Wundmanagement', 'Kinästhetik', 'Diabetes-Beratung', 'Palliative Care', 'Basale Stimulation', 'Aromapflege', 'Sturzprävention']}
-                value={profile.additional_qualifications}
-                onChange={v => set('additional_qualifications', v)}
-                placeholder="Zusatzqualifikationen auswählen..."
-              />
-            </Field>
-            <Field label="Pflegekompetenznachweis FKVI">
-              <Input
-                value={profile.fkvi_competency_proof}
-                onChange={e => set('fkvi_competency_proof', e.target.value)}
-                placeholder="z.B. Bestanden am 01.01.2024"
-              />
-            </Field>
-          </div>
-        </TabsContent>
-
-        {/* TAB: Erfahrung */}
-        <TabsContent value="experience" className="space-y-6 mt-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Berufserfahrung</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Berufserfahrung gesamt (Jahre)">
-                <Input
-                  type="number"
-                  value={profile.total_experience_years}
-                  onChange={e => set('total_experience_years', e.target.value)}
-                  placeholder="z.B. 5"
-                  min="0"
-                  step="0.5"
-                />
-              </Field>
-              <Field label="Davon in Deutschland (Jahre)">
-                <Input
-                  type="number"
-                  value={profile.germany_experience_years}
-                  onChange={e => set('germany_experience_years', e.target.value)}
-                  placeholder="z.B. 2"
-                  min="0"
-                  step="0.5"
-                />
-              </Field>
-            </div>
-            <Field label="Erfahrung in Bereichen">
-              <MultiSelect
-                options={EXPERIENCE_AREAS}
-                value={profile.experience_areas}
-                onChange={v => set('experience_areas', v)}
-                placeholder="Erfahrungsbereiche auswählen..."
-              />
-            </Field>
-          </div>
-        </TabsContent>
-
-        {/* TAB: Medien */}
-        <TabsContent value="media" className="space-y-6 mt-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Video className="h-5 w-5" />Präsentationsvideo (Vimeo)
-            </h3>
-            {profile.vimeo_video_url ? (
-              <div className="space-y-3">
-                <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
-                  <iframe
-                    src={profile.vimeo_video_url}
-                    className="w-full h-full"
-                    allow="autoplay; fullscreen"
-                    allowFullScreen
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-700">Video vorhanden</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => set('vimeo_video_url', '')}
-                    className="ml-auto text-red-500 hover:text-red-700"
-                  >
-                    Video entfernen
-                  </Button>
-                </div>
+            {/* Language Skills */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Sprachkenntnisse</h3>
+                <Button variant="outline" size="sm" onClick={addLanguage}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />Sprache
+                </Button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {!isEdit && (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>Speichern Sie das Profil zuerst, um ein Video hochzuladen.</AlertDescription>
-                  </Alert>
-                )}
-                {isEdit && (
-                  <>
-                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
-                      <Video className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                      <p className="text-sm text-gray-500 mb-3">Video auswählen und zu Vimeo hochladen</p>
-                      <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={e => setVideoFile(e.target.files[0])} />
-                      <Button variant="outline" onClick={() => videoRef.current.click()}>
-                        <Upload className="h-4 w-4 mr-2" />Video auswählen
-                      </Button>
-                      {videoFile && <p className="text-xs text-gray-500 mt-2">{videoFile.name}</p>}
-                    </div>
-                    {videoFile && (
-                      <Button
-                        onClick={handleVideoUpload}
-                        disabled={videoUploading}
-                        className="w-full"
-                        variant="teal"
-                      >
-                        {videoUploading
-                          ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Upload läuft...</>
-                          : <><Upload className="mr-2 h-4 w-4" />Video zu Vimeo hochladen</>
-                        }
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* TAB: Dokumente */}
-        <TabsContent value="documents" className="space-y-6 mt-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900">Dokumente</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Externe Links zu Dokumenten (z.B. Google Drive)</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={addDocument}>
-                <Plus className="h-3.5 w-3.5 mr-1" />Dokument
-              </Button>
-            </div>
-            {documents.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <p className="text-sm">Noch keine Dokumente verknüpft.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {documents.map((doc, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Dokument {idx + 1}</span>
-                      <Button variant="ghost" size="icon" onClick={() => removeDocument(idx)}>
+              {(profile.language_skills || []).length === 0 ? (
+                <p className="text-sm text-gray-400">Noch keine Sprachkenntnisse erfasst.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(profile.language_skills || []).map((lang, idx) => (
+                    <div key={idx} className="flex gap-3 items-center">
+                      <Input
+                        value={lang.language}
+                        onChange={e => updateLanguage(idx, 'language', e.target.value)}
+                        placeholder="Sprache (z.B. Deutsch)"
+                        className="flex-1"
+                      />
+                      <Select value={lang.level} onValueChange={v => updateLanguage(idx, 'level', v)}>
+                        <SelectTrigger className="w-40"><SelectValue placeholder="Niveau" /></SelectTrigger>
+                        <SelectContent>
+                          {['A1','A2','B1','B2','C1','C2','Muttersprache'].map(l => (
+                            <SelectItem key={l} value={l}>{l}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="ghost" size="icon" onClick={() => removeLanguage(idx)} className="shrink-0">
                         <Trash2 className="h-3.5 w-3.5 text-red-400" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Titel">
-                        <Input value={doc.title} onChange={e => updateDocument(idx, 'title', e.target.value)} placeholder="z.B. Abschlusszeugnis" />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Internal Notes */}
+            <div className="bg-amber-50 rounded-xl border border-amber-200 p-6 space-y-3">
+              <h3 className="font-semibold text-amber-900 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />Interne Bemerkungen
+              </h3>
+              <p className="text-xs text-amber-700">Diese Notizen sind nur für FKVI-Admins sichtbar und werden nie an Unternehmen weitergegeben.</p>
+              <Textarea
+                value={profile.internal_notes}
+                onChange={e => set('internal_notes', e.target.value)}
+                placeholder="Interne Anmerkungen, Besonderheiten..."
+                rows={3}
+              />
+            </div>
+          </TabsContent>
+
+          {/* ── TAB: Ausbildung ─────────────────────────────────────────── */}
+          <TabsContent value="education" className="space-y-6 mt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Schulbildung & Ausbildung</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Schulbildung">
+                  <Input value={profile.school_education} onChange={e => set('school_education', e.target.value)} placeholder="z.B. Abitur" />
+                </Field>
+                <Field label="Pflegeausbildung">
+                  <Input value={profile.nursing_education} onChange={e => set('nursing_education', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
+                </Field>
+                <Field label="Ausbildungsdauer">
+                  <Input value={profile.education_duration} onChange={e => set('education_duration', e.target.value)} placeholder="z.B. 3 Jahre" />
+                </Field>
+                <Field label="Abschlussjahr">
+                  <Input type="number" value={profile.graduation_year} onChange={e => set('graduation_year', e.target.value)} placeholder="z.B. 2018" min="1990" max="2030" />
+                </Field>
+                <Field label="Anerkennung in Deutschland">
+                  <Select value={profile.german_recognition || ''} onValueChange={v => set('german_recognition', v)}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="anerkannt">Anerkannt</SelectItem>
+                      <SelectItem value="in_bearbeitung">In Bearbeitung</SelectItem>
+                      <SelectItem value="nicht_beantragt">Nicht beantragt</SelectItem>
+                      <SelectItem value="abgelehnt">Abgelehnt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <Field label="Bemerkungen zur Ausbildung">
+                <Textarea
+                  value={profile.education_notes}
+                  onChange={e => set('education_notes', e.target.value)}
+                  placeholder="Weitere Details zur Ausbildung..."
+                  rows={3}
+                />
+              </Field>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Qualifikationen</h3>
+              <Field label="Spezialisierungen">
+                <MultiSelect
+                  options={SPECIALIZATIONS}
+                  value={profile.specializations}
+                  onChange={v => set('specializations', v)}
+                  placeholder="Spezialisierungen auswählen..."
+                />
+              </Field>
+              <Field label="Zusatzqualifikationen">
+                <MultiSelect
+                  options={['Wundmanagement', 'Kinästhetik', 'Diabetes-Beratung', 'Palliative Care', 'Basale Stimulation', 'Aromapflege', 'Sturzprävention']}
+                  value={profile.additional_qualifications}
+                  onChange={v => set('additional_qualifications', v)}
+                  placeholder="Zusatzqualifikationen auswählen..."
+                />
+              </Field>
+              <Field label="Pflegekompetenznachweis FKVI">
+                <Input
+                  value={profile.fkvi_competency_proof}
+                  onChange={e => set('fkvi_competency_proof', e.target.value)}
+                  placeholder="z.B. Bestanden am 01.01.2024"
+                />
+              </Field>
+            </div>
+          </TabsContent>
+
+          {/* ── TAB: Erfahrung ──────────────────────────────────────────── */}
+          <TabsContent value="experience" className="space-y-6 mt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Berufserfahrung</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Berufserfahrung gesamt (Jahre)">
+                  <Input
+                    type="number"
+                    value={profile.total_experience_years}
+                    onChange={e => set('total_experience_years', e.target.value)}
+                    placeholder="z.B. 5"
+                    min="0"
+                    step="0.5"
+                  />
+                </Field>
+                <Field label="Davon in Deutschland (Jahre)">
+                  <Input
+                    type="number"
+                    value={profile.germany_experience_years}
+                    onChange={e => set('germany_experience_years', e.target.value)}
+                    placeholder="z.B. 2"
+                    min="0"
+                    step="0.5"
+                  />
+                </Field>
+              </div>
+              <Field label="Erfahrung in Bereichen">
+                <MultiSelect
+                  options={EXPERIENCE_AREAS}
+                  value={profile.experience_areas}
+                  onChange={v => set('experience_areas', v)}
+                  placeholder="Erfahrungsbereiche auswählen..."
+                />
+              </Field>
+            </div>
+          </TabsContent>
+
+          {/* ── TAB: Medien ─────────────────────────────────────────────── */}
+          <TabsContent value="media" className="space-y-6 mt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Video className="h-5 w-5" />Präsentationsvideo (Vimeo)
+              </h3>
+              {profile.vimeo_video_url ? (
+                <div className="space-y-3">
+                  <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
+                    <iframe
+                      src={profile.vimeo_video_url}
+                      className="w-full h-full"
+                      allow="autoplay; fullscreen"
+                      allowFullScreen
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-700">Video vorhanden</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => set('vimeo_video_url', '')}
+                      className="ml-auto text-red-500 hover:text-red-700"
+                    >
+                      Video entfernen
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {!isEdit && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>Speichern Sie das Profil zuerst, um ein Video hochzuladen.</AlertDescription>
+                    </Alert>
+                  )}
+                  {isEdit && (
+                    <>
+                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
+                        <Video className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                        <p className="text-sm text-gray-500 mb-3">Video auswählen und zu Vimeo hochladen</p>
+                        <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={e => setVideoFile(e.target.files[0])} />
+                        <Button variant="outline" onClick={() => videoRef.current.click()}>
+                          <Upload className="h-4 w-4 mr-2" />Video auswählen
+                        </Button>
+                        {videoFile && <p className="text-xs text-gray-500 mt-2">{videoFile.name}</p>}
+                      </div>
+                      {videoFile && (
+                        <Button
+                          onClick={handleVideoUpload}
+                          disabled={videoUploading}
+                          className="w-full"
+                          variant="teal"
+                        >
+                          {videoUploading
+                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Upload läuft...</>
+                            : <><Upload className="mr-2 h-4 w-4" />Video zu Vimeo hochladen</>
+                          }
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ── TAB: Dokumente ──────────────────────────────────────────── */}
+          <TabsContent value="documents" className="space-y-6 mt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900">Dokumente</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Externe Links zu Dokumenten (z.B. Google Drive)</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={addDocument}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />Dokument
+                </Button>
+              </div>
+              {documents.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <p className="text-sm">Noch keine Dokumente verknüpft.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {documents.map((doc, idx) => (
+                    <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Dokument {idx + 1}</span>
+                        <Button variant="ghost" size="icon" onClick={() => removeDocument(idx)}>
+                          <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="Titel">
+                          <Input value={doc.title} onChange={e => updateDocument(idx, 'title', e.target.value)} placeholder="z.B. Abschlusszeugnis" />
+                        </Field>
+                        <Field label="Typ">
+                          <Select value={doc.doc_type} onValueChange={v => updateDocument(idx, 'doc_type', v)}>
+                            <SelectTrigger><SelectValue placeholder="Typ auswählen" /></SelectTrigger>
+                            <SelectContent>
+                              {['Zeugnis', 'Anerkennungsbescheid', 'Sprachzertifikat', 'Lebenslauf', 'Referenz', 'Sonstiges'].map(t => (
+                                <SelectItem key={t} value={t}>{t}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                      </div>
+                      <Field label="Link (Google Drive o.ä.)">
+                        <Input value={doc.link} onChange={e => updateDocument(idx, 'link', e.target.value)} placeholder="https://drive.google.com/..." type="url" />
                       </Field>
-                      <Field label="Typ">
-                        <Select value={doc.doc_type} onValueChange={v => updateDocument(idx, 'doc_type', v)}>
-                          <SelectTrigger><SelectValue placeholder="Typ auswählen" /></SelectTrigger>
-                          <SelectContent>
-                            {['Zeugnis', 'Anerkennungsbescheid', 'Sprachzertifikat', 'Lebenslauf', 'Referenz', 'Sonstiges'].map(t => (
-                              <SelectItem key={t} value={t}>{t}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <Field label="Beschreibung">
+                        <Textarea value={doc.description} onChange={e => updateDocument(idx, 'description', e.target.value)} placeholder="Kurze Beschreibung..." rows={2} />
                       </Field>
                     </div>
-                    <Field label="Link (Google Drive o.ä.)">
-                      <Input value={doc.link} onChange={e => updateDocument(idx, 'link', e.target.value)} placeholder="https://drive.google.com/..." type="url" />
-                    </Field>
-                    <Field label="Beschreibung">
-                      <Textarea value={doc.description} onChange={e => updateDocument(idx, 'description', e.target.value)} placeholder="Kurze Beschreibung..." rows={2} />
-                    </Field>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   )
 }
