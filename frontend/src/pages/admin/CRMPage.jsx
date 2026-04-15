@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -274,12 +275,13 @@ function DetailPanel({ company, onClose, onSaved }) {
 
 // ─── Main CRM Page ────────────────────────────────────────────────────────────
 export default function CRMPage() {
+  const navigate = useNavigate()
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected] = useState(null) // kept for compat, unused now
   const [sortField, setSortField] = useState('created_at')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -440,10 +442,8 @@ export default function CRMPage() {
                   {filtered.map(company => (
                     <tr
                       key={company.id}
-                      onClick={() => setSelected(prev => prev?.id === company.id ? null : company)}
-                      className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${
-                        selected?.id === company.id ? 'bg-fkvi-blue/5' : ''
-                      }`}
+                      onClick={() => navigate(`/admin/crm/${company.id}`)}
+                      className="border-b border-gray-50 cursor-pointer hover:bg-fkvi-blue/5 transition-colors"
                     >
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-900 truncate max-w-[180px]">{company.company_name}</div>
@@ -483,14 +483,6 @@ export default function CRMPage() {
           <p className="text-xs text-gray-400 mt-2 px-1">{filtered.length} Einträge angezeigt</p>
         </div>
 
-        {/* Detail Panel */}
-        {selected && (
-          <DetailPanel
-            company={selected}
-            onClose={() => setSelected(null)}
-            onSaved={handleSaved}
-          />
-        )}
       </div>
 
       {/* Migration hint */}

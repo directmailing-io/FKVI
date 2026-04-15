@@ -5,14 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { PROFILE_STATUS_LABELS, PROFILE_STATUS_COLORS } from '@/lib/utils'
-import { Plus, Search, User, Edit, Eye } from 'lucide-react'
+import { Plus, Search, User, Edit, Eye, Trash2, AlertTriangle } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
 
 export default function ProfileList() {
   const [profiles, setProfiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [deleteDialog, setDeleteDialog] = useState(null)
 
   useEffect(() => {
     fetchProfiles()
@@ -25,6 +28,18 @@ export default function ProfileList() {
       .order('created_at', { ascending: false })
     setProfiles(data || [])
     setLoading(false)
+  }
+
+  const handleDelete = async () => {
+    const profile = deleteDialog
+    setDeleteDialog(null)
+    const { error } = await supabase.from('profiles').delete().eq('id', profile.id)
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Profil gelöscht', description: `${profile.first_name || ''} ${profile.last_name || ''} wurde gelöscht.` })
+      fetchProfiles()
+    }
   }
 
   const filtered = profiles.filter(p => {
@@ -144,6 +159,10 @@ export default function ProfileList() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={e => { e.stopPropagation(); setDeleteDialog(profile) }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                         <Link to={`/admin/fachkraefte/${profile.id}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <Edit className="h-3.5 w-3.5" />
@@ -158,6 +177,26 @@ export default function ProfileList() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!deleteDialog} onOpenChange={open => !open && setDeleteDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />Profil unwiderruflich löschen?
+            </DialogTitle>
+            <DialogDescription>
+              Das Profil von <strong>{deleteDialog?.first_name} {deleteDialog?.last_name}</strong> wird dauerhaft gelöscht.
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(null)}>Abbrechen</Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />Endgültig löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

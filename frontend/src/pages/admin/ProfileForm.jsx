@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { MultiSelect } from '@/components/ui/multi-select'
 import {
   GERMAN_STATES, FACILITY_TYPES, WORK_TIME_OPTIONS,
@@ -19,7 +20,7 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -237,6 +238,7 @@ export default function ProfileForm() {
   const [videoFile, setVideoFile] = useState(null)
   const [videoUploading, setVideoUploading] = useState(false)
   const [error, setError] = useState('')
+  const [deleteDialog, setDeleteDialog] = useState(false)
   const imageRef = useRef()
   const videoRef = useRef()
 
@@ -360,6 +362,23 @@ export default function ProfileForm() {
     }
   }
 
+  const handleDeleteProfile = async () => {
+    setDeleteDialog(false)
+    try {
+      // Delete image from storage if exists
+      if (profile.profile_image_url) {
+        const path = profile.profile_image_url.split('/profile-images/')[1]
+        if (path) await supabase.storage.from('profile-images').remove([path])
+      }
+      const { error } = await supabase.from('profiles').delete().eq('id', id)
+      if (error) throw error
+      toast({ title: 'Profil gelöscht', description: 'Das Profil wurde dauerhaft gelöscht.' })
+      navigate('/admin/fachkraefte')
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    }
+  }
+
   const fillTestData = () => {
     const data = generateTestData()
     setProfile(prev => ({ ...prev, ...data }))
@@ -426,6 +445,11 @@ export default function ProfileForm() {
             <Button variant="outline" size="sm" onClick={fillTestData} title="Alle Felder mit Testdaten befüllen">
               <FlaskConical className="h-3.5 w-3.5 mr-2" />Test
             </Button>
+            {isEdit && (
+              <Button variant="outline" size="sm" onClick={() => setDeleteDialog(true)} className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700">
+                <Trash2 className="h-3.5 w-3.5 mr-2" />Löschen
+              </Button>
+            )}
             <Select value={profile.status} onValueChange={v => set('status', v)}>
               <SelectTrigger className="w-44">
                 <SelectValue />
@@ -851,6 +875,26 @@ export default function ProfileForm() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />Profil unwiderruflich löschen?
+            </DialogTitle>
+            <DialogDescription>
+              Das Profil von <strong>{profile.first_name} {profile.last_name}</strong> wird dauerhaft gelöscht inkl. aller Dokumente.
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(false)}>Abbrechen</Button>
+            <Button variant="destructive" onClick={handleDeleteProfile}>
+              <Trash2 className="h-4 w-4 mr-2" />Endgültig löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
