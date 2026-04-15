@@ -7,15 +7,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatDateTime } from '@/lib/utils'
-import { Building2, CheckCircle2, X, Trash2, FileText, Phone, Mail, Loader2 } from 'lucide-react'
+import { Building2, CheckCircle2, X, Trash2, Phone, Mail, Loader2 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const STATUS_CONFIG = {
-  pending: { label: 'Ausstehend', variant: 'warning' },
+  pending:  { label: 'Ausstehend',    variant: 'warning' },
   approved: { label: 'Freigeschaltet', variant: 'success' },
-  rejected: { label: 'Abgelehnt', variant: 'destructive' },
+  rejected: { label: 'Abgelehnt',      variant: 'destructive' },
 }
 
 export default function LeadManagement() {
@@ -44,12 +43,13 @@ export default function LeadManagement() {
   const handleApprove = async (company) => {
     setActionLoading(true)
     try {
-      const res = await fetch(`/api/admin/companies/${company.id}/approve`, {
+      const res = await fetch('/api/admin/approve', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}`,
         },
+        body: JSON.stringify({ companyId: company.id }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -57,7 +57,7 @@ export default function LeadManagement() {
       fetchCompanies()
       setSelected(null)
     } catch (err) {
-      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+      toast({ title: 'Fehler', description: err.message || 'Freischalten fehlgeschlagen', variant: 'destructive' })
     } finally {
       setActionLoading(false)
     }
@@ -67,19 +67,18 @@ export default function LeadManagement() {
     if (!selected) return
     setActionLoading(true)
     try {
-      await fetch(`/api/admin/companies/${selected.id}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ reason: rejectNote }),
-      })
+      const { error } = await supabase
+        .from('companies')
+        .update({ status: 'rejected', internal_notes: rejectNote || selected.internal_notes })
+        .eq('id', selected.id)
+      if (error) throw error
       toast({ title: 'Anfrage abgelehnt', description: `${selected.company_name} wurde abgelehnt.` })
       fetchCompanies()
       setRejectDialog(false)
       setSelected(null)
       setRejectNote('')
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {
       setActionLoading(false)
     }
@@ -87,18 +86,29 @@ export default function LeadManagement() {
 
   const handleDelete = async (company) => {
     if (!confirm(`"${company.company_name}" wirklich löschen?`)) return
-    await fetch(`/api/admin/companies/${company.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    })
-    fetchCompanies()
-    if (selected?.id === company.id) setSelected(null)
+    try {
+      const res = await fetch('/api/admin/delete-company', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ companyId: company.id }),
+      })
+      if (!res.ok) throw new Error('Löschen fehlgeschlagen')
+      fetchCompanies()
+      if (selected?.id === company.id) setSelected(null)
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    }
   }
 
   const saveNotes = async (companyId, notes) => {
     await supabase.from('companies').update({ internal_notes: notes }).eq('id', companyId)
     setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, internal_notes: notes } : c))
   }
+
+  const pendingCount = companies.filter(c => c.status === 'pending').length
 
   return (
     <div className="space-y-6">
@@ -108,12 +118,12 @@ export default function LeadManagement() {
       </div>
 
       {/* Filter */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {[
-          { key: 'pending', label: `Ausstehend (${companies.filter(c => c.status === 'pending').length})` },
+          { key: 'pending',  label: `Ausstehend${pendingCount > 0 ? ` (${pendingCount})` : ''}` },
           { key: 'approved', label: 'Freigeschaltet' },
           { key: 'rejected', label: 'Abgelehnt' },
-          { key: 'all', label: 'Alle' },
+          { key: 'all',      label: 'Alle' },
         ].map(f => (
           <button
             key={f.key}
@@ -149,16 +159,16 @@ export default function LeadManagement() {
                     selected?.id === company.id ? 'border-fkvi-blue shadow-sm' : 'border-gray-200'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-gray-900">{company.company_name}</p>
-                      <p className="text-sm text-gray-500">{company.first_name} {company.last_name}</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{company.company_name}</p>
+                      <p className="text-sm text-gray-500 truncate">{company.first_name} {company.last_name} · {company.email}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Badge variant={STATUS_CONFIG[company.status]?.variant}>
                         {STATUS_CONFIG[company.status]?.label}
                       </Badge>
-                      <span className="text-xs text-gray-400">{formatDateTime(company.created_at)}</span>
+                      <span className="text-xs text-gray-400 hidden sm:block">{formatDateTime(company.created_at)}</span>
                     </div>
                   </div>
                 </div>
@@ -190,7 +200,7 @@ export default function LeadManagement() {
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Mail className="h-3.5 w-3.5 shrink-0" />
-                  <a href={`mailto:${selected.email}`} className="hover:underline text-fkvi-blue">{selected.email}</a>
+                  <a href={`mailto:${selected.email}`} className="hover:underline text-fkvi-blue truncate">{selected.email}</a>
                 </div>
                 {selected.phone && (
                   <div className="flex items-center gap-2 text-gray-600">
@@ -198,15 +208,14 @@ export default function LeadManagement() {
                     <span>{selected.phone}</span>
                   </div>
                 )}
+                <p className="text-xs text-gray-400 pt-1">Eingegangen: {formatDateTime(selected.created_at)}</p>
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs">Interne Notiz</Label>
                 <Textarea
                   value={selected.internal_notes || ''}
-                  onChange={e => {
-                    setSelected(prev => ({ ...prev, internal_notes: e.target.value }))
-                  }}
+                  onChange={e => setSelected(prev => ({ ...prev, internal_notes: e.target.value }))}
                   onBlur={e => saveNotes(selected.id, e.target.value)}
                   placeholder="Notizen zur Anfrage..."
                   rows={3}
@@ -222,7 +231,9 @@ export default function LeadManagement() {
                     disabled={actionLoading}
                     size="sm"
                   >
-                    {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Freischalten</>}
+                    {actionLoading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Freischalten</>}
                   </Button>
                   <Button
                     variant="outline"

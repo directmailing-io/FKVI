@@ -11,6 +11,7 @@ import AdminDashboard from '@/pages/admin/AdminDashboard'
 import ProfileList from '@/pages/admin/ProfileList'
 import ProfileForm from '@/pages/admin/ProfileForm'
 import LeadManagement from '@/pages/admin/LeadManagement'
+import CRMPage from '@/pages/admin/CRMPage'
 
 // Public pages
 import PublicHome from '@/pages/public/PublicHome'
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/admin/fachkraefte" element={<AdminRoute><AdminLayout><ProfileList /></AdminLayout></AdminRoute>} />
         <Route path="/admin/fachkraefte/:id" element={<AdminRoute><AdminLayout><ProfileForm /></AdminLayout></AdminRoute>} />
         <Route path="/admin/leads" element={<AdminRoute><AdminLayout><LeadManagement /></AdminLayout></AdminRoute>} />
+        <Route path="/admin/crm" element={<AdminRoute><AdminLayout><CRMPage /></AdminLayout></AdminRoute>} />
 
         {/* Matching */}
         <Route path="/matching/login" element={<MatchingLogin />} />

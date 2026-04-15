@@ -1,28 +1,43 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import {
-  LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, FileText
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-
-const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
-  { label: 'Fachkräfte', icon: Users, href: '/admin/fachkraefte' },
-  { label: 'Freigabezentrale', icon: Building2, href: '/admin/leads' },
-]
+import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase } from 'lucide-react'
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const { user, signOut } = useAuthStore()
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    fetchPendingCount()
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchPendingCount, 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const fetchPendingCount = async () => {
+    const { count } = await supabase
+      .from('companies')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+    setPendingCount(count || 0)
+  }
 
   const handleSignOut = async () => {
     await signOut()
     navigate('/admin/login')
   }
+
+  const navItems = [
+    { label: 'Dashboard',       icon: LayoutDashboard, href: '/admin' },
+    { label: 'Fachkräfte',      icon: Users,            href: '/admin/fachkraefte' },
+    { label: 'CRM / Firmen',    icon: Briefcase,        href: '/admin/crm' },
+    { label: 'Freigabezentrale', icon: Building2,       href: '/admin/leads', badge: pendingCount },
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -65,8 +80,13 @@ export default function AdminLayout({ children }) {
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
-                {active && <ChevronRight className="h-3 w-3 ml-auto" />}
+                <span className="flex-1">{item.label}</span>
+                {item.badge > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+                {active && !item.badge && <ChevronRight className="h-3 w-3 ml-auto" />}
               </Link>
             )
           })}
@@ -97,8 +117,13 @@ export default function AdminLayout({ children }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-gray-200 h-16 flex items-center px-4 gap-4">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-600 hover:text-gray-900">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-600 hover:text-gray-900 relative">
             <Menu className="h-6 w-6" />
+            {pendingCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {pendingCount > 9 ? '9+' : pendingCount}
+              </span>
+            )}
           </button>
           <span className="font-bold text-fkvi-blue">FKVI Admin</span>
         </header>
