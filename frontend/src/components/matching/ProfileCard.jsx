@@ -114,7 +114,7 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onV
             </Button>
           )}
           <Button size="sm" className="flex-1 gap-1 text-xs px-2" onClick={handleOpenCv}>
-            <FileText className="h-3.5 w-3.5" />CV
+            <FileText className="h-3.5 w-3.5" />Lebenslauf
           </Button>
         </div>
       </div>

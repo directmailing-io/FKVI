@@ -12,7 +12,7 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
 
   const cvUrl = `${window.location.origin}/lebenslauf/${profile.id}`
 
-  const handleOpenCv = () => window.open(cvUrl, '_blank')
+  const handleOpenCv = () => { onClose(); window.open(cvUrl, '_blank') }
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(cvUrl)
