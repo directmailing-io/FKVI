@@ -20,6 +20,7 @@ import VermittlungDetailPage from '@/pages/admin/VermittlungDetailPage'
 import PublicHome from '@/pages/public/PublicHome'
 import ContactPage from '@/pages/public/ContactPage'
 import CvPage from '@/pages/public/CvPage'
+import CvSharePage from '@/pages/public/CvSharePage'
 
 // Matching pages
 import MatchingLogin from '@/pages/matching/MatchingLogin'
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/" element={<PublicHome />} />
         <Route path="/kontakt" element={<ContactPage />} />
         <Route path="/lebenslauf/:id" element={<CvPage />} />
+        <Route path="/lebenslauf/share/:token" element={<CvSharePage />} />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />

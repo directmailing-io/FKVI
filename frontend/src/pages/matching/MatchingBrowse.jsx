@@ -2,16 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import ProfileCard from '@/components/matching/ProfileCard'
-import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
 import FilterPanel, { EMPTY_FILTERS, countActiveFilters } from '@/components/matching/FilterPanel'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Search, SlidersHorizontal, Heart, Send, X, CheckCircle2, Loader2, User } from 'lucide-react'
+import { SlidersHorizontal, Heart, Send, CheckCircle2, Loader2, User, EyeOff, Search, FileText, ChevronDown } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export default function MatchingBrowse() {
@@ -20,7 +18,7 @@ export default function MatchingBrowse() {
   const [favorites, setFavorites] = useState(new Set())
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
-  const [selectedProfile, setSelectedProfile] = useState(null)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   const [interestDialog, setInterestDialog] = useState(false)
   const [interestMessage, setInterestMessage] = useState('')
   const [interestSent, setInterestSent] = useState(false)
@@ -125,7 +123,62 @@ export default function MatchingBrowse() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+
+      {/* ── Welcome Banner ── */}
+      {!bannerDismissed && (
+        <div className="bg-[#1e3a5f] rounded-2xl p-5 text-white relative overflow-hidden">
+          <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
+            backgroundImage: 'radial-gradient(circle at 80% 50%, white 0%, transparent 60%)'
+          }} />
+          <button
+            onClick={() => setBannerDismissed(true)}
+            className="absolute top-3 right-3 text-white/40 hover:text-white/80 transition-colors text-lg leading-none"
+          >×</button>
+
+          <h2 className="font-bold text-base mb-3">Willkommen auf der FKVI Matching-Plattform</h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div className="flex items-start gap-3 bg-white/10 rounded-xl p-3">
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0">1</div>
+              <div>
+                <p className="font-semibold mb-0.5">Profile entdecken & filtern</p>
+                <p className="text-white/65 text-xs leading-relaxed">
+                  Alle Profile sind anonymisiert – Name und Kontaktdaten werden erst nach Ihrer Anfrage geteilt. Nutzen Sie Filter, um passende Fachkräfte zu finden.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-white/10 rounded-xl p-3">
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0">2</div>
+              <div>
+                <p className="font-semibold mb-0.5">
+                  <Heart className="h-3.5 w-3.5 inline mr-1 fill-white" />Vormerken & Termin anfragen
+                </p>
+                <p className="text-white/65 text-xs leading-relaxed">
+                  Interessante Profile über das Herz-Symbol vormerken und dann „Interesse bekunden" – wir kontaktieren Sie für ein Kennenlerngespräch.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-white/10 rounded-xl p-3">
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold shrink-0">3</div>
+              <div>
+                <p className="font-semibold mb-0.5">Kandidaten reservieren</p>
+                <p className="text-white/65 text-xs leading-relaxed">
+                  Passt der Kandidat nach dem Kennenlernen? FKVI reserviert die Fachkraft exklusiv für Ihr Unternehmen und begleitet den gesamten Prozess.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
+            <EyeOff className="h-3.5 w-3.5 text-white/50 shrink-0" />
+            <p className="text-xs text-white/50">
+              Alle Namen und Kontaktdaten sind anonymisiert. Die vollständigen Informationen erhalten Sie erst nach erfolgreicher Vermittlung.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Matching-Plattform</h1>
@@ -215,7 +268,6 @@ export default function MatchingBrowse() {
                   profile={profile}
                   isFavorite={favorites.has(profile.id)}
                   onToggleFavorite={toggleFavorite}
-                  onViewDetail={setSelectedProfile}
                 />
               ))}
             </div>
@@ -238,15 +290,6 @@ export default function MatchingBrowse() {
           </div>
         </div>
       )}
-
-      {/* Profile Detail Modal */}
-      <ProfileDetailModal
-        profile={selectedProfile}
-        open={!!selectedProfile}
-        onClose={() => setSelectedProfile(null)}
-        isFavorite={selectedProfile ? favorites.has(selectedProfile.id) : false}
-        onToggleFavorite={toggleFavorite}
-      />
 
       {/* Interest Dialog */}
       <Dialog open={interestDialog} onOpenChange={(open) => {

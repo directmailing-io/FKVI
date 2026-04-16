@@ -1,33 +1,82 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 import CvDocument from '@/components/matching/CvDocument'
 import { Button } from '@/components/ui/button'
-import { Printer, Link as LinkIcon, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
+import { Printer, Link as LinkIcon, CheckCircle2, Loader2, AlertCircle, LogIn } from 'lucide-react'
 
 export default function CvPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { user, session, loading: authLoading } = useAuthStore()
+
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [shareState, setShareState] = useState('idle') // idle | loading | done | error
+  const [shareUrl, setShareUrl] = useState('')
+  const [shareCopied, setShareCopied] = useState(false)
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    fetch(`/api/public/profile?id=${id}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.profile) setProfile(data.profile)
-        else setError(data.error || 'Profil nicht gefunden')
+    if (!authLoading && !user) {
+      navigate(`/matching/login?next=/lebenslauf/${id}`, { replace: true })
+    }
+  }, [authLoading, user, id, navigate])
+
+  // Fetch profile (using authenticated supabase client — only published profiles)
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', id)
+      .eq('status', 'published')
+      .single()
+      .then(({ data, error: err }) => {
+        if (err || !data) setError('Profil nicht gefunden oder nicht veröffentlicht.')
+        else setProfile(data)
       })
-      .catch(() => setError('Verbindungsfehler. Bitte versuchen Sie es später erneut.'))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, user])
 
   const handlePrint = () => window.print()
 
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+  const handleCreateShareLink = async () => {
+    setShareState('loading')
+    try {
+      const res = await fetch('/api/matching/create-share-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ profileId: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setShareUrl(data.shareUrl)
+      setShareState('done')
+      await navigator.clipboard.writeText(data.shareUrl)
+      setShareCopied(true)
+    } catch (err) {
+      setShareState('error')
+    }
+  }
+
+  const handleCopyAgain = async () => {
+    await navigator.clipboard.writeText(shareUrl)
+    setShareCopied(true)
+    setTimeout(() => setShareCopied(false), 2000)
+  }
+
+  if (authLoading || (!user && !error)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
+      </div>
+    )
   }
 
   if (loading) {
@@ -42,12 +91,12 @@ export default function CvPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-            <AlertCircle className="h-8 w-8 text-gray-400" />
-          </div>
-          <h1 className="text-lg font-semibold text-gray-800">Profil nicht verfügbar</h1>
+          <AlertCircle className="h-12 w-12 text-gray-300 mx-auto" />
+          <h1 className="text-lg font-semibold text-gray-700">Profil nicht verfügbar</h1>
           <p className="text-sm text-gray-500">{error}</p>
-          <a href="/" className="text-sm text-[#1e3a5f] hover:underline">Zur FKVI-Startseite</a>
+          <Button variant="outline" size="sm" onClick={() => navigate('/matching')}>
+            Zur Matching-Plattform
+          </Button>
         </div>
       </div>
     )
@@ -55,7 +104,6 @@ export default function CvPage() {
 
   return (
     <>
-      {/* Print styles – inlined so they work without extra CSS files */}
       <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -64,32 +112,63 @@ export default function CvPage() {
         }
       `}</style>
 
-      {/* ── Action bar (hidden when printing) ── */}
-      <div className="no-print sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm print:hidden">
-        <div className="max-w-[794px] mx-auto px-6 h-14 flex items-center justify-between gap-3">
+      {/* ── Action bar ── */}
+      <div className="no-print sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
+        <div style={{ maxWidth: 794 }} className="mx-auto px-6 py-2 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/matching')} className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5">
+              ← Zurück
+            </button>
+            <span className="text-gray-200">|</span>
             <span className="font-bold text-[#1e3a5f] text-sm">FKVI</span>
-            <span className="text-gray-300 text-sm">·</span>
-            <span className="text-gray-600 text-sm">Lebenslauf-Vorschau</span>
+            <span className="text-gray-400 text-sm">Lebenslauf</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleCopyLink} className="gap-1.5 text-sm">
-              {copied
-                ? <><CheckCircle2 className="h-4 w-4 text-green-500" />Link kopiert!</>
-                : <><LinkIcon className="h-4 w-4" />Link teilen</>
-              }
-            </Button>
+
+          <div className="flex items-center gap-2 flex-wrap">
+
+            {/* Share link section */}
+            {shareState === 'idle' && (
+              <Button variant="outline" size="sm" onClick={handleCreateShareLink} className="gap-1.5 text-sm">
+                <LinkIcon className="h-3.5 w-3.5" />Link teilen (7 Tage)
+              </Button>
+            )}
+            {shareState === 'loading' && (
+              <Button variant="outline" size="sm" disabled className="gap-1.5 text-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />Link wird erstellt…
+              </Button>
+            )}
+            {shareState === 'done' && (
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={shareUrl}
+                  className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-gray-50 w-64 truncate"
+                />
+                <Button variant="outline" size="sm" onClick={handleCopyAgain} className="gap-1.5 text-sm shrink-0">
+                  {shareCopied
+                    ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" />Kopiert!</>
+                    : <><LinkIcon className="h-3.5 w-3.5" />Kopieren</>
+                  }
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShareState('idle')} className="text-xs text-gray-400 px-2">
+                  Neuer Link
+                </Button>
+              </div>
+            )}
+            {shareState === 'error' && (
+              <span className="text-xs text-red-500">Fehler beim Erstellen. Bitte erneut versuchen.</span>
+            )}
+
             <Button size="sm" onClick={handlePrint} className="gap-1.5 text-sm bg-[#1e3a5f] hover:bg-[#16304f]">
-              <Printer className="h-4 w-4" />
-              Als PDF speichern
+              <Printer className="h-3.5 w-3.5" />Als PDF speichern
             </Button>
           </div>
         </div>
       </div>
 
-      {/* ── CV Document ── */}
+      {/* ── CV ── */}
       <div className="bg-gray-100 min-h-screen py-8 print:py-0 print:bg-white">
-        <div className="max-w-[794px] mx-auto shadow-xl print:shadow-none">
+        <div className="mx-auto shadow-xl print:shadow-none" style={{ maxWidth: 794 }}>
           <CvDocument profile={profile} />
         </div>
       </div>

@@ -1,21 +1,17 @@
-import { Heart, User, MapPin, Briefcase, GraduationCap, Clock, FileText } from 'lucide-react'
+import { Heart, User, Briefcase, GraduationCap, Clock, FileText, EyeOff } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn, RECOGNITION_LABELS } from '@/lib/utils'
 
-export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onViewDetail }) {
-  const initials = profile.gender === 'männlich' ? 'M' : profile.gender === 'weiblich' ? 'W' : '?'
+export default function ProfileCard({ profile, isFavorite, onToggleFavorite }) {
+  const handleOpenCv = () => window.open(`/lebenslauf/${profile.id}`, '_blank')
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all group">
       {/* Image area */}
       <div className="relative h-44 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
         {profile.profile_image_url ? (
-          <img
-            src={profile.profile_image_url}
-            alt="Profilbild"
-            className="w-full h-full object-cover"
-          />
+          <img src={profile.profile_image_url} alt="Profilbild" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <div className="w-16 h-16 rounded-full bg-white/50 flex items-center justify-center">
@@ -23,6 +19,13 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onV
             </div>
           </div>
         )}
+
+        {/* Anonymized badge */}
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/40 backdrop-blur-sm rounded-full px-2 py-0.5">
+          <EyeOff className="h-2.5 w-2.5 text-white/70" />
+          <span className="text-[9px] text-white/80 font-medium tracking-wide">Anonymisiert</span>
+        </div>
+
         {/* Favorite button */}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(profile.id) }}
@@ -40,10 +43,17 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onV
       {/* Content */}
       <div className="p-4 space-y-3">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div>
+            {/* Blurred name placeholder */}
+            <p className="text-[11px] text-gray-400 mb-0.5 flex items-center gap-1">
+              <span className="blur-sm select-none font-medium text-gray-600 text-xs">Vorname Nachname</span>
+              <span className="text-[9px] bg-gray-100 text-gray-400 rounded px-1 not-italic no-blur" style={{ filter: 'none' }}>
+                anon.
+              </span>
+            </p>
             <p className="font-semibold text-gray-900 text-sm">
-              {profile.gender || 'Fachkraft'}, {profile.age ? `${profile.age} Jahre` : ''}
+              {profile.gender || 'Fachkraft'}{profile.age ? `, ${profile.age} J.` : ''}
             </p>
             <p className="text-xs text-gray-500">{profile.nationality || '—'}</p>
           </div>
@@ -63,12 +73,6 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onV
               {profile.germany_experience_years && (
                 <span className="text-gray-400">({profile.germany_experience_years} J. in DE)</span>
               )}
-            </div>
-          )}
-          {(profile.preferred_facility_types || []).length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <MapPin className="h-3 w-3 shrink-0" />
-              <span className="truncate">{profile.preferred_facility_types[0]}</span>
             </div>
           )}
           {profile.work_time_preference && (
@@ -97,26 +101,10 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onV
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex gap-2 mt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 text-xs"
-            onClick={() => onViewDetail(profile)}
-          >
-            Profil ansehen
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs px-2.5 text-gray-500 hover:text-gray-800"
-            title="Lebenslauf öffnen"
-            onClick={(e) => { e.stopPropagation(); window.open(`/lebenslauf/${profile.id}`, '_blank') }}
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        {/* Single action */}
+        <Button size="sm" className="w-full mt-1 gap-1.5 text-xs" onClick={handleOpenCv}>
+          <FileText className="h-3.5 w-3.5" />Lebenslauf ansehen
+        </Button>
       </div>
     </div>
   )
