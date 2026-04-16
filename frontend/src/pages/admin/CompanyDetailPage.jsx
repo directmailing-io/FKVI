@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User } from 'lucide-react'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, BookOpen, Clock, Eye, Send } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const COMPANY_TYPE_LABELS = {
@@ -40,6 +40,108 @@ const LEAD_STATUS_COLORS = {
   active: 'bg-teal-100 text-teal-700 border-teal-200',
 }
 
+function fmtDt(ts) {
+  if (!ts) return '–'
+  return new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function getDaysRemaining(confirmedAt) {
+  if (!confirmedAt) return null
+  return Math.ceil((new Date(confirmedAt).getTime() + 7 * 864e5 - Date.now()) / 864e5)
+}
+
+function BrochureCard({ data }) {
+  const [showLog, setShowLog] = useState(false)
+
+  if (!data) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <BookOpen className="h-4 w-4 text-gray-300" />
+          <h2 className="font-semibold text-gray-400 text-base">Broschüre</h2>
+        </div>
+        <p className="text-sm text-gray-400">Dieser Lead ist nicht über die Broschüren-Anfrage gekommen.</p>
+      </div>
+    )
+  }
+
+  const { request, confirmation, access_log } = data
+  const days = getDaysRemaining(confirmation?.confirmed_at)
+  const contractReady = days !== null && days <= 0
+
+  return (
+    <div className={cn('bg-white rounded-xl border p-5 space-y-4', contractReady ? 'border-green-300' : 'border-violet-200')}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BookOpen className={cn('h-4 w-4', contractReady ? 'text-green-600' : 'text-violet-500')} />
+          <h2 className="font-semibold text-gray-900 text-base">Broschüre</h2>
+          {request.brochure_version && (
+            <span className="text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full">
+              v{request.brochure_version.version_number}
+            </span>
+          )}
+        </div>
+        {contractReady && (
+          <span className="inline-flex items-center gap-1 text-xs font-bold text-green-800 bg-green-100 border border-green-300 px-2.5 py-1 rounded-full">
+            <Send className="h-3 w-3" />Vertrag zusenden!
+          </span>
+        )}
+      </div>
+
+      {/* Timeline */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-gray-50 rounded-lg px-3 py-2.5">
+          <p className="text-xs text-gray-400 mb-0.5">Registriert</p>
+          <p className="text-sm font-medium text-gray-800">{fmtDt(request.created_at)}</p>
+        </div>
+        <div className={cn('rounded-lg px-3 py-2.5', request.email_confirmed_at ? 'bg-green-50' : 'bg-gray-50')}>
+          <p className="text-xs text-gray-400 mb-0.5">E-Mail bestätigt</p>
+          <p className={cn('text-sm font-medium', request.email_confirmed_at ? 'text-green-700' : 'text-gray-400')}>
+            {request.email_confirmed_at ? fmtDt(request.email_confirmed_at) : 'Ausstehend'}
+          </p>
+        </div>
+        <div className={cn('rounded-lg px-3 py-2.5', confirmation ? 'bg-blue-50' : 'bg-gray-50')}>
+          <p className="text-xs text-gray-400 mb-0.5">Erstmals gelesen</p>
+          <p className={cn('text-sm font-medium', confirmation ? 'text-blue-700' : 'text-gray-400')}>
+            {confirmation ? fmtDt(confirmation.confirmed_at) : 'Noch nicht bestätigt'}
+          </p>
+        </div>
+        <div className={cn('rounded-lg px-3 py-2.5', contractReady ? 'bg-green-50' : days !== null ? 'bg-amber-50' : 'bg-gray-50')}>
+          <p className="text-xs text-gray-400 mb-0.5">Verbleibende Zeit</p>
+          <p className={cn('text-sm font-medium', contractReady ? 'text-green-700' : days !== null ? 'text-amber-700' : 'text-gray-400')}>
+            {contractReady ? 'Vertrag fällig' : days !== null ? `${days} ${days === 1 ? 'Tag' : 'Tage'}` : '–'}
+          </p>
+        </div>
+      </div>
+
+      {/* Access log */}
+      <div>
+        <button
+          onClick={() => setShowLog(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 font-medium transition-colors"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          {access_log.length} {access_log.length === 1 ? 'Zugriff' : 'Zugriffe'} auf die PDF
+          <span className="ml-1 text-gray-400">{showLog ? '▲' : '▼'}</span>
+        </button>
+        {showLog && (
+          <div className="mt-2 rounded-lg border border-gray-100 overflow-hidden divide-y divide-gray-50">
+            {access_log.length === 0 ? (
+              <p className="text-xs text-gray-400 px-3 py-2">Noch kein Zugriff.</p>
+            ) : access_log.map((entry, i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50">
+                <Clock className="h-3 w-3 text-gray-300 shrink-0" />
+                <span className="font-medium text-gray-700">{fmtDt(entry.accessed_at)}</span>
+                {entry.ip_address && <span className="text-gray-400 font-mono">{entry.ip_address}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function CompanyDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -63,6 +165,9 @@ export default function CompanyDetailPage() {
   const [contacts, setContacts] = useState([])
   const [savingContacts, setSavingContacts] = useState(false)
 
+  // Brochure data
+  const [brochureData, setBrochureData] = useState(undefined) // undefined = loading, null = none
+
   useEffect(() => {
     fetchCompany()
   }, [id])
@@ -84,8 +189,22 @@ export default function CompanyDetailPage() {
       })
   }, [notesList])
 
+  const fetchBrochureData = async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch(`/api/admin/brochure/company-data?companyId=${id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      setBrochureData(data.request ? data : null)
+    } catch {
+      setBrochureData(null)
+    }
+  }
+
   const fetchCompany = async () => {
     setLoading(true)
+    fetchBrochureData()
     const [{ data, error }, { data: resData }] = await Promise.all([
       supabase.from('companies').select('*').eq('id', id).single(),
       supabase
@@ -580,6 +699,11 @@ export default function CompanyDetailPage() {
             )}
           </div>
 
+          {/* Broschüre */}
+          {brochureData !== undefined && (
+            <BrochureCard data={brochureData} />
+          )}
+
           {/* CRM-Notizen */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
             <h2 className="font-semibold text-gray-900 text-base">CRM-Notizen</h2>
@@ -644,100 +768,103 @@ export default function CompanyDetailPage() {
             </div>
           )}
 
-          {/* Interesse — separate card, only shown when bookings exist */}
-          {notesList.some(n => n.type === 'interest_booking') && (
-            <div className="bg-white rounded-xl border border-orange-200 p-6 space-y-4">
-              <h2 className="font-semibold text-gray-900 text-base flex items-center gap-2">
-                <Heart className="h-4 w-4 text-orange-500 fill-orange-100" />
-                Interesse des Unternehmens
-              </h2>
-              <p className="text-xs text-gray-500">
-                Profile, für die das Unternehmen Interesse bekundet und einen Termin gebucht hat.
-              </p>
-              <div className="space-y-4">
-                {notesList.filter(n => n.type === 'interest_booking').map(note => (
-                  <div key={note.id} className="border border-orange-100 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CalendarCheck className="h-4 w-4 text-orange-500 shrink-0" />
-                        <span className="text-sm font-semibold text-gray-800">
-                          Terminbuchung — {note.profile_ids?.length || 0} {note.profile_ids?.length === 1 ? 'Profil' : 'Profile'} vorgemerkt
-                        </span>
+          {/* Interesse — separate card. Profiles already in active Vermittlung are hidden here. */}
+          {(() => {
+            // Build set of profile IDs that are currently in an active Vermittlung with this company
+            const activelyReservedIds = new Set(reservations.map(r => r.profiles?.id).filter(Boolean))
+            // Filter notes to only those that still have profiles not in Vermittlung
+            const interestNotes = notesList.filter(n => n.type === 'interest_booking').map(note => ({
+              ...note,
+              visibleIds: (note.profile_ids || []).filter(pid => !activelyReservedIds.has(pid)),
+            })).filter(note => note.visibleIds.length > 0)
+
+            if (interestNotes.length === 0) return null
+            return (
+              <div className="bg-white rounded-xl border border-orange-200 p-6 space-y-4">
+                <h2 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-orange-500 fill-orange-100" />
+                  Interesse des Unternehmens
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Profile, für die das Unternehmen Interesse bekundet hat. Profile in aktiver Vermittlung werden hier ausgeblendet.
+                </p>
+                <div className="space-y-4">
+                  {interestNotes.map(note => (
+                    <div key={note.id} className="border border-orange-100 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CalendarCheck className="h-4 w-4 text-orange-500 shrink-0" />
+                          <span className="text-sm font-semibold text-gray-800">
+                            Terminbuchung — {note.visibleIds.length} {note.visibleIds.length === 1 ? 'Profil' : 'Profile'} vorgemerkt
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400">
+                            {formatDateTime ? formatDateTime(note.created_at) : new Date(note.created_at).toLocaleString('de-DE')}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Eintrag löschen"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">
-                          {formatDateTime ? formatDateTime(note.created_at) : new Date(note.created_at).toLocaleString('de-DE')}
-                        </span>
-                        <button
-                          onClick={() => handleDeleteNote(note.id)}
-                          className="p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Eintrag löschen"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      {(note.profile_ids || []).map((pid, idx) => {
-                        const p = interestProfiles[pid]
-                        const fullName = p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : ''
-                        const isReserved = p?.status === 'reserved'
-                        return (
-                          <div key={pid} className="flex items-center gap-3 px-3 py-2.5 bg-orange-50 border border-orange-100 rounded-lg group/row hover:border-orange-200 transition-colors">
-                            <span className="text-xs font-bold text-orange-400 w-4 shrink-0">{idx + 1}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-gray-900 truncate">
-                                {fullName || (p ? `${p.gender || 'Fachkraft'}` : `Profil ${pid.slice(0, 8)}…`)}
-                              </p>
-                              {p && (
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                  {[p.gender, p.age ? `${p.age} J.` : null, p.nationality, p.nursing_education].filter(Boolean).join(' · ')}
+                      <div className="space-y-1.5">
+                        {note.visibleIds.map((pid, idx) => {
+                          const p = interestProfiles[pid]
+                          const fullName = p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : ''
+                          return (
+                            <div key={pid} className="flex items-center gap-3 px-3 py-2.5 bg-orange-50 border border-orange-100 rounded-lg group/row hover:border-orange-200 transition-colors">
+                              <span className="text-xs font-bold text-orange-400 w-4 shrink-0">{idx + 1}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                  {fullName || (p ? `${p.gender || 'Fachkraft'}` : `Profil ${pid.slice(0, 8)}…`)}
                                 </p>
-                              )}
-                            </div>
-                            {p?.status && (
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold shrink-0 ${
-                                isReserved ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                p.status === 'published' ? 'bg-green-50 text-green-700 border-green-200' :
-                                'bg-gray-50 text-gray-500 border-gray-200'
-                              }`}>
-                                {isReserved ? 'Reserviert' : p.status === 'published' ? 'Verfügbar' : p.status}
+                                {p && (
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {[p.gender, p.age ? `${p.age} J.` : null, p.nationality, p.nursing_education].filter(Boolean).join(' · ')}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full border font-semibold shrink-0 bg-green-50 text-green-700 border-green-200">
+                                Verfügbar
                               </span>
-                            )}
-                            <div className="flex items-center gap-1 shrink-0">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs border-orange-200 text-orange-700 hover:bg-orange-100"
-                                disabled={isReserved}
-                                onClick={() => handleReserveProfile(pid)}
-                              >
-                                {isReserved ? 'Reserviert' : 'Reservieren'}
-                              </Button>
-                              <a href={`/admin/fachkraefte/${pid}`} target="_blank" rel="noopener noreferrer">
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-gray-400 hover:text-gray-700">
-                                  <ExternalLink className="h-3.5 w-3.5" />
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs border-orange-200 text-orange-700 hover:bg-orange-100"
+                                  onClick={() => handleReserveProfile(pid)}
+                                >
+                                  Reservieren
                                 </Button>
-                              </a>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0 text-gray-300 hover:text-red-500"
-                                onClick={() => handleRemoveFromInterest(note.id, pid)}
-                                title="Aus Interessenliste entfernen"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
+                                <a href={`/admin/fachkraefte/${pid}`} target="_blank" rel="noopener noreferrer">
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-gray-400 hover:text-gray-700">
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                  </Button>
+                                </a>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-gray-300 hover:text-red-500"
+                                  onClick={() => handleRemoveFromInterest(note.id, pid)}
+                                  title="Aus Interessenliste entfernen"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        )
-                      })}
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Right column — 1/3 */}
@@ -851,13 +978,6 @@ export default function CompanyDetailPage() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* SQL migration hint */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
-        <p className="text-xs font-medium text-amber-800">Einmalig in Supabase SQL-Editor ausführen (falls Spalten fehlen):</p>
-        <code className="text-xs text-amber-700 font-mono block">ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS company_type TEXT DEFAULT 'lead';</code>
-        <code className="text-xs text-amber-700 font-mono block">ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS notes_list JSONB DEFAULT '[]'::jsonb;</code>
       </div>
 
       {/* Delete confirmation dialog */}

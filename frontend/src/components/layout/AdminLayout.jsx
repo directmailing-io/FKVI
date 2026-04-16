@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity } from 'lucide-react'
+import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity, BookOpen } from 'lucide-react'
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -39,6 +39,7 @@ export default function AdminLayout({ children }) {
     { label: 'CRM / Firmen',     icon: Briefcase,        href: '/admin/crm' },
     { label: 'Vermittlungen',    icon: Activity,         href: '/admin/vermittlungen', badge: activeVermittlungen },
     { label: 'Freigabezentrale', icon: Building2,        href: '/admin/leads', badge: pendingCount },
+    { label: 'Broschüre',        icon: BookOpen,         href: '/admin/broschuere' },
   ]
 
   return (
@@ -54,10 +55,12 @@ export default function AdminLayout({ children }) {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-white/10">
-          <div>
-            <span className="text-white font-bold text-lg tracking-tight">FKVI</span>
-            <span className="block text-white/50 text-xs">Admin</span>
+        <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center p-1.5 shadow-sm shrink-0">
+              <img src="/logo.svg" alt="FKVI" className="w-full h-full object-contain" />
+            </div>
+            <span className="text-white/70 text-xs font-medium tracking-wide">Admin</span>
           </div>
           <button className="lg:hidden text-white/70 hover:text-white" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
@@ -127,7 +130,7 @@ export default function AdminLayout({ children }) {
               </span>
             )}
           </button>
-          <span className="font-bold text-fkvi-blue">FKVI Admin</span>
+          <img src="/logo.svg" alt="FKVI" className="h-10 w-auto" style={{ mixBlendMode: 'multiply' }} />
         </header>
 
         <main className="flex-1 p-6 lg:p-8">

@@ -33,9 +33,7 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-fkvi-blue text-white font-bold text-lg mb-4">
-            FK
-          </div>
+          <img src="/logo.svg" alt="FKVI" className="h-32 w-auto mx-auto mb-4" style={{ mixBlendMode: 'multiply' }} />
           <h1 className="text-2xl font-bold text-gray-900">Admin-Login</h1>
           <p className="text-sm text-gray-500 mt-1">FKVI Verwaltungsbereich</p>
         </div>

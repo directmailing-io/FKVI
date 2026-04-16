@@ -53,10 +53,23 @@ export default function MatchingBrowse() {
       if (!companyId) return
       try {
         const { data } = await Promise.race([
-          supabase.from('favorites').select('profile_id').eq('company_id', companyId),
+          // Join with profiles to only keep favorites for still-published profiles
+          supabase.from('favorites')
+            .select('profile_id, profiles!inner(id, status)')
+            .eq('company_id', companyId)
+            .eq('profiles.status', 'published'),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
         ])
-        if (mounted) setFavorites(new Set((data || []).map(f => f.profile_id)))
+        if (mounted) {
+          setFavorites(new Set((data || []).map(f => f.profile_id)))
+          // Clean up stale favorites (reserved/completed profiles) from DB silently
+          const { data: allFavs } = await supabase.from('favorites').select('profile_id').eq('company_id', companyId)
+          const validIds = new Set((data || []).map(f => f.profile_id))
+          const stale = (allFavs || []).filter(f => !validIds.has(f.profile_id))
+          for (const s of stale) {
+            supabase.from('favorites').delete().eq('company_id', companyId).eq('profile_id', s.profile_id)
+          }
+        }
       } catch {
         // non-critical
       }

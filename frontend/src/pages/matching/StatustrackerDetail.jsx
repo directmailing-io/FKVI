@@ -7,7 +7,8 @@ import { Separator } from '@/components/ui/separator'
 import { PROCESS_STATUS_LABELS, formatDateTime } from '@/lib/utils'
 import {
   ArrowLeft, User, CheckCircle2, ChevronRight, Clock,
-  Globe, FileText, Award, Stethoscope, Languages, MapPin, ExternalLink
+  Globe, FileText, Award, Stethoscope, Languages, MapPin, ExternalLink,
+  Baby, Car, Heart, Briefcase, BookOpen
 } from 'lucide-react'
 
 const STATUS_STEPS = Object.entries(PROCESS_STATUS_LABELS)
@@ -63,6 +64,9 @@ export default function StatustrackerDetail() {
 
   const fetchData = async () => {
     if (!companyId) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+
     const [{ data: res }, { data: hist }] = await Promise.all([
       supabase
         .from('reservations')
@@ -87,16 +91,25 @@ export default function StatustrackerDetail() {
         .eq('reservation_id', id)
         .order('created_at', { ascending: false }),
     ])
-    if (res) {
-      setReservation(res)
-      // Fetch non-internal documents
-      const { data: docs } = await supabase
-        .from('profile_documents')
-        .select('*')
-        .eq('profile_id', res.profiles?.id)
-        .eq('is_internal', false)
-        .order('sort_order')
-      setDocuments(docs || [])
+    // Always update reservation — null means it was deleted (decoupled)
+    setReservation(res || null)
+    if (res && token) {
+      // Fetch documents via API (service role) to bypass potential RLS restrictions
+      try {
+        const docsRes = await fetch(`/api/matching/profile-documents?reservationId=${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (docsRes.ok) {
+          const { documents: docs } = await docsRes.json()
+          setDocuments(docs || [])
+        } else {
+          setDocuments([])
+        }
+      } catch {
+        setDocuments([])
+      }
+    } else {
+      setDocuments([])
     }
     setHistory(hist || [])
     setLoading(false)
@@ -104,18 +117,33 @@ export default function StatustrackerDetail() {
 
   useEffect(() => { fetchData() }, [id, companyId])
 
-  // Realtime
+  // Polling fallback: guarantees updates even if realtime broadcast fails
+  useEffect(() => {
+    if (!id || !companyId) return
+    const interval = setInterval(fetchData, 4000)
+    return () => clearInterval(interval)
+  }, [id, companyId])
+
+  // Realtime: subscribe to "reservation-updates" broadcast channel.
+  // Server broadcasts to topic "realtime:reservation-updates" via HTTP API,
+  // which the supabase-js client maps to channel name "reservation-updates".
+  // Filter by reservationId in payload — no RLS needed for broadcast.
   useEffect(() => {
     if (!id) return
     const channel = supabase
-      .channel(`reservation-detail-${id}`)
+      .channel('reservation-updates')
+      .on('broadcast', { event: 'status_update' }, ({ payload }) => {
+        if (String(payload?.reservationId) === String(id)) fetchData()
+      })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'reservations',
         filter: `id=eq.${id}`,
       }, () => fetchData())
-      .subscribe()
+      .subscribe((status, err) => {
+        if (err) console.error('Realtime subscribe error (detail):', err)
+      })
     return () => { supabase.removeChannel(channel) }
   }, [id])
 
@@ -172,26 +200,41 @@ export default function StatustrackerDetail() {
             {[p?.nursing_education, p?.nationality].filter(Boolean).join(' · ')}
           </p>
         </div>
+        <button
+          onClick={() => navigate(`/matching/reserviert/${id}/lebenslauf`)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-fkvi-blue/30 bg-fkvi-blue/5 text-fkvi-blue text-sm font-medium hover:bg-fkvi-blue hover:text-white transition-colors shrink-0"
+        >
+          <BookOpen className="h-4 w-4" />
+          Lebenslauf
+        </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-2 text-sm">
-          <span className="font-semibold text-gray-700">{PROCESS_STATUS_LABELS[step]}</span>
-          <span className="text-gray-400 font-medium">Schritt {step}/11 · {pct} %</span>
+      {/* Abgeschlossen-Banner — nur wenn Step 11 erreicht */}
+      {step === 11 && (
+        <div className="bg-emerald-600 rounded-xl p-6 text-center text-white shadow-sm">
+          <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-200" />
+          <p className="text-xl font-bold">Vermittlung abgeschlossen!</p>
+          <p className="text-emerald-200 text-sm mt-1">
+            {`${p?.first_name || ''} ${p?.last_name || ''}`.trim()} hat erfolgreich den Arbeitsstart erreicht.
+          </p>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-2.5">
-          <div
-            className={`h-2.5 rounded-full transition-all duration-700 ${step === 11 ? 'bg-green-500' : 'bg-fkvi-blue'}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        {step === 11 && (
-          <div className="mt-3 flex items-center gap-2 text-green-600 font-medium text-sm">
-            <CheckCircle2 className="h-4 w-4" />Vermittlung erfolgreich abgeschlossen!
+      )}
+
+      {/* Progress bar — nur wenn noch nicht abgeschlossen */}
+      {step < 11 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-2 text-sm">
+            <span className="font-semibold text-gray-700">{PROCESS_STATUS_LABELS[step]}</span>
+            <span className="text-gray-400 font-medium">Schritt {step}/11 · {pct} %</span>
           </div>
-        )}
-      </div>
+          <div className="w-full bg-gray-100 rounded-full h-2.5">
+            <div
+              className="h-2.5 rounded-full transition-all duration-700 bg-fkvi-blue"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Full profile */}
@@ -213,8 +256,9 @@ export default function StatustrackerDetail() {
                   {p?.gender && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{p.gender}</span>}
                   {p?.age && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{p.age} Jahre</span>}
                   {p?.nationality && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{p.nationality}</span>}
-                  {p?.marital_status && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{p.marital_status}</span>}
-                  {p?.has_drivers_license && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Führerschein</span>}
+                  {p?.marital_status && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"><Heart className="h-2.5 w-2.5 inline mr-0.5" />{p.marital_status}</span>}
+                  {(p?.children_count > 0) && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"><Baby className="h-2.5 w-2.5 inline mr-0.5" />{p.children_count} {p.children_count === 1 ? 'Kind' : 'Kinder'}</span>}
+                  {p?.has_drivers_license && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"><Car className="h-2.5 w-2.5 inline mr-0.5" />Führerschein</span>}
                   {p?.fkvi_competency_proof && <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">✓ FKVI Kompetenznachweis</span>}
                 </div>
               </div>
@@ -343,7 +387,9 @@ export default function StatustrackerDetail() {
           {documents.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
               <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
-                <FileText className="h-4 w-4 text-gray-400" />Dokumente
+                <FileText className="h-4 w-4 text-gray-400" />
+                Dokumente
+                <span className="ml-1 text-xs font-normal text-gray-400">({documents.length})</span>
               </h3>
               <div className="space-y-2">
                 {documents.map((doc, i) => (
@@ -352,14 +398,21 @@ export default function StatustrackerDetail() {
                     href={doc.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-fkvi-blue/30 hover:bg-blue-50/30 transition-colors group"
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-fkvi-blue/30 hover:bg-fkvi-blue/5 transition-colors group"
                   >
-                    <FileText className="h-4 w-4 text-gray-400 group-hover:text-fkvi-blue shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{doc.title}</p>
-                      {doc.description && <p className="text-xs text-gray-400 truncate">{doc.description}</p>}
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-fkvi-blue/10">
+                      <FileText className="h-4 w-4 text-fkvi-blue" />
                     </div>
-                    <ExternalLink className="h-3.5 w-3.5 text-gray-300 group-hover:text-fkvi-blue shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{doc.title || 'Dokument'}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {doc.doc_type && <span className="text-xs text-gray-400">{doc.doc_type}</span>}
+                        {doc.description && <span className="text-xs text-gray-400 truncate">{doc.doc_type ? `· ${doc.description}` : doc.description}</span>}
+                      </div>
+                    </div>
+                    <span className="text-xs text-fkvi-blue font-medium flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Öffnen <ExternalLink className="h-3 w-3" />
+                    </span>
                   </a>
                 ))}
               </div>
@@ -370,24 +423,32 @@ export default function StatustrackerDetail() {
         {/* Right: Process tracker + History */}
         <div className="space-y-5">
           <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-8 space-y-5">
-            {/* Current step */}
-            <div className="bg-fkvi-blue rounded-xl p-4 text-white">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Aktueller Schritt</p>
-                <span className="flex items-center gap-1 text-[10px] font-semibold text-green-300">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-300 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
+            {/* Current step / Abgeschlossen */}
+            {step === 11 ? (
+              <div className="bg-emerald-600 rounded-xl p-4 text-white text-center">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-200" />
+                <p className="font-bold text-base">Abgeschlossen</p>
+                <p className="text-emerald-200 text-xs mt-0.5">Alle 11 Schritte abgeschlossen</p>
+              </div>
+            ) : (
+              <div className="bg-fkvi-blue rounded-xl p-4 text-white">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Aktueller Schritt</p>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-green-300">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-300 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
+                    </span>
+                    Live
                   </span>
-                  Live
-                </span>
+                </div>
+                <p className="text-2xl font-bold">{step}/11</p>
+                <p className="text-sm mt-0.5 opacity-90">{PROCESS_STATUS_LABELS[step]}</p>
+                <div className="mt-3 bg-white/20 rounded-full h-1.5">
+                  <div className="bg-white h-1.5 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                </div>
               </div>
-              <p className="text-2xl font-bold">{step}/11</p>
-              <p className="text-sm mt-0.5 opacity-90">{PROCESS_STATUS_LABELS[step]}</p>
-              <div className="mt-3 bg-white/20 rounded-full h-1.5">
-                <div className="bg-white h-1.5 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
+            )}
 
             <ProcessTracker currentStatus={step} />
 

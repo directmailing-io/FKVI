@@ -53,5 +53,12 @@ export default async function handler(req, res) {
     notes: 'Vermittlung gestartet',
   })
 
+  // Auto-upgrade company type: Lead → Kunde (only if currently 'lead')
+  await supabaseAdmin
+    .from('companies')
+    .update({ company_type: 'customer' })
+    .eq('id', companyId)
+    .eq('company_type', 'lead')
+
   res.json({ success: true, reservation })
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { Plus, Search, User, Edit, Eye, Trash2, AlertTriangle } from 'lucide-rea
 import { toast } from '@/hooks/use-toast'
 
 export default function ProfileList() {
+  const navigate = useNavigate()
   const [profiles, setProfiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -128,7 +129,11 @@ export default function ProfileList() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(profile => (
-                  <tr key={profile.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={profile.id}
+                    onClick={() => navigate(`/admin/fachkraefte/${profile.id}`)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden shrink-0">
@@ -138,7 +143,7 @@ export default function ProfileList() {
                             <User className="h-4 w-4 text-gray-400" />
                           )}
                         </div>
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-gray-900 group-hover:text-fkvi-blue transition-colors">
                           {profile.first_name || profile.last_name
                             ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
                             : 'Kein Name'}
@@ -162,17 +167,14 @@ export default function ProfileList() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={e => { e.stopPropagation(); setDeleteDialog(profile) }}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Link to={`/admin/fachkraefte/${profile.id}`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                        </Link>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={e => { e.stopPropagation(); setDeleteDialog(profile) }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </td>
                   </tr>
                 ))}

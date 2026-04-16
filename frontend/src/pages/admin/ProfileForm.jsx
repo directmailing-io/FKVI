@@ -20,7 +20,7 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -205,6 +205,74 @@ function ImageCropperDialog({ src, onDone, onCancel }) {
   )
 }
 
+// ─── Document components ──────────────────────────────────────────────────────
+const DOC_TYPES = ['Zeugnis', 'Anerkennungsbescheid', 'Sprachzertifikat', 'Lebenslauf', 'Referenz', 'Sonstiges']
+
+const DOC_TYPE_COLORS = {
+  'Zeugnis': 'bg-blue-50 text-blue-700',
+  'Anerkennungsbescheid': 'bg-purple-50 text-purple-700',
+  'Sprachzertifikat': 'bg-green-50 text-green-700',
+  'Lebenslauf': 'bg-orange-50 text-orange-700',
+  'Referenz': 'bg-pink-50 text-pink-700',
+  'Sonstiges': 'bg-gray-100 text-gray-600',
+}
+
+function DocEditDialog({ doc, onSave, onClose }) {
+  const [form, setForm] = useState({ title: '', doc_type: '', description: '', link: '', is_internal: false, ...doc })
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  return (
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            {doc.title ? 'Dokument bearbeiten' : 'Neues Dokument'}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Titel" required>
+              <Input value={form.title} onChange={e => set('title', e.target.value)} placeholder="z.B. Abschlusszeugnis" autoFocus />
+            </Field>
+            <Field label="Typ">
+              <Select value={form.doc_type} onValueChange={v => set('doc_type', v)}>
+                <SelectTrigger><SelectValue placeholder="Typ wählen" /></SelectTrigger>
+                <SelectContent>
+                  {DOC_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <Field label="Link (Google Drive, Dropbox, o.ä.)" required>
+            <Input value={form.link} onChange={e => set('link', e.target.value)} placeholder="https://drive.google.com/..." type="url" />
+          </Field>
+          <Field label="Beschreibung">
+            <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Kurze Beschreibung (optional)..." rows={2} />
+          </Field>
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              {form.is_internal
+                ? <EyeOff className="h-4 w-4 text-amber-500" />
+                : <Eye className="h-4 w-4 text-green-500" />}
+              <div>
+                <p className="text-sm font-medium">{form.is_internal ? 'Internes Dokument' : 'Für Unternehmen sichtbar'}</p>
+                <p className="text-xs text-gray-400">{form.is_internal ? 'Nur für Admins' : 'Im Statustracker sichtbar'}</p>
+              </div>
+            </div>
+            <Switch checked={!!form.is_internal} onCheckedChange={v => set('is_internal', v)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+          <Button onClick={() => onSave(form)} disabled={!form.link?.trim()}>
+            <Save className="h-3.5 w-3.5 mr-1.5" />Speichern
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Empty profile defaults ───────────────────────────────────────────────────
 const EMPTY_PROFILE = {
   status: 'draft',
@@ -242,6 +310,9 @@ export default function ProfileForm() {
   const [videoUploading, setVideoUploading] = useState(false)
   const [error, setError] = useState('')
   const [deleteDialog, setDeleteDialog] = useState(false)
+  const [editingDoc, setEditingDoc] = useState(null) // { idx: number|null, doc: {} } — null idx = new doc
+  const [deletingDocIdx, setDeletingDocIdx] = useState(null)
+  const [docSaving, setDocSaving] = useState(false)
   const [reserveDialog, setReserveDialog] = useState(false)
   const [companies, setCompanies] = useState([])
   const [companySearch, setCompanySearch] = useState('')
@@ -251,6 +322,14 @@ export default function ProfileForm() {
   const [reservation, setReservation] = useState(null)
   const [reservationHistory, setReservationHistory] = useState([])
   const [advancing, setAdvancing] = useState(false)
+  const [decoupling, setDecoupling] = useState(false)
+  const [decoupleDialog, setDecoupleDialog] = useState(false)
+  const [pendingAdvance, setPendingAdvance] = useState(null) // { newStatus, needsDate, emailAlreadySent }
+  const [stepDate, setStepDate] = useState('')
+  const [resendEmail, setResendEmail] = useState(false)
+
+  const EMAIL_TRIGGER_STEPS = new Set([2, 8, 9])
+  const DATE_STEPS = new Set([2, 7, 9, 10, 11])
   const imageRef = useRef()
   const videoRef = useRef()
 
@@ -275,7 +354,7 @@ export default function ProfileForm() {
       if (p.status === 'reserved') {
         const { data: res } = await supabase
           .from('reservations')
-          .select('id, process_status, companies (id, company_name)')
+          .select('id, process_status, company_id, companies (id, company_name, email, company_type)')
           .eq('profile_id', id)
           .single()
         setReservation(res || null)
@@ -383,13 +462,15 @@ export default function ProfileForm() {
         profileId = data.id
       }
 
-      if (isEdit) {
-        await supabase.from('profile_documents').delete().eq('profile_id', profileId)
-      }
-      if (documents.length > 0) {
-        await supabase.from('profile_documents').insert(
-          documents.map((doc, i) => ({ ...doc, profile_id: profileId, sort_order: i }))
-        )
+      // Save documents via service-role API to guarantee write access regardless of RLS
+      const docsRes = await fetch('/api/admin/save-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ profileId, documents }),
+      })
+      if (!docsRes.ok) {
+        const docsErr = await docsRes.json().catch(() => ({}))
+        throw new Error(docsErr.error || 'Dokumente konnten nicht gespeichert werden')
       }
 
       toast({ title: 'Gespeichert', description: 'Das Profil wurde erfolgreich gespeichert.', variant: 'success' })
@@ -478,18 +559,39 @@ export default function ProfileForm() {
     }
   }
 
-  const handleAdvanceStatus = async (direction) => {
+  const handleAdvanceStatus = (direction) => {
     if (!reservation) return
     const newStatus = direction === 'forward'
       ? Math.min(reservation.process_status + 1, 11)
       : Math.max(reservation.process_status - 1, 1)
     if (newStatus === reservation.process_status) return
+
+    const needsDate = direction === 'forward' && DATE_STEPS.has(newStatus)
+    const emailAlreadySent = EMAIL_TRIGGER_STEPS.has(newStatus) &&
+      reservationHistory.some(h => h.new_status === newStatus)
+
+    if (needsDate || emailAlreadySent) {
+      setStepDate('')
+      setResendEmail(false) // default: don't resend if already sent
+      setPendingAdvance({ newStatus, needsDate, emailAlreadySent })
+    } else {
+      doAdvanceStatus(newStatus, null, false)
+    }
+  }
+
+  const doAdvanceStatus = async (newStatus, date, skipEmail) => {
     setAdvancing(true)
     try {
       const res = await fetch('/api/admin/update-reservation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ reservationId: reservation.id, newStatus, notes: null }),
+        body: JSON.stringify({
+          reservationId: reservation.id,
+          newStatus,
+          notes: null,
+          stepDate: date || null,
+          skipEmail: !!skipEmail,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -505,6 +607,30 @@ export default function ProfileForm() {
       toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {
       setAdvancing(false)
+      setPendingAdvance(null)
+      setStepDate('')
+      setResendEmail(false)
+    }
+  }
+
+  const handleDecouple = async () => {
+    if (!reservation) return
+    setDecoupling(true)
+    try {
+      const res = await fetch('/api/admin/decouple-reservation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ reservationId: reservation.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: 'Entkoppelt', description: 'Fachkraft und Unternehmen wurden getrennt.' })
+      setDecoupleDialog(false)
+      fetchProfile()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setDecoupling(false)
     }
   }
 
@@ -528,16 +654,46 @@ export default function ProfileForm() {
     set('language_skills', (profile.language_skills || []).filter((_, i) => i !== idx))
   }
 
-  const addDocument = () => {
-    setDocuments(prev => [...prev, { title: '', doc_type: '', description: '', link: '', is_internal: false }])
+  // ── Document helpers ──────────────────────────────────────────────────────────
+  const saveDocumentsToApi = async (docs) => {
+    if (!id) return // only for edit mode
+    setDocSaving(true)
+    try {
+      const res = await fetch('/api/admin/save-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ profileId: id, documents: docs }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Dokumente konnten nicht gespeichert werden')
+      }
+      toast({ title: 'Dokumente gespeichert', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setDocSaving(false)
+    }
   }
 
-  const updateDocument = (idx, field, value) => {
-    setDocuments(prev => prev.map((doc, i) => i === idx ? { ...doc, [field]: value } : doc))
+  const handleSaveDoc = async (form) => {
+    let updated
+    if (editingDoc.idx === null) {
+      // New document
+      updated = [...documents, form]
+    } else {
+      // Edit existing
+      updated = documents.map((d, i) => i === editingDoc.idx ? form : d)
+    }
+    setDocuments(updated)
+    setEditingDoc(null)
+    if (isEdit) await saveDocumentsToApi(updated)
   }
 
-  const removeDocument = (idx) => {
-    setDocuments(prev => prev.filter((_, i) => i !== idx))
+  const handleRemoveDoc = async (idx) => {
+    const updated = documents.filter((_, i) => i !== idx)
+    setDocuments(updated)
+    if (isEdit) await saveDocumentsToApi(updated)
   }
 
   if (loading) return (
@@ -557,6 +713,85 @@ export default function ProfileForm() {
           onCancel={() => setCropSrc(null)}
         />
       )}
+
+      {/* Decouple confirmation dialog */}
+      <Dialog open={decoupleDialog} onOpenChange={setDecoupleDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Unlink className="h-5 w-5" />Fachkraft entkoppeln?
+            </DialogTitle>
+            <DialogDescription>
+              Die Verbindung zwischen dieser Fachkraft und <strong>{reservation?.companies?.company_name}</strong> wird aufgehoben.
+              Die Fachkraft wird wieder auf "Veröffentlicht" gesetzt und die Vermittlung beendet.
+              Dieser Vorgang kann nicht rückgängig gemacht werden.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDecoupleDialog(false)} disabled={decoupling}>Abbrechen</Button>
+            <Button variant="destructive" onClick={handleDecouple} disabled={decoupling}>
+              {decoupling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Unlink className="h-4 w-4 mr-2" />}
+              Entkoppeln
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Step advance dialog (date + email resend) */}
+      <Dialog open={!!pendingAdvance} onOpenChange={open => { if (!open) { setPendingAdvance(null); setStepDate(''); setResendEmail(false) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Schritt {pendingAdvance?.newStatus}/11: {PROCESS_STATUS_LABELS[pendingAdvance?.newStatus]}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {pendingAdvance?.needsDate && (
+              <div className="space-y-1.5">
+                <Label>Datum <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <Input
+                  type="date"
+                  value={stepDate}
+                  onChange={e => setStepDate(e.target.value)}
+                  autoFocus={pendingAdvance?.needsDate}
+                />
+              </div>
+            )}
+            {pendingAdvance?.emailAlreadySent && (
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <Mail className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <p className="text-sm font-medium text-amber-800">E-Mail bereits versandt</p>
+                  <p className="text-xs text-amber-700">Für diesen Schritt wurde bereits eine automatische E-Mail verschickt. Soll erneut eine Benachrichtigung gesendet werden?</p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Switch
+                      id="resend-email"
+                      checked={resendEmail}
+                      onCheckedChange={setResendEmail}
+                    />
+                    <Label htmlFor="resend-email" className="text-sm cursor-pointer">
+                      {resendEmail ? 'E-Mail erneut versenden' : 'Keine E-Mail senden'}
+                    </Label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPendingAdvance(null); setStepDate(''); setResendEmail(false) }}>Abbrechen</Button>
+            <Button
+              onClick={() => doAdvanceStatus(
+                pendingAdvance.newStatus,
+                stepDate || null,
+                pendingAdvance.emailAlreadySent && !resendEmail
+              )}
+              disabled={advancing}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {advancing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Bestätigen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="space-y-6 max-w-4xl">
         {/* Header */}
@@ -595,25 +830,34 @@ export default function ProfileForm() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-              <Select
-                value={profile.status}
-                onValueChange={v => {
-                  if (v === 'reserved' && isEdit && profile.status !== 'reserved') {
-                    openReserveDialog()
-                  } else {
-                    set('status', v)
-                  }
-                }}
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(PROFILE_STATUS_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative">
+                <Select
+                  value={profile.status}
+                  disabled={profile.status === 'reserved'}
+                  onValueChange={v => {
+                    if (v === 'reserved' && isEdit && profile.status !== 'reserved') {
+                      openReserveDialog()
+                    } else {
+                      set('status', v)
+                    }
+                  }}
+                >
+                  <SelectTrigger className={`w-40 ${profile.status === 'reserved' ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                    <SelectValue />
+                    {profile.status === 'reserved' && <Lock className="h-3 w-3 ml-1 text-blue-400 shrink-0" />}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PROFILE_STATUS_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {profile.status === 'reserved' && (
+                  <p className="absolute -bottom-4 left-0 text-[10px] text-blue-500 whitespace-nowrap font-medium">
+                    Zuerst entkoppeln
+                  </p>
+                )}
+              </div>
               <Button onClick={handleSave} disabled={saving}>
                 {saving
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Speichern...</>
@@ -624,6 +868,57 @@ export default function ProfileForm() {
         </div>
 
         {reservation && reservation.companies && (
+          <>
+          {/* ── Company card ────────────────────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-5 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-slate-300" />
+                <span className="text-slate-300 text-xs font-semibold uppercase tracking-wide">Zugewiesenes Unternehmen</span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                reservation.companies.company_type === 'customer' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                reservation.companies.company_type === 'lead' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+              }`}>
+                {reservation.companies.company_type === 'customer' ? 'Kunde' :
+                 reservation.companies.company_type === 'lead' ? 'Lead' : 'Inaktiv'}
+              </span>
+            </div>
+            <div className="p-5 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                <Building2 className="h-6 w-6 text-slate-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-900 text-base truncate">{reservation.companies.company_name}</p>
+                {reservation.companies.email && (
+                  <p className="text-sm text-gray-500 mt-0.5 flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />{reservation.companies.email}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/admin/crm/${reservation.companies.id}`)}
+                  className="text-slate-700 border-slate-200 hover:bg-slate-50 gap-1.5"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />CRM
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDecoupleDialog(true)}
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 gap-1.5"
+                >
+                  <Unlink className="h-3.5 w-3.5" />Entkoppeln
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Vermittlungsprozess card ─────────────────────────────────── */}
           <div className="bg-white rounded-xl border border-green-300 shadow-sm overflow-hidden">
             {/* Header */}
             <div className="bg-green-600 px-6 py-4 flex items-center justify-between">
@@ -659,9 +954,16 @@ export default function ProfileForm() {
                           }`}>
                             {done ? '✓' : num}
                           </div>
-                          <span className={done ? 'text-gray-400 line-through' : active ? 'text-green-700 font-semibold' : 'text-gray-400'}>
+                          <span className={`flex-1 ${done ? 'text-gray-400 line-through' : active ? 'text-green-700 font-semibold' : 'text-gray-400'}`}>
                             {label}
                           </span>
+                          {EMAIL_TRIGGER_STEPS.has(num) && (
+                            <span title="E-Mail wird automatisch versendet" className={`flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ${
+                              active ? 'bg-blue-100 text-blue-600' : done ? 'bg-gray-100 text-gray-400' : 'bg-blue-50 text-blue-400'
+                            }`}>
+                              <Mail className="h-2.5 w-2.5" />E-Mail
+                            </span>
+                          )}
                         </div>
                       )
                     })}
@@ -686,16 +988,20 @@ export default function ProfileForm() {
                       size="sm"
                       onClick={() => handleAdvanceStatus('forward')}
                       disabled={advancing}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      className={`flex-1 text-white ${reservation.process_status === 10 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-green-600 hover:bg-green-700'}`}
                     >
                       {advancing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                      Weiter zu Schritt {reservation.process_status + 1} →
+                      {reservation.process_status === 10
+                        ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Vermittlung abschließen</>
+                        : `Weiter zu Schritt ${reservation.process_status + 1} →`}
                     </Button>
                   </div>
                 )}
                 {reservation.process_status === 11 && (
-                  <div className="flex items-center gap-2 text-green-600 text-sm font-medium pt-2 border-t border-gray-100">
-                    <CheckCircle2 className="h-4 w-4" />Vermittlung abgeschlossen!
+                  <div className="mt-2 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center space-y-1">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+                    <p className="font-bold text-emerald-700 text-sm">Vermittlung abgeschlossen</p>
+                    <p className="text-emerald-600 text-xs">Alle Schritte erfolgreich durchlaufen.</p>
                   </div>
                 )}
               </div>
@@ -718,6 +1024,7 @@ export default function ProfileForm() {
                             {entry.old_status ? `Schritt ${entry.old_status} → ${entry.new_status}` : `Start: Schritt ${entry.new_status}`}
                           </p>
                           <p className="text-[11px] text-gray-500">{PROCESS_STATUS_LABELS[entry.new_status]}</p>
+                          {entry.notes && <p className="text-[11px] text-blue-600 mt-0.5">📅 {entry.notes}</p>}
                           <p className="text-[10px] text-gray-400 mt-0.5">{formatDateTime(entry.created_at)}</p>
                         </div>
                       </div>
@@ -727,6 +1034,7 @@ export default function ProfileForm() {
               </div>
             </div>
           </div>
+          </> /* end reservation two-card block */
         )}
 
         {error && (
@@ -1082,72 +1390,153 @@ export default function ProfileForm() {
           </TabsContent>
 
           {/* ── TAB: Dokumente ──────────────────────────────────────────── */}
-          <TabsContent value="documents" className="space-y-6 mt-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-              <div className="flex items-center justify-between">
+          <TabsContent value="documents" className="space-y-4 mt-6">
+            {/* Edit/Add dialog */}
+            {editingDoc && (
+              <DocEditDialog
+                doc={editingDoc.doc}
+                onSave={handleSaveDoc}
+                onClose={() => setEditingDoc(null)}
+              />
+            )}
+
+            {deletingDocIdx !== null && (
+              <Dialog open onOpenChange={open => !open && setDeletingDocIdx(null)}>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="h-5 w-5" />Dokument löschen?
+                    </DialogTitle>
+                    <DialogDescription>
+                      <strong>„{documents[deletingDocIdx]?.title || 'Dieses Dokument'}"</strong> wird unwiderruflich entfernt.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDeletingDocIdx(null)}>Abbrechen</Button>
+                    <Button variant="destructive" onClick={() => { handleRemoveDoc(deletingDocIdx); setDeletingDocIdx(null) }}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />Löschen
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                 <div>
-                  <h3 className="font-semibold text-gray-900">Dokumente</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Externe Links zu Dokumenten (z.B. Google Drive)</p>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                    Dokumente
+                    {documents.length > 0 && (
+                      <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{documents.length}</span>
+                    )}
+                    {docSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Google Drive, Dropbox oder andere externe Links</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={addDocument}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />Dokument
+                <Button
+                  size="sm"
+                  onClick={() => setEditingDoc({ idx: null, doc: { title: '', doc_type: '', description: '', link: '', is_internal: false } })}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />Dokument hinzufügen
                 </Button>
               </div>
+
+              {/* List */}
               {documents.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p className="text-sm">Noch keine Dokumente verknüpft.</p>
+                <div className="text-center py-12 text-gray-400">
+                  <FileText className="h-8 w-8 mx-auto mb-3 text-gray-200" />
+                  <p className="text-sm font-medium text-gray-500">Noch keine Dokumente</p>
+                  <p className="text-xs mt-1">Füge Links zu Zeugnissen, Lebensläufen oder anderen Dokumenten hinzu.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => setEditingDoc({ idx: null, doc: { title: '', doc_type: '', description: '', link: '', is_internal: false } })}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />Erstes Dokument hinzufügen
+                  </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {documents.map((doc, idx) => (
-                    <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Dokument {idx + 1}</span>
-                        <Button variant="ghost" size="icon" onClick={() => removeDocument(idx)}>
-                          <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field label="Titel">
-                          <Input value={doc.title} onChange={e => updateDocument(idx, 'title', e.target.value)} placeholder="z.B. Abschlusszeugnis" />
-                        </Field>
-                        <Field label="Typ">
-                          <Select value={doc.doc_type} onValueChange={v => updateDocument(idx, 'doc_type', v)}>
-                            <SelectTrigger><SelectValue placeholder="Typ auswählen" /></SelectTrigger>
-                            <SelectContent>
-                              {['Zeugnis', 'Anerkennungsbescheid', 'Sprachzertifikat', 'Lebenslauf', 'Referenz', 'Sonstiges'].map(t => (
-                                <SelectItem key={t} value={t}>{t}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </Field>
-                      </div>
-                      <Field label="Link (Google Drive o.ä.)">
-                        <Input value={doc.link} onChange={e => updateDocument(idx, 'link', e.target.value)} placeholder="https://drive.google.com/..." type="url" />
-                      </Field>
-                      <Field label="Beschreibung">
-                        <Textarea value={doc.description} onChange={e => updateDocument(idx, 'description', e.target.value)} placeholder="Kurze Beschreibung..." rows={2} />
-                      </Field>
-                      <div className="flex items-center gap-3 pt-1">
-                        <Switch
-                          id={`internal-${idx}`}
-                          checked={!!doc.is_internal}
-                          onCheckedChange={v => updateDocument(idx, 'is_internal', v)}
-                        />
-                        <div>
-                          <Label htmlFor={`internal-${idx}`} className="text-sm font-medium cursor-pointer">
-                            Internes Dokument
-                          </Label>
-                          <p className="text-xs text-gray-400">
-                            {doc.is_internal ? 'Nur für Admins sichtbar' : 'Für das Unternehmen sichtbar'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50/50">
+                      <th className="text-left px-6 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Dokument</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide hidden sm:table-cell">Typ</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Sichtbarkeit</th>
+                      <th className="px-3 py-2.5 w-24"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {documents.map((doc, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                              <FileText className="h-4 w-4 text-fkvi-blue" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
+                              {doc.description && <p className="text-xs text-gray-400 truncate">{doc.description}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 hidden sm:table-cell">
+                          {doc.doc_type
+                            ? <span className={`text-xs px-2 py-1 rounded-full font-medium ${DOC_TYPE_COLORS[doc.doc_type] || 'bg-gray-100 text-gray-600'}`}>{doc.doc_type}</span>
+                            : <span className="text-gray-300 text-xs">—</span>}
+                        </td>
+                        <td className="px-3 py-3">
+                          {doc.is_internal
+                            ? <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
+                                <EyeOff className="h-3 w-3" />Intern
+                              </span>
+                            : <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">
+                                <Eye className="h-3 w-3" />Sichtbar
+                              </span>}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {doc.link && (
+                              <a
+                                href={doc.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors"
+                                title="Link öffnen"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            <button
+                              onClick={() => setEditingDoc({ idx, doc })}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                              title="Bearbeiten"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingDocIdx(idx)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              title="Löschen"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
+
+            {!isEdit && documents.length > 0 && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+                Dokumente werden beim Speichern des Profils gespeichert.
+              </p>
+            )}
           </TabsContent>
         </Tabs>
       </div>

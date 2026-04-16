@@ -20,6 +20,12 @@ export default function VermittlungenPage() {
 
   useEffect(() => { fetchData() }, [])
 
+  // Polling so the list stays fresh after decouple/status changes
+  useEffect(() => {
+    const interval = setInterval(fetchData, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
   const fetchData = async () => {
     setLoading(true)
     try {

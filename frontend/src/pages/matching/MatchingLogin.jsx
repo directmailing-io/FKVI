@@ -39,9 +39,7 @@ export default function MatchingLogin() {
         </Link>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-fkvi-blue text-white font-bold text-xl mb-4 shadow-md">
-            FK
-          </div>
+          <img src="/logo.svg" alt="FKVI" className="h-32 w-auto mx-auto mb-4" style={{ mixBlendMode: 'multiply' }} />
           <h1 className="text-2xl font-bold text-gray-900">Matching-Plattform</h1>
           <p className="text-sm text-gray-500 mt-1.5">Melden Sie sich an, um fortzufahren</p>
         </div>

@@ -10,8 +10,8 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const navItems = [
-  { label: 'Profile entdecken', icon: Search,    href: '/matching',            live: false },
-  { label: 'Statustracker',     icon: Activity,  href: '/matching/reserviert', live: true  },
+  { label: 'Matching-Plattform', icon: Search,    href: '/matching',            live: false },
+  { label: 'Statustracker',      icon: Activity,  href: '/matching/reserviert', live: true  },
 ]
 
 function PasswordStrength({ password }) {
@@ -156,10 +156,10 @@ export default function MatchingLayout({ children }) {
         "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <span className="font-bold text-fkvi-blue text-lg">Matching-Plattform</span>
-            <span className="block text-gray-400 text-xs">FKVI</span>
+            <img src="/logo.svg" alt="FKVI" className="h-16 w-auto" style={{ mixBlendMode: 'multiply' }} />
+            <span className="block text-gray-400 text-xs mt-1">Mitgliederbereich</span>
           </div>
           <button className="lg:hidden text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
@@ -220,7 +220,7 @@ export default function MatchingLayout({ children }) {
           <button onClick={() => setSidebarOpen(true)} className="text-gray-600 hover:text-gray-900">
             <Menu className="h-6 w-6" />
           </button>
-          <span className="font-bold text-fkvi-blue">Matching-Plattform</span>
+          <img src="/logo.svg" alt="FKVI" className="h-10 w-auto" style={{ mixBlendMode: 'multiply' }} />
         </header>
         <main className="flex-1 p-6 lg:p-8">
           {children}

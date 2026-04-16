@@ -33,18 +33,32 @@ export default function ReservedProfiles() {
 
   useEffect(() => { fetchReservations() }, [companyId])
 
-  // Realtime
+  // Polling fallback: guarantees updates even if realtime broadcast fails
+  useEffect(() => {
+    if (!companyId) return
+    const interval = setInterval(fetchReservations, 4000)
+    return () => clearInterval(interval)
+  }, [companyId])
+
+  // Realtime: subscribe to "reservation-updates" broadcast channel.
+  // Server broadcasts to topic "realtime:reservation-updates" via HTTP API,
+  // which the supabase-js client maps to channel name "reservation-updates".
   useEffect(() => {
     if (!companyId) return
     const channel = supabase
-      .channel(`reservations-list-${companyId}`)
+      .channel('reservation-updates')
+      .on('broadcast', { event: 'status_update' }, ({ payload }) => {
+        if (String(payload?.companyId) === String(companyId)) fetchReservations()
+      })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'reservations',
         filter: `company_id=eq.${companyId}`,
       }, () => fetchReservations())
-      .subscribe()
+      .subscribe((status, err) => {
+        if (err) console.error('Realtime subscribe error (list):', err)
+      })
     return () => { supabase.removeChannel(channel) }
   }, [companyId])
 
@@ -95,17 +109,24 @@ export default function ReservedProfiles() {
             const step = res.process_status
             const pct = Math.round((step / 11) * 100)
 
+            const isDone = step === 11
             return (
               <div
                 key={res.id}
                 onClick={() => navigate(`/matching/reserviert/${res.id}`)}
-                className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:shadow-md hover:border-fkvi-blue/30 transition-all group"
+                className={`rounded-xl border p-5 cursor-pointer transition-all group ${
+                  isDone
+                    ? 'bg-emerald-50 border-emerald-200 hover:shadow-md hover:border-emerald-400'
+                    : 'bg-white border-gray-200 hover:shadow-md hover:border-fkvi-blue/30'
+                }`}
               >
                 <div className="flex gap-4 items-center">
-                  <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 flex items-center justify-center ${isDone ? 'bg-emerald-100' : 'bg-gray-100'}`}>
                     {p.profile_image_url
                       ? <img src={p.profile_image_url} alt="" className="w-full h-full object-cover" />
-                      : <User className="h-6 w-6 text-gray-300" />}
+                      : isDone
+                        ? <CheckCircle2 className="h-7 w-7 text-emerald-500" />
+                        : <User className="h-6 w-6 text-gray-300" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
@@ -118,15 +139,22 @@ export default function ReservedProfiles() {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                          step === 11 ? 'bg-green-100 text-green-700' :
-                          step >= 8 ? 'bg-purple-100 text-purple-700' :
-                          step >= 5 ? 'bg-blue-100 text-blue-700' :
-                          'bg-amber-100 text-amber-700'
-                        }`}>
-                          Schritt {step}/11
-                        </span>
-                        <p className="text-xs text-gray-400 mt-1">{PROCESS_STATUS_LABELS[step]}</p>
+                        {isDone ? (
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />Abgeschlossen
+                          </span>
+                        ) : (
+                          <>
+                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                              step >= 8 ? 'bg-purple-100 text-purple-700' :
+                              step >= 5 ? 'bg-blue-100 text-blue-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                              Schritt {step}/11
+                            </span>
+                            <p className="text-xs text-gray-400 mt-1">{PROCESS_STATUS_LABELS[step]}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="mt-3 flex items-center gap-3">
