@@ -56,7 +56,7 @@ export default function ReservedProfiles() {
             .select(`
               id, process_status, created_at, updated_at,
               profiles (
-                id, gender, age, nationality, profile_image_url,
+                id, first_name, last_name, gender, age, nationality, profile_image_url,
                 nursing_education, specializations, total_experience_years,
                 german_recognition, vimeo_video_url
               )
@@ -134,9 +134,11 @@ export default function ReservedProfiles() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="font-semibold text-gray-900">
-                            {p.gender}{p.age ? `, ${p.age} J.` : ''}
+                            {`${p.first_name || ''} ${p.last_name || ''}`.trim() || p.gender || 'Fachkraft'}
                           </p>
-                          <p className="text-sm text-gray-500">{p.nationality}</p>
+                          <p className="text-sm text-gray-500">
+                            {[p.gender, p.age ? `${p.age} J.` : null, p.nationality].filter(Boolean).join(' · ')}
+                          </p>
                         </div>
                         <div className="text-right shrink-0">
                           <div className="text-xs font-semibold text-fkvi-blue">Schritt {res.process_status}/11</div>

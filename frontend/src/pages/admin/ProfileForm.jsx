@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useNavigate, useParams, useLocation, Link } from 'react-router-dom'
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import { supabase } from '@/lib/supabase'
@@ -16,11 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { MultiSelect } from '@/components/ui/multi-select'
 import {
   GERMAN_STATES, FACILITY_TYPES, WORK_TIME_OPTIONS,
-  SPECIALIZATIONS, EXPERIENCE_AREAS, PROFILE_STATUS_LABELS
+  SPECIALIZATIONS, EXPERIENCE_AREAS, PROFILE_STATUS_LABELS, PROCESS_STATUS_LABELS
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -247,6 +247,7 @@ export default function ProfileForm() {
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [reserving, setReserving] = useState(false)
   const [reserveForCompany, setReserveForCompany] = useState(null)
+  const [reservation, setReservation] = useState(null)
   const imageRef = useRef()
   const videoRef = useRef()
 
@@ -261,11 +262,23 @@ export default function ProfileForm() {
   }, [reserveFor])
 
   const fetchProfile = async () => {
-    const { data: p } = await supabase.from('profiles').select('*').eq('id', id).single()
-    const { data: docs } = await supabase.from('profile_documents').select('*').eq('profile_id', id).order('sort_order')
+    const [{ data: p }, { data: docs }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', id).single(),
+      supabase.from('profile_documents').select('*').eq('profile_id', id).order('sort_order'),
+    ])
     if (p) {
       setProfile({ ...EMPTY_PROFILE, ...p })
       setImagePreview(p.profile_image_url)
+      if (p.status === 'reserved') {
+        const { data: res } = await supabase
+          .from('reservations')
+          .select('id, process_status, companies (id, company_name, city)')
+          .eq('profile_id', id)
+          .single()
+        setReservation(res || null)
+      } else {
+        setReservation(null)
+      }
     }
     setDocuments(docs || [])
     setLoading(false)
@@ -397,7 +410,7 @@ export default function ProfileForm() {
     const { data } = await supabase
       .from('companies')
       .select('id, company_name, city, email')
-      .eq('status', 'approved')
+      .in('status', ['approved', 'active'])
       .order('company_name')
     setCompanies(data || [])
     setSelectedCompanyId('')
@@ -540,12 +553,16 @@ export default function ProfileForm() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
-              {isEdit && profile.status === 'published' && (
-                <Button variant="outline" size="sm" onClick={openReserveDialog} className="text-fkvi-blue border-blue-200 hover:bg-blue-50">
-                  <Bookmark className="h-3.5 w-3.5 mr-1.5" />Zuordnen
-                </Button>
-              )}
-              <Select value={profile.status} onValueChange={v => set('status', v)}>
+              <Select
+                value={profile.status}
+                onValueChange={v => {
+                  if (v === 'reserved' && isEdit && profile.status !== 'reserved') {
+                    openReserveDialog()
+                  } else {
+                    set('status', v)
+                  }
+                }}
+              >
                 <SelectTrigger className="w-36">
                   <SelectValue />
                 </SelectTrigger>
@@ -563,6 +580,27 @@ export default function ProfileForm() {
             </div>
           </div>
         </div>
+
+        {reservation && reservation.companies && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 flex items-center gap-3">
+            <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-blue-900">
+                Reserviert für {reservation.companies.company_name}
+                {reservation.companies.city ? ` · ${reservation.companies.city}` : ''}
+              </p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                Vermittlung Schritt {reservation.process_status}/11 — {PROCESS_STATUS_LABELS[reservation.process_status]}
+              </p>
+            </div>
+            <Link
+              to={`/admin/vermittlungen/${reservation.id}`}
+              className="text-xs text-blue-600 hover:underline flex items-center gap-1 shrink-0"
+            >
+              Zur Vermittlung <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
+        )}
 
         {error && (
           <Alert variant="destructive">

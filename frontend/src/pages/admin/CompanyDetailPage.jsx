@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatDateTime, cn } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart } from 'lucide-react'
+import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const COMPANY_TYPE_LABELS = {
@@ -57,6 +57,7 @@ export default function CompanyDetailPage() {
   const [newNoteContent, setNewNoteContent] = useState('')
   const [addingNote, setAddingNote] = useState(false)
   const [interestProfiles, setInterestProfiles] = useState({})
+  const [reservations, setReservations] = useState([])
 
   // Additional contacts state
   const [contacts, setContacts] = useState([])
@@ -85,11 +86,14 @@ export default function CompanyDetailPage() {
 
   const fetchCompany = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const [{ data, error }, { data: resData }] = await Promise.all([
+      supabase.from('companies').select('*').eq('id', id).single(),
+      supabase
+        .from('reservations')
+        .select(`id, process_status, created_at, profiles (id, first_name, last_name, gender, age, nationality, nursing_education, profile_image_url)`)
+        .eq('company_id', id)
+        .order('created_at', { ascending: false }),
+    ])
     if (error) {
       toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
     } else {
@@ -97,6 +101,7 @@ export default function CompanyDetailPage() {
       setNotesList(data.notes_list || [])
       setContacts(data.additional_contacts || [])
     }
+    setReservations(resData || [])
     setLoading(false)
   }
 
@@ -586,6 +591,58 @@ export default function CompanyDetailPage() {
               rows={5}
             />
           </div>
+
+          {/* Aktive Vermittlungen */}
+          {reservations.length > 0 && (
+            <div className="bg-white rounded-xl border border-blue-200 p-6 space-y-4">
+              <h2 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+                <Activity className="h-4 w-4 text-blue-500" />
+                Aktive Vermittlungen
+                <span className="ml-auto text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-semibold">
+                  {reservations.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                {reservations.map(res => {
+                  const p = res.profiles
+                  const step = res.process_status
+                  const pct = Math.round((step / 11) * 100)
+                  const isDone = step === 11
+                  return (
+                    <a
+                      key={res.id}
+                      href={`/admin/vermittlungen/${res.id}`}
+                      className="flex items-center gap-3 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-lg hover:border-blue-300 transition-colors group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-blue-100 overflow-hidden flex items-center justify-center shrink-0">
+                        {p?.profile_image_url
+                          ? <img src={p.profile_image_url} alt="" className="w-full h-full object-cover" />
+                          : <User className="h-4 w-4 text-blue-300" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.gender || '—' : '—'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex-1 bg-blue-200/50 rounded-full h-1">
+                            <div
+                              className={`h-1 rounded-full ${isDone ? 'bg-green-500' : 'bg-blue-500'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-gray-500 shrink-0">
+                            Schritt {step}/11
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{PROCESS_STATUS_LABELS[step]}</p>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-gray-300 group-hover:text-blue-500 shrink-0 transition-colors" />
+                    </a>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Interesse — separate card, only shown when bookings exist */}
           {notesList.some(n => n.type === 'interest_booking') && (
