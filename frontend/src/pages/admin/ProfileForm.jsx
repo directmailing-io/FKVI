@@ -409,8 +409,8 @@ export default function ProfileForm() {
   const openReserveDialog = async () => {
     const { data } = await supabase
       .from('companies')
-      .select('id, company_name, city, email')
-      .in('status', ['approved', 'active'])
+      .select('id, company_name, city, email, status')
+      .neq('status', 'rejected')
       .order('company_name')
     setCompanies(data || [])
     setSelectedCompanyId('')
@@ -1050,13 +1050,14 @@ export default function ProfileForm() {
                 {companies.map(c => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.company_name}{c.city ? ` · ${c.city}` : ''}
+                    {c.status === 'approved' ? ' ✓' : c.status === 'pending' ? ' (ausstehend)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {companies.length === 0 && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                Keine freigeschalteten Unternehmen gefunden. Bitte erst ein Unternehmen in der Freigabezentrale freischalten.
+                Keine Unternehmen gefunden. Bitte zuerst ein Unternehmen im CRM anlegen.
               </p>
             )}
           </div>
