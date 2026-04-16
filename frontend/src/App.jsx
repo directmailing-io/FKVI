@@ -24,6 +24,7 @@ import CvPage from '@/pages/public/CvPage'
 import CvSharePage from '@/pages/public/CvSharePage'
 import DownloadsPage from '@/pages/public/DownloadsPage'
 import BrochureAccessPage from '@/pages/public/BrochureAccessPage'
+import BeratungPage from '@/pages/public/BeratungPage'
 
 // Matching pages
 import MatchingLogin from '@/pages/matching/MatchingLogin'
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="/lebenslauf/share/:token" element={<CvSharePage />} />
         <Route path="/downloads" element={<DownloadsPage />} />
         <Route path="/downloads/zugang/:token" element={<BrochureAccessPage />} />
+        <Route path="/beratung" element={<BeratungPage />} />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
