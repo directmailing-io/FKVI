@@ -21,6 +21,7 @@ export default function MatchingBrowse() {
   const [showFilters, setShowFilters] = useState(false)
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [detailProfile, setDetailProfile] = useState(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [interestDialog, setInterestDialog] = useState(false)
   const [interestMessage, setInterestMessage] = useState('')
   const [interestSent, setInterestSent] = useState(false)
@@ -280,7 +281,7 @@ export default function MatchingBrowse() {
                   profile={profile}
                   isFavorite={favorites.has(profile.id)}
                   onToggleFavorite={toggleFavorite}
-                  onViewDetail={setDetailProfile}
+                  onViewDetail={(p) => { setDetailProfile(p); setDetailOpen(true) }}
                 />
               ))}
             </div>
@@ -307,8 +308,8 @@ export default function MatchingBrowse() {
       {/* Profile Detail Modal */}
       <ProfileDetailModal
         profile={detailProfile}
-        open={!!detailProfile}
-        onClose={() => setDetailProfile(null)}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
         isFavorite={detailProfile ? favorites.has(detailProfile.id) : false}
         onToggleFavorite={toggleFavorite}
       />
