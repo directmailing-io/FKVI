@@ -505,45 +505,62 @@ export default function ProfileForm() {
 
       <div className="space-y-6 max-w-4xl">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/admin/fachkraefte')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isEdit ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Profil bearbeiten' : 'Neue Fachkraft'}
-            </h1>
-            <p className="text-gray-500 text-sm mt-0.5">{isEdit ? `ID: ${id}` : 'Neues Profil anlegen'}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={fillTestData} title="Alle Felder mit Testdaten befüllen">
-              <FlaskConical className="h-3.5 w-3.5 mr-2" />Test
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-start gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/admin/fachkraefte')} className="shrink-0 mt-0.5">
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            {isEdit && profile.status === 'published' && (
-              <Button variant="outline" size="sm" onClick={openReserveDialog} className="text-fkvi-blue border-blue-200 hover:bg-blue-50">
-                <Bookmark className="h-3.5 w-3.5 mr-2" />Unternehmen zuordnen
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                {isEdit ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Profil bearbeiten' : 'Neue Fachkraft'}
+              </h1>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                {profile.gender && <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{profile.gender}</span>}
+                {profile.age && <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{profile.age} J.</span>}
+                {profile.nationality && <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{profile.nationality}</span>}
+                {profile.status && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
+                    profile.status === 'published' ? 'bg-green-50 text-green-700 border-green-200' :
+                    profile.status === 'reserved' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                    profile.status === 'draft' ? 'bg-gray-50 text-gray-500 border-gray-200' :
+                    'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    {PROFILE_STATUS_LABELS[profile.status] || profile.status}
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-400 text-xs mt-1.5 font-mono">{isEdit ? id : 'Neues Profil'}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+              <Button variant="ghost" size="icon" onClick={fillTestData} title="Testdaten" className="text-gray-400 hover:text-gray-600">
+                <FlaskConical className="h-4 w-4" />
               </Button>
-            )}
-            {isEdit && (
-              <Button variant="outline" size="sm" onClick={() => setDeleteDialog(true)} className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700">
-                <Trash2 className="h-3.5 w-3.5 mr-2" />Löschen
+              {isEdit && (
+                <Button variant="ghost" size="icon" onClick={() => setDeleteDialog(true)} className="text-red-400 hover:text-red-600 hover:bg-red-50" title="Löschen">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              {isEdit && profile.status === 'published' && (
+                <Button variant="outline" size="sm" onClick={openReserveDialog} className="text-fkvi-blue border-blue-200 hover:bg-blue-50">
+                  <Bookmark className="h-3.5 w-3.5 mr-1.5" />Zuordnen
+                </Button>
+              )}
+              <Select value={profile.status} onValueChange={v => set('status', v)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PROFILE_STATUS_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Speichern...</>
+                  : <><Save className="mr-2 h-4 w-4" />Speichern</>}
               </Button>
-            )}
-            <Select value={profile.status} onValueChange={v => set('status', v)}>
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PROFILE_STATUS_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving
-                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Speichern...</>
-                : <><Save className="mr-2 h-4 w-4" />Speichern</>}
-            </Button>
+            </div>
           </div>
         </div>
 
