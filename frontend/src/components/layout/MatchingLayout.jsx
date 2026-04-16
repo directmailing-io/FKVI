@@ -156,14 +156,12 @@ export default function MatchingLayout({ children }) {
         "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-auto",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div>
-            <img src="/logo.svg" alt="FKVI" className="h-16 w-auto" style={{ mixBlendMode: 'multiply' }} />
-            <span className="block text-gray-400 text-xs mt-1">Mitgliederbereich</span>
-          </div>
-          <button className="lg:hidden text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(false)}>
+        <div className="flex flex-col items-center px-5 pt-8 pb-6 border-b border-gray-100 relative">
+          <button className="lg:hidden text-gray-400 hover:text-gray-600 absolute top-4 right-4" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </button>
+          <img src="/logo.svg" alt="FKVI" className="w-40 h-40 object-contain" style={{ mixBlendMode: 'multiply' }} />
+          <span className="text-gray-400 text-[11px] font-semibold tracking-widest uppercase mt-2">Mitgliederbereich</span>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1">
