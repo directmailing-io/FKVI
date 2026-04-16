@@ -547,31 +547,6 @@ export default function ProfileForm() {
           </div>
         </div>
 
-        {/* Reservation banner — shown when coming from CRM interest card */}
-        {reserveFor && (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-orange-800">
-                Aus Interesse-Anfrage: Für {reserveForCompany?.company_name || '…'} reservieren
-              </p>
-              <p className="text-xs text-orange-600 mt-0.5">
-                Klick reserviert dieses Profil exklusiv für das Unternehmen und startet den Vermittlungsprozess (Schritt 1).
-              </p>
-            </div>
-            <Button
-              onClick={handleReserveFor}
-              disabled={reserving || profile.status === 'reserved'}
-              className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
-            >
-              {reserving
-                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird reserviert…</>
-                : profile.status === 'reserved'
-                  ? 'Bereits reserviert'
-                  : `Für ${reserveForCompany?.company_name || 'Unternehmen'} reservieren`}
-            </Button>
-          </div>
-        )}
-
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />

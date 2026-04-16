@@ -72,7 +72,7 @@ export default function CompanyDetailPage() {
     if (allIds.length === 0) return
     supabase
       .from('profiles')
-      .select('id, gender, age, nationality, nursing_education')
+      .select('id, first_name, last_name, gender, age, nationality, nursing_education, status')
       .in('id', allIds)
       .then(({ data }) => {
         if (data) {
@@ -195,6 +195,45 @@ export default function CompanyDetailPage() {
 
   const removeContact = (idx) => {
     setContacts(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  // Reserve a profile for this company directly from the interest card
+  const handleReserveProfile = async (profileId) => {
+    try {
+      const res = await fetch('/api/admin/create-reservation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ profileId, companyId: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: 'Reserviert', description: 'Fachkraft wurde erfolgreich reserviert.' })
+      setInterestProfiles(prev => ({ ...prev, [profileId]: { ...prev[profileId], status: 'reserved' } }))
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  // Remove a single profile from an interest_booking note
+  const handleRemoveFromInterest = async (noteId, profileId) => {
+    const note = notesList.find(n => n.id === noteId)
+    if (!note) return
+    const remainingIds = (note.profile_ids || []).filter(pid => pid !== profileId)
+    let updatedNotes
+    if (remainingIds.length === 0) {
+      updatedNotes = notesList.filter(n => n.id !== noteId)
+    } else {
+      updatedNotes = notesList.map(n => n.id === noteId ? { ...n, profile_ids: remainingIds } : n)
+    }
+    const { error } = await supabase.from('companies').update({ notes_list: updatedNotes }).eq('id', id)
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
+    } else {
+      setNotesList(updatedNotes)
+    }
   }
 
   // Approve
@@ -584,22 +623,56 @@ export default function CompanyDetailPage() {
                     <div className="space-y-1.5">
                       {(note.profile_ids || []).map((pid, idx) => {
                         const p = interestProfiles[pid]
+                        const fullName = p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : ''
+                        const isReserved = p?.status === 'reserved'
                         return (
-                          <a
-                            key={pid}
-                            href={`/admin/fachkraefte/${pid}?reserveFor=${id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-100 rounded-lg transition-colors group/link"
-                          >
+                          <div key={pid} className="flex items-center gap-3 px-3 py-2.5 bg-orange-50 border border-orange-100 rounded-lg group/row hover:border-orange-200 transition-colors">
                             <span className="text-xs font-bold text-orange-400 w-4 shrink-0">{idx + 1}</span>
-                            <span className="text-sm font-medium text-gray-800 flex-1">
-                              {p
-                                ? `${p.gender || 'Fachkraft'}${p.age ? `, ${p.age} J.` : ''}${p.nationality ? ` · ${p.nationality}` : ''}${p.nursing_education ? ` · ${p.nursing_education}` : ''}`
-                                : `Profil-ID: ${pid.slice(0, 12)}…`}
-                            </span>
-                            <ExternalLink className="h-3.5 w-3.5 text-orange-300 opacity-0 group-hover/link:opacity-100 shrink-0" />
-                          </a>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">
+                                {fullName || (p ? `${p.gender || 'Fachkraft'}` : `Profil ${pid.slice(0, 8)}…`)}
+                              </p>
+                              {p && (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {[p.gender, p.age ? `${p.age} J.` : null, p.nationality, p.nursing_education].filter(Boolean).join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                            {p?.status && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold shrink-0 ${
+                                isReserved ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                p.status === 'published' ? 'bg-green-50 text-green-700 border-green-200' :
+                                'bg-gray-50 text-gray-500 border-gray-200'
+                              }`}>
+                                {isReserved ? 'Reserviert' : p.status === 'published' ? 'Verfügbar' : p.status}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-orange-200 text-orange-700 hover:bg-orange-100"
+                                disabled={isReserved}
+                                onClick={() => handleReserveProfile(pid)}
+                              >
+                                {isReserved ? 'Reserviert' : 'Reservieren'}
+                              </Button>
+                              <a href={`/admin/fachkraefte/${pid}`} target="_blank" rel="noopener noreferrer">
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-gray-400 hover:text-gray-700">
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </Button>
+                              </a>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-gray-300 hover:text-red-500"
+                                onClick={() => handleRemoveFromInterest(note.id, pid)}
+                                title="Aus Interessenliste entfernen"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
                         )
                       })}
                     </div>
