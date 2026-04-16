@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import ProfileCard from '@/components/matching/ProfileCard'
+import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
 import FilterPanel, { EMPTY_FILTERS, countActiveFilters } from '@/components/matching/FilterPanel'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,6 +20,7 @@ export default function MatchingBrowse() {
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [showFilters, setShowFilters] = useState(false)
   const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [detailProfile, setDetailProfile] = useState(null)
   const [interestDialog, setInterestDialog] = useState(false)
   const [interestMessage, setInterestMessage] = useState('')
   const [interestSent, setInterestSent] = useState(false)
@@ -278,6 +280,7 @@ export default function MatchingBrowse() {
                   profile={profile}
                   isFavorite={favorites.has(profile.id)}
                   onToggleFavorite={toggleFavorite}
+                  onViewDetail={setDetailProfile}
                 />
               ))}
             </div>
@@ -300,6 +303,15 @@ export default function MatchingBrowse() {
           </div>
         </div>
       )}
+
+      {/* Profile Detail Modal */}
+      <ProfileDetailModal
+        profile={detailProfile}
+        open={!!detailProfile}
+        onClose={() => setDetailProfile(null)}
+        isFavorite={detailProfile ? favorites.has(detailProfile.id) : false}
+        onToggleFavorite={toggleFavorite}
+      />
 
       {/* Interest Dialog */}
       <Dialog open={interestDialog} onOpenChange={(open) => {

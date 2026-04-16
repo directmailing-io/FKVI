@@ -1,10 +1,12 @@
-import { Heart, User, Briefcase, GraduationCap, Clock, FileText, EyeOff } from 'lucide-react'
+import { Heart, User, Briefcase, GraduationCap, Clock, FileText, EyeOff, Video, LayoutList } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn, RECOGNITION_LABELS } from '@/lib/utils'
 
-export default function ProfileCard({ profile, isFavorite, onToggleFavorite }) {
-  const handleOpenCv = () => window.open(`/lebenslauf/${profile.id}`, '_blank')
+export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onViewDetail }) {
+  const handleOpenCv = (e) => { e.stopPropagation(); window.open(`/lebenslauf/${profile.id}`, '_blank') }
+  const handleOpenVideo = (e) => { e.stopPropagation(); window.open(profile.vimeo_video_url, '_blank') }
+  const handleViewDetail = (e) => { e.stopPropagation(); onViewDetail?.(profile) }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all group">
@@ -26,14 +28,14 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite }) {
           <span className="text-[9px] text-white/80 font-medium tracking-wide">Anonymisiert</span>
         </div>
 
-        {/* Favorite button */}
+        {/* Favorite button — always visible so it stays clickable after focus changes */}
         <button
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(profile.id) }}
           className={cn(
             "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all",
             isFavorite
               ? "bg-red-500 text-white shadow-md"
-              : "bg-white/80 text-gray-400 hover:text-red-400 hover:bg-white opacity-0 group-hover:opacity-100"
+              : "bg-white/70 text-gray-300 hover:text-red-400 hover:bg-white hover:shadow-sm"
           )}
         >
           <Heart className={cn("h-4 w-4", isFavorite && "fill-white")} />
@@ -101,10 +103,20 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite }) {
           </div>
         )}
 
-        {/* Single action */}
-        <Button size="sm" className="w-full mt-1 gap-1.5 text-xs" onClick={handleOpenCv}>
-          <FileText className="h-3.5 w-3.5" />Lebenslauf ansehen
-        </Button>
+        {/* Actions */}
+        <div className="flex gap-1.5 mt-1">
+          <Button size="sm" variant="outline" className="flex-1 gap-1 text-xs px-2" onClick={handleViewDetail}>
+            <LayoutList className="h-3.5 w-3.5" />Profil
+          </Button>
+          {profile.vimeo_video_url && (
+            <Button size="sm" variant="outline" className="flex-1 gap-1 text-xs px-2" onClick={handleOpenVideo}>
+              <Video className="h-3.5 w-3.5" />Video
+            </Button>
+          )}
+          <Button size="sm" className="flex-1 gap-1 text-xs px-2" onClick={handleOpenCv}>
+            <FileText className="h-3.5 w-3.5" />CV
+          </Button>
+        </div>
       </div>
     </div>
   )
