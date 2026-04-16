@@ -120,7 +120,7 @@ export default function VermittlungDetailPage() {
               total_experience_years, german_recognition
             ),
             companies (
-              id, company_name, email, phone, first_name, last_name, city
+              id, company_name, email, phone, first_name, last_name
             )
           `)
           .eq('id', id)
@@ -348,7 +348,6 @@ export default function VermittlungDetailPage() {
                 </h3>
                 <div>
                   <p className="font-semibold text-gray-900">{c?.company_name || '—'}</p>
-                  <p className="text-xs text-gray-400">{c?.city || ''}</p>
                 </div>
                 <div className="text-xs text-gray-500 space-y-2">
                   {(c?.first_name || c?.last_name) && (

@@ -28,7 +28,7 @@ export default function VermittlungenPage() {
         .select(`
           id, process_status, created_at, updated_at,
           profiles ( id, first_name, last_name, gender, age, nationality, profile_image_url, nursing_education ),
-          companies ( id, company_name, city )
+          companies ( id, company_name )
         `)
         .order('updated_at', { ascending: false })
       setReservations(data || [])
@@ -135,7 +135,6 @@ export default function VermittlungenPage() {
                     {/* Unternehmen */}
                     <td className="px-5 py-4 hidden md:table-cell">
                       <p className="font-medium text-gray-700">{c?.company_name || '—'}</p>
-                      <p className="text-xs text-gray-400">{c?.city || ''}</p>
                     </td>
 
                     {/* Schritt */}

@@ -257,7 +257,7 @@ export default function ProfileForm() {
 
   useEffect(() => {
     if (!reserveFor) return
-    supabase.from('companies').select('id, company_name, city').eq('id', reserveFor).single()
+    supabase.from('companies').select('id, company_name').eq('id', reserveFor).single()
       .then(({ data }) => { if (data) setReserveForCompany(data) })
   }, [reserveFor])
 
@@ -272,7 +272,7 @@ export default function ProfileForm() {
       if (p.status === 'reserved') {
         const { data: res } = await supabase
           .from('reservations')
-          .select('id, process_status, companies (id, company_name, city)')
+          .select('id, process_status, companies (id, company_name)')
           .eq('profile_id', id)
           .single()
         setReservation(res || null)
@@ -409,7 +409,7 @@ export default function ProfileForm() {
   const openReserveDialog = async () => {
     const { data, error } = await supabase
       .from('companies')
-      .select('id, company_name, city, email, status')
+      .select('id, company_name, email, status')
       .order('company_name')
     if (error) console.error('openReserveDialog error:', error)
     console.log('openReserveDialog data:', data)
@@ -588,8 +588,7 @@ export default function ProfileForm() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-blue-900">
                 Reserviert für {reservation.companies.company_name}
-                {reservation.companies.city ? ` · ${reservation.companies.city}` : ''}
-              </p>
+                </p>
               <p className="text-xs text-blue-600 mt-0.5">
                 Vermittlung Schritt {reservation.process_status}/11 — {PROCESS_STATUS_LABELS[reservation.process_status]}
               </p>
@@ -1050,7 +1049,7 @@ export default function ProfileForm() {
               <SelectContent>
                 {companies.map(c => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.company_name}{c.city ? ` · ${c.city}` : ''}
+                    {c.company_name}
                     {c.status === 'approved' ? ' ✓' : c.status === 'pending' ? ' (ausstehend)' : ''}
                   </SelectItem>
                 ))}
