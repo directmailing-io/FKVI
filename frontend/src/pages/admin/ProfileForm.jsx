@@ -407,11 +407,12 @@ export default function ProfileForm() {
   }
 
   const openReserveDialog = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('companies')
       .select('id, company_name, city, email, status')
-      .neq('status', 'rejected')
       .order('company_name')
+    if (error) console.error('openReserveDialog error:', error)
+    console.log('openReserveDialog data:', data)
     setCompanies(data || [])
     setSelectedCompanyId('')
     setReserveDialog(true)
