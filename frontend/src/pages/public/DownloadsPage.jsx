@@ -46,7 +46,7 @@ export default function DownloadsPage() {
       {/* Header */}
       <header className="border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/"><img src="/logo.svg" alt="FKVI" className="h-14 w-auto" style={{ mixBlendMode: 'multiply' }} /></Link>
+          <Link to="/"><img src="/logo.svg" alt="FKVI" className="h-20 w-auto" style={{ mixBlendMode: 'multiply' }} /></Link>
           <div className="flex items-center gap-3">
             <Link to="/matching/login">
               <Button variant="outline" size="sm">Unternehmens-Login</Button>
