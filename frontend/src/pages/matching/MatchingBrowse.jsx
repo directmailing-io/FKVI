@@ -111,29 +111,21 @@ export default function MatchingBrowse() {
   const activeFilterCount = countActiveFilters(filters)
 
   const handleBookAppointment = async () => {
-    if (favorites.size === 0 || !companyId) return
+    if (favorites.size === 0 || !session?.access_token) return
     setBookingLoading(true)
     try {
-      const { data: companyData } = await supabase
-        .from('companies')
-        .select('notes_list')
-        .eq('id', companyId)
-        .single()
-
-      const currentNotes = companyData?.notes_list || []
-      const newNote = {
-        id: crypto.randomUUID(),
-        type: 'interest_booking',
-        profile_ids: [...favorites],
-        created_at: new Date().toISOString(),
-        author: 'Unternehmen',
+      const res = await fetch('/api/matching/save-interest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ profile_ids: [...favorites] }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Fehler')
       }
-
-      await supabase
-        .from('companies')
-        .update({ notes_list: [newNote, ...currentNotes] })
-        .eq('id', companyId)
-
       window.open('https://calendly.com/fachkraft-vermittlung/beratungsgesprach-fachkrafte-aus-dem-ausland', '_blank')
     } catch {
       toast({ title: 'Fehler', description: 'Bitte versuchen Sie es erneut.', variant: 'destructive' })
