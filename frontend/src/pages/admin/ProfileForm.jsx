@@ -529,7 +529,7 @@ export default function ProfileForm() {
   }
 
   const addDocument = () => {
-    setDocuments(prev => [...prev, { title: '', doc_type: '', description: '', link: '' }])
+    setDocuments(prev => [...prev, { title: '', doc_type: '', description: '', link: '', is_internal: false }])
   }
 
   const updateDocument = (idx, field, value) => {
@@ -1128,6 +1128,21 @@ export default function ProfileForm() {
                       <Field label="Beschreibung">
                         <Textarea value={doc.description} onChange={e => updateDocument(idx, 'description', e.target.value)} placeholder="Kurze Beschreibung..." rows={2} />
                       </Field>
+                      <div className="flex items-center gap-3 pt-1">
+                        <Switch
+                          id={`internal-${idx}`}
+                          checked={!!doc.is_internal}
+                          onCheckedChange={v => updateDocument(idx, 'is_internal', v)}
+                        />
+                        <div>
+                          <Label htmlFor={`internal-${idx}`} className="text-sm font-medium cursor-pointer">
+                            Internes Dokument
+                          </Label>
+                          <p className="text-xs text-gray-400">
+                            {doc.is_internal ? 'Nur für Admins sichtbar' : 'Für das Unternehmen sichtbar'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

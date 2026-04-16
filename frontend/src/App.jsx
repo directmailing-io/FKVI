@@ -26,6 +26,7 @@ import CvSharePage from '@/pages/public/CvSharePage'
 import MatchingLogin from '@/pages/matching/MatchingLogin'
 import MatchingBrowse from '@/pages/matching/MatchingBrowse'
 import ReservedProfiles from '@/pages/matching/ReservedProfiles'
+import StatustrackerDetail from '@/pages/matching/StatustrackerDetail'
 import MatchingLayout from '@/components/layout/MatchingLayout'
 import SetupPasswordPage from '@/pages/matching/SetupPasswordPage'
 import ForgotPasswordPage from '@/pages/matching/ForgotPasswordPage'
@@ -81,6 +82,7 @@ export default function App() {
         <Route path="/matching/passwort-vergessen" element={<ForgotPasswordPage />} />
         <Route path="/matching" element={<CompanyRoute><MatchingLayout><MatchingBrowse /></MatchingLayout></CompanyRoute>} />
         <Route path="/matching/reserviert" element={<CompanyRoute><MatchingLayout><ReservedProfiles /></MatchingLayout></CompanyRoute>} />
+        <Route path="/matching/reserviert/:id" element={<CompanyRoute><MatchingLayout><StatustrackerDetail /></MatchingLayout></CompanyRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

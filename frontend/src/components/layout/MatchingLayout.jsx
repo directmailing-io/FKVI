@@ -3,15 +3,15 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { Search, BookMarked, LogOut, Menu, X, ChevronRight, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Search, Activity, LogOut, Menu, X, ChevronRight, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const navItems = [
-  { label: 'Profile entdecken', icon: Search,     href: '/matching' },
-  { label: 'Meine Kandidaten',  icon: BookMarked,  href: '/matching/reserviert' },
+  { label: 'Profile entdecken', icon: Search,    href: '/matching',            live: false },
+  { label: 'Statustracker',     icon: Activity,  href: '/matching/reserviert', live: true  },
 ]
 
 function PasswordStrength({ password }) {
@@ -179,6 +179,15 @@ export default function MatchingLayout({ children }) {
               >
                 <item.icon className="h-4 w-4 shrink-0" />
                 {item.label}
+                {item.live && (
+                  <span className="ml-1 flex items-center gap-1 text-[10px] font-semibold text-green-600">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                    </span>
+                    Live
+                  </span>
+                )}
                 {active && <ChevronRight className="h-3 w-3 ml-auto text-fkvi-blue" />}
               </Link>
             )
