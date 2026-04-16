@@ -111,7 +111,7 @@ export default function MatchingBrowse() {
   const activeFilterCount = countActiveFilters(filters)
 
   const handleBookAppointment = async () => {
-    if (favorites.size === 0 || !session?.access_token) return
+    if (favorites.size === 0 || !session?.access_token || !companyId) return
     setBookingLoading(true)
     try {
       const res = await fetch('/api/matching/save-interest', {
@@ -120,15 +120,13 @@ export default function MatchingBrowse() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ profile_ids: [...favorites] }),
+        body: JSON.stringify({ profile_ids: [...favorites], company_id: companyId }),
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Fehler')
-      }
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
       window.open('https://calendly.com/fachkraft-vermittlung/beratungsgesprach-fachkrafte-aus-dem-ausland', '_blank')
-    } catch {
-      toast({ title: 'Fehler', description: 'Bitte versuchen Sie es erneut.', variant: 'destructive' })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message || 'Bitte versuchen Sie es erneut.', variant: 'destructive' })
     } finally {
       setBookingLoading(false)
     }

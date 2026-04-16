@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID } from 'crypto'
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -11,26 +12,36 @@ export default async function handler(req, res) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token)
-  if (!user) return res.status(401).json({ error: 'Unauthorized' })
+  const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token)
+  if (authErr || !user) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { profile_ids } = req.body
+  const { profile_ids, company_id } = req.body
   if (!Array.isArray(profile_ids) || profile_ids.length === 0) {
     return res.status(400).json({ error: 'profile_ids fehlt oder leer' })
   }
+  if (!company_id) {
+    return res.status(400).json({ error: 'company_id fehlt' })
+  }
 
-  // Find the company for this user
+  // Look up company by ID and verify the user owns it
   const { data: company, error: cErr } = await supabaseAdmin
     .from('companies')
-    .select('id, notes_list')
-    .eq('user_id', user.id)
+    .select('id, notes_list, user_id')
+    .eq('id', company_id)
     .single()
 
-  if (cErr || !company) return res.status(404).json({ error: 'Unternehmen nicht gefunden' })
+  if (cErr || !company) {
+    return res.status(404).json({ error: 'Unternehmen nicht gefunden', detail: cErr?.message })
+  }
+
+  // Verify ownership — user_id on companies must match the auth user
+  if (company.user_id !== user.id) {
+    return res.status(403).json({ error: 'Keine Berechtigung' })
+  }
 
   const currentNotes = Array.isArray(company.notes_list) ? company.notes_list : []
   const newNote = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     type: 'interest_booking',
     profile_ids,
     created_at: new Date().toISOString(),
