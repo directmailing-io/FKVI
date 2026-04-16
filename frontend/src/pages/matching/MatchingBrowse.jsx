@@ -6,11 +6,7 @@ import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
 import FilterPanel, { EMPTY_FILTERS, countActiveFilters } from '@/components/matching/FilterPanel'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { SlidersHorizontal, Heart, Send, CheckCircle2, Loader2, User, EyeOff, Search, FileText, ChevronDown } from 'lucide-react'
+import { SlidersHorizontal, Heart, Loader2, User, EyeOff } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export default function MatchingBrowse() {
@@ -22,10 +18,7 @@ export default function MatchingBrowse() {
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [detailProfile, setDetailProfile] = useState(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [interestDialog, setInterestDialog] = useState(false)
-  const [interestMessage, setInterestMessage] = useState('')
-  const [interestSent, setInterestSent] = useState(false)
-  const [interestLoading, setInterestLoading] = useState(false)
+  const [bookingLoading, setBookingLoading] = useState(false)
   const { companyId, session } = useAuthStore()
 
   useEffect(() => {
@@ -117,23 +110,35 @@ export default function MatchingBrowse() {
   const favoriteCount = favorites.size
   const activeFilterCount = countActiveFilters(filters)
 
-  const handleSendInterest = async () => {
-    if (favorites.size === 0) return
-    setInterestLoading(true)
+  const handleBookAppointment = async () => {
+    if (favorites.size === 0 || !companyId) return
+    setBookingLoading(true)
     try {
-      // Store interest note on the company record so admin can see it
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('notes_list')
+        .eq('id', companyId)
+        .single()
+
+      const currentNotes = companyData?.notes_list || []
+      const newNote = {
+        id: crypto.randomUUID(),
+        type: 'interest_booking',
+        profile_ids: [...favorites],
+        created_at: new Date().toISOString(),
+        author: 'Unternehmen',
+      }
+
       await supabase
         .from('companies')
-        .update({
-          internal_notes: `Interessenbekundung (${new Date().toLocaleDateString('de-DE')}): ${[...favorites].length} Profile vorgemerkt. Nachricht: ${interestMessage || '(keine)'}`,
-        })
+        .update({ notes_list: [newNote, ...currentNotes] })
         .eq('id', companyId)
 
-      setInterestSent(true)
+      window.open('https://calendly.com/fachkraft-vermittlung/beratungsgesprach-fachkrafte-aus-dem-ausland', '_blank')
     } catch {
       toast({ title: 'Fehler', description: 'Bitte versuchen Sie es erneut.', variant: 'destructive' })
     } finally {
-      setInterestLoading(false)
+      setBookingLoading(false)
     }
   }
 
@@ -218,9 +223,9 @@ export default function MatchingBrowse() {
             )}
           </button>
           {favoriteCount > 0 && (
-            <Button onClick={() => setInterestDialog(true)} variant="teal" size="sm">
-              <Heart className="h-4 w-4 mr-1.5 fill-white" />
-              Interesse bekunden ({favoriteCount})
+            <Button onClick={handleBookAppointment} variant="teal" size="sm" disabled={bookingLoading}>
+              {bookingLoading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Heart className="h-4 w-4 mr-1.5 fill-white" />}
+              Termin buchen & Profile freischalten ({favoriteCount})
             </Button>
           )}
         </div>
@@ -299,10 +304,11 @@ export default function MatchingBrowse() {
             <Heart className="h-4 w-4 fill-white" />
             <span className="text-sm font-medium">{favoriteCount} vorgemerkt</span>
             <button
-              onClick={() => setInterestDialog(true)}
-              className="bg-white text-fkvi-blue text-xs font-semibold px-3 py-1 rounded-full hover:bg-gray-100 transition-colors"
+              onClick={handleBookAppointment}
+              disabled={bookingLoading}
+              className="bg-white text-fkvi-blue text-xs font-semibold px-3 py-1 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-60"
             >
-              Interesse bekunden →
+              {bookingLoading ? 'Wird gespeichert...' : 'Termin buchen & freischalten →'}
             </button>
           </div>
         </div>
@@ -317,55 +323,6 @@ export default function MatchingBrowse() {
         onToggleFavorite={toggleFavorite}
       />
 
-      {/* Interest Dialog */}
-      <Dialog open={interestDialog} onOpenChange={(open) => {
-        if (!open) { setInterestDialog(false); setInterestSent(false); setInterestMessage('') }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Interesse bekunden</DialogTitle>
-          </DialogHeader>
-          {interestSent ? (
-            <div className="py-8 text-center space-y-3">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-              <h3 className="font-semibold text-gray-900">Interesse erfolgreich übermittelt</h3>
-              <p className="text-sm text-gray-500">
-                FKVI wurde informiert und wird sich mit Ihnen in Verbindung setzen.
-              </p>
-              <Button onClick={() => { setInterestDialog(false); setInterestSent(false) }}>
-                Schließen
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-4">
-                <Alert variant="default" className="bg-blue-50 border-blue-200">
-                  <Heart className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-800">
-                    Sie bekunden Interesse an <strong>{favoriteCount}</strong> vorgemerkten {favoriteCount === 1 ? 'Fachkraft' : 'Fachkräften'}.
-                    FKVI wird Ihre Anfrage prüfen und sich bei Ihnen melden.
-                  </AlertDescription>
-                </Alert>
-                <div className="space-y-1.5">
-                  <Label>Nachricht an FKVI (optional)</Label>
-                  <Textarea
-                    value={interestMessage}
-                    onChange={e => setInterestMessage(e.target.value)}
-                    placeholder="Besondere Anforderungen, Fragen oder Hinweise..."
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setInterestDialog(false)}>Abbrechen</Button>
-                <Button onClick={handleSendInterest} disabled={interestLoading}>
-                  {interestLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird gesendet...</> : <><Send className="h-4 w-4 mr-2" />Interesse übermitteln</>}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
