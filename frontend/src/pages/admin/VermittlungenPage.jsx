@@ -112,7 +112,7 @@ export default function VermittlungenPage() {
                 return (
                   <tr
                     key={res.id}
-                    onClick={() => navigate(`/admin/vermittlungen/${res.id}`)}
+                    onClick={() => navigate(`/admin/fachkraefte/${res.profiles?.id}`)}
                     className="hover:bg-gray-50 cursor-pointer transition-colors group"
                   >
                     {/* Fachkraft */}

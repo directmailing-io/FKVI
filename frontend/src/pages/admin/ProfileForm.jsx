@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { MultiSelect } from '@/components/ui/multi-select'
 import {
   GERMAN_STATES, FACILITY_TYPES, WORK_TIME_OPTIONS,
-  SPECIALIZATIONS, EXPERIENCE_AREAS, PROFILE_STATUS_LABELS, PROCESS_STATUS_LABELS
+  SPECIALIZATIONS, EXPERIENCE_AREAS, PROFILE_STATUS_LABELS, PROCESS_STATUS_LABELS, formatDateTime
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
@@ -249,6 +249,8 @@ export default function ProfileForm() {
   const [reserving, setReserving] = useState(false)
   const [reserveForCompany, setReserveForCompany] = useState(null)
   const [reservation, setReservation] = useState(null)
+  const [reservationHistory, setReservationHistory] = useState([])
+  const [advancing, setAdvancing] = useState(false)
   const imageRef = useRef()
   const videoRef = useRef()
 
@@ -277,8 +279,17 @@ export default function ProfileForm() {
           .eq('profile_id', id)
           .single()
         setReservation(res || null)
+        if (res) {
+          const { data: hist } = await supabase
+            .from('process_status_history')
+            .select('*')
+            .eq('reservation_id', res.id)
+            .order('created_at', { ascending: false })
+          setReservationHistory(hist || [])
+        }
       } else {
         setReservation(null)
+        setReservationHistory([])
       }
     }
     setDocuments(docs || [])
@@ -467,6 +478,36 @@ export default function ProfileForm() {
     }
   }
 
+  const handleAdvanceStatus = async (direction) => {
+    if (!reservation) return
+    const newStatus = direction === 'forward'
+      ? Math.min(reservation.process_status + 1, 11)
+      : Math.max(reservation.process_status - 1, 1)
+    if (newStatus === reservation.process_status) return
+    setAdvancing(true)
+    try {
+      const res = await fetch('/api/admin/update-reservation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ reservationId: reservation.id, newStatus, notes: null }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setReservation(prev => ({ ...prev, process_status: newStatus }))
+      const { data: hist } = await supabase
+        .from('process_status_history')
+        .select('*')
+        .eq('reservation_id', reservation.id)
+        .order('created_at', { ascending: false })
+      setReservationHistory(hist || [])
+      toast({ title: `Schritt ${newStatus}/11`, description: PROCESS_STATUS_LABELS[newStatus] })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setAdvancing(false)
+    }
+  }
+
   const fillTestData = () => {
     const data = generateTestData()
     setProfile(prev => ({ ...prev, ...data }))
@@ -583,22 +624,108 @@ export default function ProfileForm() {
         </div>
 
         {reservation && reservation.companies && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 flex items-center gap-3">
-            <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-blue-900">
-                Reserviert für {reservation.companies.company_name}
-                </p>
-              <p className="text-xs text-blue-600 mt-0.5">
-                Vermittlung Schritt {reservation.process_status}/11 — {PROCESS_STATUS_LABELS[reservation.process_status]}
-              </p>
+          <div className="bg-white rounded-xl border border-green-300 shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="bg-green-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-white" />
+                <div>
+                  <p className="text-white font-bold text-base">Vermittlung aktiv</p>
+                  <p className="text-green-100 text-sm">{reservation.companies.company_name}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-white font-bold text-xl">{reservation.process_status}/11</p>
+                <p className="text-green-100 text-xs">Schritt</p>
+              </div>
             </div>
-            <Link
-              to={`/admin/vermittlungen/${reservation.id}`}
-              className="text-xs text-blue-600 hover:underline flex items-center gap-1 shrink-0"
-            >
-              Zur Vermittlung <ExternalLink className="h-3 w-3" />
-            </Link>
+
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: Steps + Actions */}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Prozessschritte</p>
+                  <div className="space-y-0.5">
+                    {Object.entries(PROCESS_STATUS_LABELS).map(([s, label]) => {
+                      const num = Number(s)
+                      const done = num < reservation.process_status
+                      const active = num === reservation.process_status
+                      return (
+                        <div key={s} className={`flex items-center gap-2.5 py-1.5 px-2 rounded-lg text-sm ${active ? 'bg-green-50' : ''}`}>
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                            done ? 'bg-green-500 text-white' :
+                            active ? 'bg-green-600 text-white' :
+                            'bg-gray-100 text-gray-400'
+                          }`}>
+                            {done ? '✓' : num}
+                          </div>
+                          <span className={done ? 'text-gray-400 line-through' : active ? 'text-green-700 font-semibold' : 'text-gray-400'}>
+                            {label}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Advance/Back buttons */}
+                {reservation.process_status < 11 && (
+                  <div className="flex gap-2 pt-2 border-t border-gray-100">
+                    {reservation.process_status > 1 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAdvanceStatus('back')}
+                        disabled={advancing}
+                        className="flex-1 text-gray-500"
+                      >
+                        ← Schritt zurück
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleAdvanceStatus('forward')}
+                      disabled={advancing}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {advancing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                      Weiter zu Schritt {reservation.process_status + 1} →
+                    </Button>
+                  </div>
+                )}
+                {reservation.process_status === 11 && (
+                  <div className="flex items-center gap-2 text-green-600 text-sm font-medium pt-2 border-t border-gray-100">
+                    <CheckCircle2 className="h-4 w-4" />Vermittlung abgeschlossen!
+                  </div>
+                )}
+              </div>
+
+              {/* Right: History */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Verlauf</p>
+                {reservationHistory.length === 0 ? (
+                  <p className="text-sm text-gray-400">Noch kein Verlauf.</p>
+                ) : (
+                  <div className="space-y-0">
+                    {reservationHistory.map((entry, i) => (
+                      <div key={entry.id} className="flex gap-3 text-sm">
+                        <div className="flex flex-col items-center">
+                          <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 shrink-0" />
+                          {i < reservationHistory.length - 1 && <div className="w-px flex-1 bg-gray-200 mt-1" />}
+                        </div>
+                        <div className="pb-3 min-w-0">
+                          <p className="font-medium text-gray-800 text-xs">
+                            {entry.old_status ? `Schritt ${entry.old_status} → ${entry.new_status}` : `Start: Schritt ${entry.new_status}`}
+                          </p>
+                          <p className="text-[11px] text-gray-500">{PROCESS_STATUS_LABELS[entry.new_status]}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{formatDateTime(entry.created_at)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
