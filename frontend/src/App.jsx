@@ -37,6 +37,24 @@ export default function App() {
     initialize()
   }, [])
 
+  // Safety net: Radix UI sets pointer-events:none on document.body when a
+  // dialog opens. If a dialog is force-unmounted (e.g. via a stale animation
+  // race), this style can get stuck. Restore it whenever the tab regains focus.
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) {
+        requestAnimationFrame(() => {
+          const hasOpenDialog = !!document.querySelector('[role="dialog"][data-state="open"]')
+          if (!hasOpenDialog) {
+            document.body.style.removeProperty('pointer-events')
+          }
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>

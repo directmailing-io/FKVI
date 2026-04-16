@@ -44,32 +44,38 @@ export default function ReservedProfiles() {
   const { companyId } = useAuthStore()
 
   useEffect(() => {
-    fetchReservations()
-  }, [companyId])
+    let mounted = true
 
-  const fetchReservations = async () => {
-    if (!companyId) { setLoading(false); return }
-    setLoading(true)
-    try {
-      const { data } = await supabase
-        .from('reservations')
-        .select(`
-          id, process_status, created_at, updated_at,
-          profiles (
-            id, gender, age, nationality, profile_image_url,
-            nursing_education, specializations, total_experience_years,
-            german_recognition, vimeo_video_url
-          )
-        `)
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false })
-      setReservations(data || [])
-    } catch {
-      setReservations([])
-    } finally {
-      setLoading(false)
+    const run = async () => {
+      if (!companyId) { setLoading(false); return }
+      setLoading(true)
+      try {
+        const { data } = await Promise.race([
+          supabase
+            .from('reservations')
+            .select(`
+              id, process_status, created_at, updated_at,
+              profiles (
+                id, gender, age, nationality, profile_image_url,
+                nursing_education, specializations, total_experience_years,
+                german_recognition, vimeo_video_url
+              )
+            `)
+            .eq('company_id', companyId)
+            .order('created_at', { ascending: false }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+        ])
+        if (mounted) setReservations(data || [])
+      } catch {
+        if (mounted) setReservations([])
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
-  }
+
+    run()
+    return () => { mounted = false }
+  }, [companyId])
 
   if (loading) return (
     <div className="space-y-4">

@@ -29,46 +29,49 @@ export default function MatchingBrowse() {
   const { companyId, session } = useAuthStore()
 
   useEffect(() => {
-    fetchProfiles()
-    fetchFavorites()
-  }, [])
+    let mounted = true
 
-  const fetchProfiles = async () => {
-    setLoading(true)
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select(`
-          id, gender, age, nationality, marital_status, children_count, has_drivers_license,
-          state_preferences, nationwide, preferred_facility_types, work_time_preference,
-          profile_image_url, vimeo_video_url, vimeo_video_id,
-          nursing_education, education_duration, graduation_year, german_recognition, education_notes,
-          specializations, additional_qualifications,
-          total_experience_years, germany_experience_years, experience_areas,
-          language_skills, fkvi_competency_proof
-        `)
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-      setProfiles(data || [])
-    } catch {
-      setProfiles([])
-    } finally {
-      setLoading(false)
-    }
-  }
+    const run = async () => {
+      setLoading(true)
+      try {
+        const { data } = await Promise.race([
+          supabase
+            .from('profiles')
+            .select(`
+              id, gender, age, nationality, marital_status, children_count, has_drivers_license,
+              state_preferences, nationwide, preferred_facility_types, work_time_preference,
+              profile_image_url, vimeo_video_url, vimeo_video_id,
+              nursing_education, education_duration, graduation_year, german_recognition, education_notes,
+              specializations, additional_qualifications,
+              total_experience_years, germany_experience_years, experience_areas,
+              language_skills, fkvi_competency_proof
+            `)
+            .eq('status', 'published')
+            .order('created_at', { ascending: false }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+        ])
+        if (mounted) setProfiles(data || [])
+      } catch {
+        if (mounted) setProfiles([])
+      } finally {
+        if (mounted) setLoading(false)
+      }
 
-  const fetchFavorites = async () => {
-    if (!companyId) return
-    try {
-      const { data } = await supabase
-        .from('favorites')
-        .select('profile_id')
-        .eq('company_id', companyId)
-      setFavorites(new Set((data || []).map(f => f.profile_id)))
-    } catch {
-      // favorites are non-critical, silently ignore
+      if (!companyId) return
+      try {
+        const { data } = await Promise.race([
+          supabase.from('favorites').select('profile_id').eq('company_id', companyId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+        ])
+        if (mounted) setFavorites(new Set((data || []).map(f => f.profile_id)))
+      } catch {
+        // non-critical
+      }
     }
-  }
+
+    run()
+    return () => { mounted = false }
+  }, [companyId])
 
   const toggleFavorite = async (profileId) => {
     if (!companyId) return

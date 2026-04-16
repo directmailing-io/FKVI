@@ -16,9 +16,17 @@ export const useAuthStore = create((set, get) => ({
       set({ loading: false })
     }
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        await get().setSession(session)
+        if (event === 'TOKEN_REFRESHED') {
+          // Only update session token — user roles never change on refresh,
+          // so there is no need to re-query admin_users / companies.
+          // Doing so caused concurrent DB queries that could leave the
+          // Supabase client in a broken state after a cross-tab token refresh.
+          set({ session, user: session.user })
+        } else {
+          await get().setSession(session)
+        }
       } else {
         set({ user: null, session: null, isAdmin: false, companyId: null, loading: false })
       }
@@ -28,14 +36,12 @@ export const useAuthStore = create((set, get) => ({
   setSession: async (session) => {
     const user = session.user
 
-    // Check if admin
     const { data: adminData } = await supabase
       .from('admin_users')
       .select('id')
       .eq('user_id', user.id)
       .single()
 
-    // Check if company
     let companyId = null
     if (!adminData) {
       const { data: companyData } = await supabase
@@ -46,13 +52,7 @@ export const useAuthStore = create((set, get) => ({
       companyId = companyData?.id || null
     }
 
-    set({
-      user,
-      session,
-      isAdmin: !!adminData,
-      companyId,
-      loading: false,
-    })
+    set({ user, session, isAdmin: !!adminData, companyId, loading: false })
   },
 
   signIn: async (email, password) => {

@@ -4,8 +4,16 @@ import { Button } from '@/components/ui/button'
 import { cn, RECOGNITION_LABELS } from '@/lib/utils'
 
 export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onViewDetail }) {
-  const handleOpenCv = (e) => { e.stopPropagation(); window.open(`/lebenslauf/${profile.id}`, '_blank') }
-  const handleOpenVideo = (e) => { e.stopPropagation(); window.open(profile.vimeo_video_url, '_blank') }
+  const handleOpenCv = (e) => {
+    e.stopPropagation()
+    document.body.style.removeProperty('pointer-events')
+    window.open(`/lebenslauf/${profile.id}`, '_blank')
+  }
+  const handleOpenVideo = (e) => {
+    e.stopPropagation()
+    document.body.style.removeProperty('pointer-events')
+    window.open(profile.vimeo_video_url, '_blank')
+  }
   const handleViewDetail = (e) => { e.stopPropagation(); onViewDetail?.(profile) }
 
   return (

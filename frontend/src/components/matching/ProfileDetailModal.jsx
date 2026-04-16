@@ -17,11 +17,10 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
 
   const cvUrl = profile ? `${window.location.origin}/lebenslauf/${profile.id}` : ''
 
-  // Close the dialog through its own mechanism (so Radix can clean up body styles),
-  // THEN open the new tab — profile stays non-null through the close animation.
   const handleOpenCv = () => {
+    document.body.style.removeProperty('pointer-events')
     onClose()
-    setTimeout(() => window.open(cvUrl, '_blank'), 50)
+    window.open(cvUrl, '_blank')
   }
 
   const handleCopyLink = async () => {
