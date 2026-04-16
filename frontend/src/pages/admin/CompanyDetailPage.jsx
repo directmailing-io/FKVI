@@ -587,7 +587,7 @@ export default function CompanyDetailPage() {
                         return (
                           <a
                             key={pid}
-                            href={`/lebenslauf/${pid}`}
+                            href={`/admin/fachkraefte/${pid}?reserveFor=${id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-100 rounded-lg transition-colors group/link"

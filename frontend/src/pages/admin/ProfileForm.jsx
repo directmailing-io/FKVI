@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import { supabase } from '@/lib/supabase'
@@ -226,7 +226,10 @@ export default function ProfileForm() {
   const { id } = useParams()
   const isEdit = id && id !== 'neu'
   const navigate = useNavigate()
+  const location = useLocation()
   const { session } = useAuthStore()
+
+  const reserveFor = new URLSearchParams(location.search).get('reserveFor')
 
   const [profile, setProfile] = useState(EMPTY_PROFILE)
   const [documents, setDocuments] = useState([])
@@ -243,12 +246,19 @@ export default function ProfileForm() {
   const [companies, setCompanies] = useState([])
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [reserving, setReserving] = useState(false)
+  const [reserveForCompany, setReserveForCompany] = useState(null)
   const imageRef = useRef()
   const videoRef = useRef()
 
   useEffect(() => {
     if (isEdit) fetchProfile()
   }, [id])
+
+  useEffect(() => {
+    if (!reserveFor) return
+    supabase.from('companies').select('id, company_name, city').eq('id', reserveFor).single()
+      .then(({ data }) => { if (data) setReserveForCompany(data) })
+  }, [reserveFor])
 
   const fetchProfile = async () => {
     const { data: p } = await supabase.from('profiles').select('*').eq('id', id).single()
@@ -419,6 +429,30 @@ export default function ProfileForm() {
     }
   }
 
+  const handleReserveFor = async () => {
+    if (!reserveFor) return
+    setReserving(true)
+    try {
+      const res = await fetch('/api/admin/create-reservation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ profileId: id, companyId: reserveFor }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: 'Reserviert', description: `Fachkraft wurde für ${reserveForCompany?.company_name || 'das Unternehmen'} reserviert.` })
+      fetchProfile()
+      navigate(`/admin/crm/${reserveFor}`)
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setReserving(false)
+    }
+  }
+
   const fillTestData = () => {
     const data = generateTestData()
     setProfile(prev => ({ ...prev, ...data }))
@@ -512,6 +546,31 @@ export default function ProfileForm() {
             </Button>
           </div>
         </div>
+
+        {/* Reservation banner — shown when coming from CRM interest card */}
+        {reserveFor && (
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-orange-800">
+                Aus Interesse-Anfrage: Für {reserveForCompany?.company_name || '…'} reservieren
+              </p>
+              <p className="text-xs text-orange-600 mt-0.5">
+                Klick reserviert dieses Profil exklusiv für das Unternehmen und startet den Vermittlungsprozess (Schritt 1).
+              </p>
+            </div>
+            <Button
+              onClick={handleReserveFor}
+              disabled={reserving || profile.status === 'reserved'}
+              className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+            >
+              {reserving
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird reserviert…</>
+                : profile.status === 'reserved'
+                  ? 'Bereits reserviert'
+                  : `Für ${reserveForCompany?.company_name || 'Unternehmen'} reservieren`}
+            </Button>
+          </div>
+        )}
 
         {error && (
           <Alert variant="destructive">
