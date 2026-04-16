@@ -244,6 +244,7 @@ export default function ProfileForm() {
   const [deleteDialog, setDeleteDialog] = useState(false)
   const [reserveDialog, setReserveDialog] = useState(false)
   const [companies, setCompanies] = useState([])
+  const [companySearch, setCompanySearch] = useState('')
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [reserving, setReserving] = useState(false)
   const [reserveForCompany, setReserveForCompany] = useState(null)
@@ -407,14 +408,13 @@ export default function ProfileForm() {
   }
 
   const openReserveDialog = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('companies')
-      .select('id, company_name, email, status')
+      .select('id, company_name, email, status, first_name, last_name')
       .order('company_name')
-    if (error) console.error('openReserveDialog error:', error)
-    console.log('openReserveDialog data:', data)
     setCompanies(data || [])
     setSelectedCompanyId('')
+    setCompanySearch('')
     setReserveDialog(true)
   }
 
@@ -1041,24 +1041,66 @@ export default function ProfileForm() {
               Wähle ein freigeschaltetes Unternehmen, dem <strong>{profile.first_name} {profile.last_name}</strong> zugeordnet werden soll.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2 space-y-2">
-            <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Unternehmen auswählen..." />
-              </SelectTrigger>
-              <SelectContent>
-                {companies.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.company_name}
-                    {c.status === 'approved' ? ' ✓' : c.status === 'pending' ? ' (ausstehend)' : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {companies.length === 0 && (
+          <div className="py-2 space-y-3">
+            <Input
+              placeholder="Suche nach Firma, Ansprechpartner oder E-Mail..."
+              value={companySearch}
+              onChange={e => setCompanySearch(e.target.value)}
+              autoFocus
+            />
+            {companies.length === 0 ? (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 Keine Unternehmen gefunden. Bitte zuerst ein Unternehmen im CRM anlegen.
               </p>
+            ) : (
+              <div className="max-h-64 overflow-y-auto space-y-1 border border-gray-200 rounded-lg p-1">
+                {companies
+                  .filter(c => {
+                    const q = companySearch.toLowerCase()
+                    if (!q) return true
+                    return (
+                      c.company_name?.toLowerCase().includes(q) ||
+                      c.email?.toLowerCase().includes(q) ||
+                      `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(q)
+                    )
+                  })
+                  .map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCompanyId(c.id)}
+                      className={`w-full text-left px-3 py-2.5 rounded-md transition-colors ${
+                        selectedCompanyId === c.id
+                          ? 'bg-fkvi-blue text-white'
+                          : 'hover:bg-gray-50 text-gray-900'
+                      }`}
+                    >
+                      <p className="text-sm font-medium">
+                        {c.company_name}
+                        {c.email && (
+                          <span className={`font-normal ml-1 ${selectedCompanyId === c.id ? 'text-white/70' : 'text-gray-400'}`}>
+                            ({c.email})
+                          </span>
+                        )}
+                      </p>
+                      {(c.first_name || c.last_name) && (
+                        <p className={`text-xs mt-0.5 ${selectedCompanyId === c.id ? 'text-white/60' : 'text-gray-400'}`}>
+                          {`${c.first_name || ''} ${c.last_name || ''}`.trim()}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                {companies.filter(c => {
+                  const q = companySearch.toLowerCase()
+                  if (!q) return true
+                  return (
+                    c.company_name?.toLowerCase().includes(q) ||
+                    c.email?.toLowerCase().includes(q) ||
+                    `${c.first_name || ''} ${c.last_name || ''}`.toLowerCase().includes(q)
+                  )
+                }).length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">Keine Treffer für „{companySearch}"</p>
+                )}
+              </div>
             )}
           </div>
           <DialogFooter>
