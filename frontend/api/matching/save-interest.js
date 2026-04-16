@@ -12,8 +12,17 @@ export default async function handler(req, res) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Unauthorized' })
 
-  const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token)
-  if (authErr || !user) return res.status(401).json({ error: 'Unauthorized' })
+  const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(token)
+  const user = authData?.user
+  if (authErr || !user) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      detail: authErr?.message || 'no user returned',
+      supabaseUrl: process.env.VITE_SUPABASE_URL?.slice(0, 30),
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      tokenStart: token?.slice(0, 20),
+    })
+  }
 
   const { profile_ids, company_id } = req.body
   if (!Array.isArray(profile_ids) || profile_ids.length === 0) {
