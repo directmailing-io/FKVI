@@ -18,13 +18,16 @@ export const useAuthStore = create((set, get) => ({
 
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        if (event === 'TOKEN_REFRESHED') {
-          // Only update session token — user roles never change on refresh,
-          // so there is no need to re-query admin_users / companies.
-          // Doing so caused concurrent DB queries that could leave the
-          // Supabase client in a broken state after a cross-tab token refresh.
+        // If it's the same user already in the store, just update the session
+        // token in memory — no need to re-query the DB. Admin status and
+        // companyId don't change between sessions for the same user.
+        // Calling setSession() here would fire concurrent DB queries that
+        // interfere with Supabase's internal token handling across tabs and
+        // can leave the client in a broken state where all queries hang.
+        if (get().user?.id === session.user.id) {
           set({ session, user: session.user })
         } else {
+          // Different user (e.g. fresh login) — query DB to determine role
           await get().setSession(session)
         }
       } else {
