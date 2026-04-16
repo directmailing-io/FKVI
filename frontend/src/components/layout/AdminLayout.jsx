@@ -55,16 +55,14 @@ export default function AdminLayout({ children }) {
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Logo */}
-        <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center p-2 shadow-md shrink-0">
-              <img src="/logo.svg" alt="FKVI" className="w-full h-full object-contain" />
-            </div>
-            <span className="text-white/60 text-[11px] font-medium tracking-widest uppercase">Admin</span>
-          </div>
-          <button className="lg:hidden text-white/70 hover:text-white" onClick={() => setSidebarOpen(false)}>
+        <div className="flex flex-col items-center px-5 pt-8 pb-6 border-b border-white/10 relative">
+          <button className="lg:hidden text-white/70 hover:text-white absolute top-4 right-4" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </button>
+          <div className="w-40 h-40 bg-white rounded-3xl flex items-center justify-center p-3 shadow-lg">
+            <img src="/logo.svg" alt="FKVI" className="w-full h-full object-contain" />
+          </div>
+          <span className="text-white/60 text-[11px] font-semibold tracking-widest uppercase mt-3">Admin</span>
         </div>
 
         {/* Nav */}

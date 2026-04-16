@@ -100,8 +100,8 @@ export default function PublicHome() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <img src="/logo.svg" alt="FKVI" className="h-20 w-auto" style={{ mixBlendMode: 'multiply' }} />
+        <div className="max-w-6xl mx-auto px-4 h-28 flex items-center justify-between">
+          <img src="/logo.svg" alt="FKVI" className="h-24 w-auto" style={{ mixBlendMode: 'multiply' }} />
           <div className="flex items-center gap-3">
             <Link to="/downloads" className="text-sm text-gray-600 hover:text-fkvi-blue font-medium transition-colors">
               Downloads
