@@ -43,7 +43,7 @@ const LEAD_STATUS_COLORS = {
 export default function CompanyDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, session } = useAuthStore()
 
   const [company, setCompany] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -220,7 +220,10 @@ export default function CompanyDetailPage() {
     try {
       const res = await fetch('/api/admin/delete-company', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify({ companyId: id }),
       })
       const data = await res.json()

@@ -1,28 +1,51 @@
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Heart, User, MapPin, Briefcase, GraduationCap, Clock, Globe, CheckCircle2 } from 'lucide-react'
+import { Heart, User, MapPin, Briefcase, GraduationCap, Clock, Globe, CheckCircle2, FileText, Link as LinkIcon } from 'lucide-react'
 import { cn, RECOGNITION_LABELS, PROCESS_STATUS_LABELS } from '@/lib/utils'
 
 export default function ProfileDetailModal({ profile, open, onClose, isFavorite, onToggleFavorite }) {
+  const [linkCopied, setLinkCopied] = useState(false)
   if (!profile) return null
+
+  const cvUrl = `${window.location.origin}/lebenslauf/${profile.id}`
+
+  const handleOpenCv = () => window.open(cvUrl, '_blank')
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(cvUrl)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2500)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center justify-between flex-wrap gap-2">
             <span>Profil-Details</span>
-            <Button
-              variant={isFavorite ? "default" : "outline"}
-              size="sm"
-              onClick={() => onToggleFavorite(profile.id)}
-              className={cn(isFavorite && "bg-red-500 hover:bg-red-600 border-red-500")}
-            >
-              <Heart className={cn("h-4 w-4 mr-1.5", isFavorite && "fill-white")} />
-              {isFavorite ? 'Vorgemerkt' : 'Vormerken'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleCopyLink} className="gap-1.5 text-xs">
+                {linkCopied
+                  ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" />Kopiert!</>
+                  : <><LinkIcon className="h-3.5 w-3.5" />Link teilen</>
+                }
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleOpenCv} className="gap-1.5 text-xs">
+                <FileText className="h-3.5 w-3.5" />Lebenslauf
+              </Button>
+              <Button
+                variant={isFavorite ? "default" : "outline"}
+                size="sm"
+                onClick={() => onToggleFavorite(profile.id)}
+                className={cn(isFavorite && "bg-red-500 hover:bg-red-600 border-red-500")}
+              >
+                <Heart className={cn("h-4 w-4 mr-1.5", isFavorite && "fill-white")} />
+                {isFavorite ? 'Vorgemerkt' : 'Vormerken'}
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 

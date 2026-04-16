@@ -64,42 +64,43 @@ export default function AdminDashboard() {
   useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
-    const [profilesRes, companiesRes, reservationsRes] = await Promise.all([
-      supabase.from('profiles').select('id, status, first_name, last_name, nationality, created_at, profile_image_url').order('created_at', { ascending: false }),
-      supabase.from('companies').select('id, status, company_name, email, created_at, company_type').order('created_at', { ascending: false }),
-      supabase.from('reservations').select('id, process_status, created_at').order('created_at', { ascending: false }),
-    ])
+    try {
+      const [profilesRes, companiesRes, reservationsRes] = await Promise.all([
+        supabase.from('profiles').select('id, status, first_name, last_name, nationality, created_at, profile_image_url').order('created_at', { ascending: false }),
+        supabase.from('companies').select('id, status, company_name, email, created_at, company_type').order('created_at', { ascending: false }),
+        supabase.from('reservations').select('id, process_status, created_at').order('created_at', { ascending: false }),
+      ])
 
-    const profiles   = profilesRes.data   || []
-    const companies  = companiesRes.data  || []
-    const reservations = reservationsRes.data || []
+      const profiles     = profilesRes.data     || []
+      const companies    = companiesRes.data    || []
+      const reservations = reservationsRes.data || []
 
-    // Profile stats
-    const byStatus = (s) => profiles.filter(p => p.status === s).length
-    // Pipeline distribution
-    const pipelineCounts = {}
-    reservations.forEach(r => {
-      pipelineCounts[r.process_status] = (pipelineCounts[r.process_status] || 0) + 1
-    })
-    const pipelineArr = Object.entries(pipelineCounts)
-      .map(([step, count]) => ({ step: Number(step), count }))
-      .sort((a, b) => a.step - b.step)
+      const byStatus = (s) => profiles.filter(p => p.status === s).length
+      const pipelineCounts = {}
+      reservations.forEach(r => {
+        pipelineCounts[r.process_status] = (pipelineCounts[r.process_status] || 0) + 1
+      })
+      const pipelineArr = Object.entries(pipelineCounts)
+        .map(([step, count]) => ({ step: Number(step), count }))
+        .sort((a, b) => a.step - b.step)
 
-    setStats({
-      totalProfiles:    profiles.length,
-      published:        byStatus('published'),
-      reserved:         byStatus('reserved'),
-      completed:        byStatus('completed'),
-      pendingLeads:     companies.filter(c => c.status === 'pending').length,
-      approvedCompanies: companies.filter(c => c.status === 'approved').length,
-      customers:        companies.filter(c => c.company_type === 'customer').length,
-      activeReservations: reservations.length,
-    })
+      setStats({
+        totalProfiles:     profiles.length,
+        published:         byStatus('published'),
+        reserved:          byStatus('reserved'),
+        completed:         byStatus('completed'),
+        pendingLeads:      companies.filter(c => c.status === 'pending').length,
+        approvedCompanies: companies.filter(c => c.status === 'approved').length,
+        customers:         companies.filter(c => c.company_type === 'customer').length,
+        activeReservations: reservations.length,
+      })
 
-    setRecentLeads(companies.filter(c => c.status === 'pending').slice(0, 5))
-    setRecentProfiles(profiles.slice(0, 5))
-    setPipeline(pipelineArr)
-    setLoading(false)
+      setRecentLeads(companies.filter(c => c.status === 'pending').slice(0, 5))
+      setRecentProfiles(profiles.slice(0, 5))
+      setPipeline(pipelineArr)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) return (

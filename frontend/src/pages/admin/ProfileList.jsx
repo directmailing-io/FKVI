@@ -22,12 +22,15 @@ export default function ProfileList() {
   }, [])
 
   const fetchProfiles = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, status, nationality, specializations, created_at, profile_image_url')
-      .order('created_at', { ascending: false })
-    setProfiles(data || [])
-    setLoading(false)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, status, nationality, specializations, created_at, profile_image_url')
+        .order('created_at', { ascending: false })
+      setProfiles(data || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDelete = async () => {

@@ -3,28 +3,29 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase } from 'lucide-react'
+import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity } from 'lucide-react'
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [activeVermittlungen, setActiveVermittlungen] = useState(0)
   const { user, signOut } = useAuthStore()
   const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchPendingCount()
-    // Refresh every 60 seconds
-    const interval = setInterval(fetchPendingCount, 60_000)
+    fetchCounts()
+    const interval = setInterval(fetchCounts, 60_000)
     return () => clearInterval(interval)
   }, [])
 
-  const fetchPendingCount = async () => {
-    const { count } = await supabase
-      .from('companies')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
-    setPendingCount(count || 0)
+  const fetchCounts = async () => {
+    const [pendingRes, vermittlungRes] = await Promise.all([
+      supabase.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('reservations').select('id', { count: 'exact', head: true }).lt('process_status', 11),
+    ])
+    setPendingCount(pendingRes.count || 0)
+    setActiveVermittlungen(vermittlungRes.count || 0)
   }
 
   const handleSignOut = async () => {
@@ -33,10 +34,11 @@ export default function AdminLayout({ children }) {
   }
 
   const navItems = [
-    { label: 'Dashboard',       icon: LayoutDashboard, href: '/admin' },
-    { label: 'Fachkräfte',      icon: Users,            href: '/admin/fachkraefte' },
-    { label: 'CRM / Firmen',    icon: Briefcase,        href: '/admin/crm' },
-    { label: 'Freigabezentrale', icon: Building2,       href: '/admin/leads', badge: pendingCount },
+    { label: 'Dashboard',        icon: LayoutDashboard, href: '/admin' },
+    { label: 'Fachkräfte',       icon: Users,            href: '/admin/fachkraefte' },
+    { label: 'CRM / Firmen',     icon: Briefcase,        href: '/admin/crm' },
+    { label: 'Vermittlungen',    icon: Activity,         href: '/admin/vermittlungen', badge: activeVermittlungen },
+    { label: 'Freigabezentrale', icon: Building2,        href: '/admin/leads', badge: pendingCount },
   ]
 
   return (

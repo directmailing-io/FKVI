@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/utils'
 import {
   Building2, Mail, Phone, Globe, MapPin, Plus, Trash2,
-  Save, X, Search, Users, Loader2, ChevronDown, ChevronUp
+  Save, X, Search, Users, Loader2, ChevronDown, ChevronUp,
+  Pencil, ShieldCheck,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -124,11 +126,10 @@ function DetailPanel({ company, onClose, onSaved }) {
         .eq('id', company.id)
 
       if (error) {
-        // Column might not exist yet — save what we can
         await supabase.from('companies').update({
           internal_notes: form.internal_notes || null,
         }).eq('id', company.id)
-        toast({ title: 'Teilweise gespeichert', description: 'Einige Felder fehlen noch in der Datenbank. Bitte Migration anwenden.', variant: 'warning' })
+        toast({ title: 'Teilweise gespeichert', description: 'Einige Felder fehlen noch in der Datenbank.', variant: 'warning' })
       } else {
         toast({ title: 'Gespeichert', description: `${company.company_name} wurde aktualisiert.`, variant: 'success' })
       }
@@ -273,27 +274,102 @@ function DetailPanel({ company, onClose, onSaved }) {
   )
 }
 
+// ─── Context Menu ─────────────────────────────────────────────────────────────
+function ContextMenu({ x, y, company, onClose, onTypeChange, onApprove, onDelete, onEdit }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handle = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose()
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [onClose])
+
+  // Adjust so menu doesn't overflow viewport
+  const style = {
+    position: 'fixed',
+    left: Math.min(x, window.innerWidth - 200),
+    top: Math.min(y, window.innerHeight - 240),
+    zIndex: 9999,
+  }
+
+  const currentType = company.company_type || 'lead'
+
+  const MenuItem = ({ icon: Icon, label, onClick, className = '' }) => (
+    <button
+      onClick={() => { onClick(); onClose() }}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${className}`}
+    >
+      {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />}
+      {label}
+    </button>
+  )
+
+  const Separator = () => <div className="my-1 border-t border-gray-100" />
+
+  return (
+    <div ref={ref} style={style} className="bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[190px]">
+      <MenuItem icon={Pencil} label="Bearbeiten" onClick={onEdit} />
+
+      <Separator />
+
+      {currentType !== 'lead' && (
+        <MenuItem label="Als Lead markieren" onClick={() => onTypeChange('lead')}
+          className="text-amber-700" />
+      )}
+      {currentType !== 'customer' && (
+        <MenuItem label="Als Kunde markieren" onClick={() => onTypeChange('customer')}
+          className="text-green-700" />
+      )}
+      {currentType !== 'inactive' && (
+        <MenuItem label="Als Inaktiv markieren" onClick={() => onTypeChange('inactive')}
+          className="text-gray-500" />
+      )}
+
+      {company.status === 'pending' && (
+        <>
+          <Separator />
+          <MenuItem icon={ShieldCheck} label="Freischalten" onClick={onApprove}
+            className="text-fkvi-blue" />
+        </>
+      )}
+
+      <Separator />
+
+      <MenuItem icon={Trash2} label="Löschen" onClick={onDelete}
+        className="text-red-600 hover:bg-red-50" />
+    </div>
+  )
+}
+
 // ─── Main CRM Page ────────────────────────────────────────────────────────────
 export default function CRMPage() {
   const navigate = useNavigate()
+  const { session } = useAuthStore()
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [selected, setSelected] = useState(null) // kept for compat, unused now
+  const [selected, setSelected] = useState(null)
   const [sortField, setSortField] = useState('created_at')
   const [sortDir, setSortDir] = useState('desc')
+  const [ctxMenu, setCtxMenu] = useState(null) // { x, y, company }
 
   useEffect(() => { fetchCompanies() }, [])
 
   const fetchCompanies = async () => {
-    const { data } = await supabase
-      .from('companies')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setCompanies(data || [])
-    setLoading(false)
+    setLoading(true)
+    try {
+      const { data } = await supabase
+        .from('companies')
+        .select('*')
+        .order('created_at', { ascending: false })
+      setCompanies(data || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSaved = (updated) => {
@@ -311,6 +387,66 @@ export default function CRMPage() {
     return sortDir === 'asc'
       ? <ChevronUp className="h-3 w-3 text-gray-500" />
       : <ChevronDown className="h-3 w-3 text-gray-500" />
+  }
+
+  const handleContextMenu = (e, company) => {
+    e.preventDefault()
+    setCtxMenu({ x: e.clientX, y: e.clientY, company })
+  }
+
+  const handleTypeChange = async (type) => {
+    const { company } = ctxMenu
+    const { error } = await supabase.from('companies').update({ company_type: type }).eq('id', company.id)
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
+      return
+    }
+    setCompanies(prev => prev.map(c => c.id === company.id ? { ...c, company_type: type } : c))
+    toast({ title: 'Typ geändert', description: `${company.company_name} ist jetzt als ${TYPE_CONFIG[type].label} markiert.`, variant: 'success' })
+  }
+
+  const handleApproveCtx = async () => {
+    const { company } = ctxMenu
+    try {
+      const res = await fetch('/api/admin/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ companyId: company.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      if (data.emailSent) {
+        toast({ title: 'Freigeschaltet', description: `E-Mail an ${company.email} versandt.`, variant: 'success' })
+      } else {
+        toast({ title: 'Freigeschaltet – E-Mail fehlgeschlagen', description: data.emailError || '', variant: 'destructive' })
+      }
+      fetchCompanies()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  const handleDeleteCtx = async () => {
+    const { company } = ctxMenu
+    if (!window.confirm(`"${company.company_name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return
+    const res = await fetch('/api/admin/delete-company', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({ companyId: company.id }),
+    })
+    if (res.ok) {
+      setCompanies(prev => prev.filter(c => c.id !== company.id))
+      toast({ title: 'Gelöscht', description: `${company.company_name} wurde entfernt.`, variant: 'success' })
+    } else {
+      const data = await res.json().catch(() => ({}))
+      toast({ title: 'Fehler beim Löschen', description: data.error || 'Unbekannter Fehler', variant: 'destructive' })
+    }
   }
 
   const filtered = companies
@@ -443,6 +579,7 @@ export default function CRMPage() {
                     <tr
                       key={company.id}
                       onClick={() => navigate(`/admin/crm/${company.id}`)}
+                      onContextMenu={(e) => handleContextMenu(e, company)}
                       className="border-b border-gray-50 cursor-pointer hover:bg-fkvi-blue/5 transition-colors"
                     >
                       <td className="px-4 py-3">
@@ -482,34 +619,21 @@ export default function CRMPage() {
 
           <p className="text-xs text-gray-400 mt-2 px-1">{filtered.length} Einträge angezeigt</p>
         </div>
-
       </div>
 
-      {/* Migration hint */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>Datenbankhinweis:</strong> Für alle CRM-Felder (Website, Adresse, Typ, Notizen, Ansprechpartner) einmalig im{' '}
-        <a
-          href="https://supabase.com/dashboard/project/sbqlpiksowrbefqweasn/sql"
-          target="_blank"
-          rel="noreferrer"
-          className="underline font-medium"
-        >
-          Supabase SQL-Editor
-        </a>{' '}
-        ausführen:
-        <pre className="mt-2 bg-amber-100 rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">{`ALTER TABLE public.companies
-  ADD COLUMN IF NOT EXISTS company_type TEXT DEFAULT 'lead',
-  ADD COLUMN IF NOT EXISTS website_url TEXT,
-  ADD COLUMN IF NOT EXISTS address TEXT,
-  ADD COLUMN IF NOT EXISTS city TEXT,
-  ADD COLUMN IF NOT EXISTS postal_code TEXT,
-  ADD COLUMN IF NOT EXISTS crm_notes TEXT,
-  ADD COLUMN IF NOT EXISTS additional_contacts JSONB DEFAULT '[]'::jsonb;
-
--- Freigabe für anonyme Firmenregistrierung:
-CREATE POLICY IF NOT EXISTS "Public company registration"
-  ON public.companies FOR INSERT TO anon WITH CHECK (true);`}</pre>
-      </div>
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          company={ctxMenu.company}
+          onClose={() => setCtxMenu(null)}
+          onEdit={() => navigate(`/admin/crm/${ctxMenu.company.id}`)}
+          onTypeChange={handleTypeChange}
+          onApprove={handleApproveCtx}
+          onDelete={handleDeleteCtx}
+        />
+      )}
     </div>
   )
 }

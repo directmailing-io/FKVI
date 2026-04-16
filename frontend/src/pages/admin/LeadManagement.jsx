@@ -30,12 +30,16 @@ export default function LeadManagement() {
   useEffect(() => { fetchCompanies() }, [])
 
   const fetchCompanies = async () => {
-    const { data } = await supabase
-      .from('companies')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setCompanies(data || [])
-    setLoading(false)
+    setLoading(true)
+    try {
+      const { data } = await supabase
+        .from('companies')
+        .select('*')
+        .order('created_at', { ascending: false })
+      setCompanies(data || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filtered = companies.filter(c => filter === 'all' || c.status === filter)
@@ -53,7 +57,11 @@ export default function LeadManagement() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast({ title: 'Unternehmen freigeschaltet', description: `${company.company_name} hat Zugang erhalten. Eine E-Mail wurde versandt.`, variant: 'success' })
+      if (data.emailSent) {
+        toast({ title: 'Unternehmen freigeschaltet', description: `E-Mail mit Passwort-Link wurde an ${company.email} versandt.`, variant: 'success' })
+      } else {
+        toast({ title: 'Freigeschaltet – E-Mail fehlgeschlagen', description: data.emailError || 'E-Mail konnte nicht gesendet werden.', variant: 'destructive' })
+      }
       fetchCompanies()
       setSelected(null)
     } catch (err) {

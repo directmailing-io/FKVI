@@ -1,4 +1,4 @@
-import { Heart, User, MapPin, Briefcase, GraduationCap, Clock } from 'lucide-react'
+import { Heart, User, MapPin, Briefcase, GraduationCap, Clock, FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn, RECOGNITION_LABELS } from '@/lib/utils'
@@ -97,15 +97,26 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onV
           </div>
         )}
 
-        {/* Action */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full mt-2 text-xs"
-          onClick={() => onViewDetail(profile)}
-        >
-          Profil ansehen
-        </Button>
+        {/* Actions */}
+        <div className="flex gap-2 mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 text-xs"
+            onClick={() => onViewDetail(profile)}
+          >
+            Profil ansehen
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs px-2.5 text-gray-500 hover:text-gray-800"
+            title="Lebenslauf öffnen"
+            onClick={(e) => { e.stopPropagation(); window.open(`/lebenslauf/${profile.id}`, '_blank') }}
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
     </div>
   )

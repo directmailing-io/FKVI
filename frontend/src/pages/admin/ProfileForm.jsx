@@ -20,7 +20,7 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -239,6 +239,10 @@ export default function ProfileForm() {
   const [videoUploading, setVideoUploading] = useState(false)
   const [error, setError] = useState('')
   const [deleteDialog, setDeleteDialog] = useState(false)
+  const [reserveDialog, setReserveDialog] = useState(false)
+  const [companies, setCompanies] = useState([])
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
+  const [reserving, setReserving] = useState(false)
   const imageRef = useRef()
   const videoRef = useRef()
 
@@ -379,6 +383,42 @@ export default function ProfileForm() {
     }
   }
 
+  const openReserveDialog = async () => {
+    const { data } = await supabase
+      .from('companies')
+      .select('id, company_name, city, email')
+      .eq('status', 'approved')
+      .order('company_name')
+    setCompanies(data || [])
+    setSelectedCompanyId('')
+    setReserveDialog(true)
+  }
+
+  const handleReserve = async () => {
+    if (!selectedCompanyId) return
+    setReserving(true)
+    try {
+      const res = await fetch('/api/admin/create-reservation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ profileId: id, companyId: selectedCompanyId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setReserveDialog(false)
+      toast({ title: 'Vermittlung gestartet', description: 'Die Fachkraft wurde reserviert und Schritt 1 gestartet.' })
+      // Refresh profile to show new status
+      fetchProfile()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setReserving(false)
+    }
+  }
+
   const fillTestData = () => {
     const data = generateTestData()
     setProfile(prev => ({ ...prev, ...data }))
@@ -445,6 +485,11 @@ export default function ProfileForm() {
             <Button variant="outline" size="sm" onClick={fillTestData} title="Alle Felder mit Testdaten befüllen">
               <FlaskConical className="h-3.5 w-3.5 mr-2" />Test
             </Button>
+            {isEdit && profile.status === 'published' && (
+              <Button variant="outline" size="sm" onClick={openReserveDialog} className="text-fkvi-blue border-blue-200 hover:bg-blue-50">
+                <Bookmark className="h-3.5 w-3.5 mr-2" />Unternehmen zuordnen
+              </Button>
+            )}
             {isEdit && (
               <Button variant="outline" size="sm" onClick={() => setDeleteDialog(true)} className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700">
                 <Trash2 className="h-3.5 w-3.5 mr-2" />Löschen
@@ -891,6 +936,46 @@ export default function ProfileForm() {
             <Button variant="outline" onClick={() => setDeleteDialog(false)}>Abbrechen</Button>
             <Button variant="destructive" onClick={handleDeleteProfile}>
               <Trash2 className="h-4 w-4 mr-2" />Endgültig löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reserve dialog */}
+      <Dialog open={reserveDialog} onOpenChange={setReserveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bookmark className="h-5 w-5 text-fkvi-blue" />Unternehmen zuordnen
+            </DialogTitle>
+            <DialogDescription>
+              Wähle ein freigeschaltetes Unternehmen, dem <strong>{profile.first_name} {profile.last_name}</strong> zugeordnet werden soll.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-2">
+            <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Unternehmen auswählen..." />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.company_name}{c.city ? ` · ${c.city}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {companies.length === 0 && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Keine freigeschalteten Unternehmen gefunden. Bitte erst ein Unternehmen in der Freigabezentrale freischalten.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReserveDialog(false)}>Abbrechen</Button>
+            <Button onClick={handleReserve} disabled={!selectedCompanyId || reserving}>
+              {reserving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bookmark className="h-4 w-4 mr-2" />}
+              Vermittlung starten
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -22,7 +22,7 @@ export default function ContactPage() {
     setError('')
     setLoading(true)
     try {
-      const { data, error: sbErr } = await supabase
+      const { error: sbErr } = await supabase
         .from('companies')
         .insert({
           company_name: form.company_name,
@@ -31,8 +31,6 @@ export default function ContactPage() {
           phone: form.phone,
           email: form.email,
         })
-        .select()
-        .single()
 
       if (sbErr) {
         if (sbErr.code === '23505') {
@@ -95,33 +93,34 @@ export default function ContactPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="company_name">Firmenname <span className="text-red-500">*</span></Label>
+              <Label htmlFor="company_name">Firmenname</Label>
               <Input
                 id="company_name"
                 value={form.company_name}
                 onChange={e => set('company_name', e.target.value)}
                 placeholder="Muster GmbH"
-                required
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="first_name">Vorname</Label>
+                <Label htmlFor="first_name">Vorname <span className="text-red-500">*</span></Label>
                 <Input
                   id="first_name"
                   value={form.first_name}
                   onChange={e => set('first_name', e.target.value)}
                   placeholder="Max"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="last_name">Nachname</Label>
+                <Label htmlFor="last_name">Nachname <span className="text-red-500">*</span></Label>
                 <Input
                   id="last_name"
                   value={form.last_name}
                   onChange={e => set('last_name', e.target.value)}
                   placeholder="Mustermann"
+                  required
                 />
               </div>
             </div>
@@ -139,13 +138,14 @@ export default function ContactPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefonnummer</Label>
+              <Label htmlFor="phone">Telefonnummer <span className="text-red-500">*</span></Label>
               <Input
                 id="phone"
                 type="tel"
                 value={form.phone}
                 onChange={e => set('phone', e.target.value)}
                 placeholder="+49 123 4567890"
+                required
               />
             </div>
 
