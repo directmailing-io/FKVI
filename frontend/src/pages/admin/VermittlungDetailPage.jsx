@@ -106,33 +106,39 @@ export default function VermittlungDetailPage() {
   useEffect(() => { fetchData() }, [id])
 
   const fetchData = async () => {
-    const [resRes, histRes] = await Promise.all([
-      supabase
-        .from('reservations')
-        .select(`
-          id, process_status, created_at, updated_at,
-          profile_id, company_id,
-          profiles (
-            id, first_name, last_name, gender, age, nationality,
-            profile_image_url, nursing_education, specializations,
-            total_experience_years, german_recognition
-          ),
-          companies (
-            id, company_name, email, phone, first_name, last_name, city
-          )
-        `)
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('process_status_history')
-        .select('*')
-        .eq('reservation_id', id)
-        .order('created_at', { ascending: false }),
-    ])
+    setLoading(true)
+    try {
+      const [resRes, histRes] = await Promise.all([
+        supabase
+          .from('reservations')
+          .select(`
+            id, process_status, created_at, updated_at,
+            profile_id, company_id,
+            profiles (
+              id, first_name, last_name, gender, age, nationality,
+              profile_image_url, nursing_education, specializations,
+              total_experience_years, german_recognition
+            ),
+            companies (
+              id, company_name, email, phone, first_name, last_name, city
+            )
+          `)
+          .eq('id', id)
+          .single(),
+        supabase
+          .from('process_status_history')
+          .select('*')
+          .eq('reservation_id', id)
+          .order('created_at', { ascending: false }),
+      ])
 
-    if (resRes.data) setReservation(resRes.data)
-    setHistory(histRes.data || [])
-    setLoading(false)
+      if (resRes.data) setReservation(resRes.data)
+      setHistory(histRes.data || [])
+    } catch {
+      // reservation will remain null, showing "not found" state
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleAdvance = async () => {

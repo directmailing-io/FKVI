@@ -48,21 +48,27 @@ export default function ReservedProfiles() {
   }, [companyId])
 
   const fetchReservations = async () => {
-    if (!companyId) return
-    const { data } = await supabase
-      .from('reservations')
-      .select(`
-        id, process_status, created_at, updated_at,
-        profiles (
-          id, gender, age, nationality, profile_image_url,
-          nursing_education, specializations, total_experience_years,
-          german_recognition, vimeo_video_url
-        )
-      `)
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
-    setReservations(data || [])
-    setLoading(false)
+    if (!companyId) { setLoading(false); return }
+    setLoading(true)
+    try {
+      const { data } = await supabase
+        .from('reservations')
+        .select(`
+          id, process_status, created_at, updated_at,
+          profiles (
+            id, gender, age, nationality, profile_image_url,
+            nursing_education, specializations, total_experience_years,
+            german_recognition, vimeo_video_url
+          )
+        `)
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+      setReservations(data || [])
+    } catch {
+      setReservations([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) return (

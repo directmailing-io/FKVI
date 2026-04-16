@@ -22,6 +22,7 @@ export default function ProfileList() {
   }, [])
 
   const fetchProfiles = async () => {
+    setLoading(true)
     try {
       const { data } = await supabase
         .from('profiles')

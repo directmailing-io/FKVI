@@ -21,6 +21,7 @@ export default function VermittlungenPage() {
   useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
       const { data } = await supabase
         .from('reservations')

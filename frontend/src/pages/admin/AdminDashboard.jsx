@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
+    setLoading(true)
     try {
       const [profilesRes, companiesRes, reservationsRes] = await Promise.all([
         supabase.from('profiles').select('id, status, first_name, last_name, nationality, created_at, profile_image_url').order('created_at', { ascending: false }),
