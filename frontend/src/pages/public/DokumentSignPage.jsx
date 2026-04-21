@@ -18,7 +18,7 @@ function PdfViewer({ pdfUrl }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    if (!pdfUrl) return
+    if (!pdfUrl) { setLoading(false); setError(true); return }
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -198,7 +198,11 @@ export default function DokumentSignPage() {
           }
         })
         setFieldValues(initial)
-        if (pdfData.signedUrl) setPdfUrl(pdfData.signedUrl)
+        if (pdfData.signedUrl) {
+          setPdfUrl(pdfData.signedUrl)
+        } else {
+          setPdfUrl(null) // triggers error in PdfViewer
+        }
       })
       .catch(() => setError('Dokument konnte nicht geladen werden.'))
       .finally(() => setLoading(false))

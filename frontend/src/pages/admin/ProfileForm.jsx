@@ -1882,20 +1882,20 @@ export default function ProfileForm() {
               </p>
             )}
 
-            {/* ── Signierungsanfragen aus Mediathek ── */}
+            {/* ── Signierlinks ── */}
             {isEdit && (
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                   <div>
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                       <FileText className="h-4 w-4 text-gray-400" />
-                      Signierungsanfragen
+                      Signierlinks
                       {docSends.length > 0 && (
                         <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
                       )}
                       {docSendsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
                     </h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Vorlagen aus der Mediathek zum Unterzeichnen senden</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Vorlage auswählen → Link generieren → teilen</p>
                   </div>
                   <Button size="sm" onClick={() => setSendTemplateDialog(true)} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
                     <Plus className="h-3.5 w-3.5 mr-1.5" />Vorlage senden
@@ -1904,7 +1904,7 @@ export default function ProfileForm() {
                 {docSends.length === 0 && !docSendsLoading ? (
                   <div className="text-center py-10 text-gray-400">
                     <FileText className="h-7 w-7 mx-auto mb-2 text-gray-200" />
-                    <p className="text-sm font-medium text-gray-500">Noch keine Signierungsanfragen</p>
+                    <p className="text-sm font-medium text-gray-500">Noch keine Signierlinks erstellt</p>
                     <p className="text-xs mt-1">Wähle eine Vorlage aus der Mediathek und sende sie an die Fachkraft.</p>
                   </div>
                 ) : (
