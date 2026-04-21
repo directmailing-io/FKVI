@@ -16,15 +16,20 @@ import CompanyDetailPage from '@/pages/admin/CompanyDetailPage'
 import VermittlungenPage from '@/pages/admin/VermittlungenPage'
 import VermittlungDetailPage from '@/pages/admin/VermittlungDetailPage'
 import BrochuerePage from '@/pages/admin/BrochuerePage'
+import MediathekPage from '@/pages/admin/MediathekPage'
+import TemplateEditorPage from '@/pages/admin/TemplateEditorPage'
+import PostfachPage from '@/pages/admin/PostfachPage'
 
 // Public pages
 import PublicHome from '@/pages/public/PublicHome'
+import DemoPage from '@/pages/public/DemoPage'
 import ContactPage from '@/pages/public/ContactPage'
 import CvPage from '@/pages/public/CvPage'
 import CvSharePage from '@/pages/public/CvSharePage'
 import DownloadsPage from '@/pages/public/DownloadsPage'
 import BrochureAccessPage from '@/pages/public/BrochureAccessPage'
 import BeratungPage from '@/pages/public/BeratungPage'
+import DokumentSignPage from '@/pages/public/DokumentSignPage'
 
 // Matching pages
 import MatchingLogin from '@/pages/matching/MatchingLogin'
@@ -66,12 +71,14 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<PublicHome />} />
+        <Route path="/demo" element={<DemoPage />} />
         <Route path="/kontakt" element={<ContactPage />} />
         <Route path="/lebenslauf/:id" element={<CvPage />} />
         <Route path="/lebenslauf/share/:token" element={<CvSharePage />} />
         <Route path="/downloads" element={<DownloadsPage />} />
         <Route path="/downloads/zugang/:token" element={<BrochureAccessPage />} />
         <Route path="/beratung" element={<BeratungPage />} />
+        <Route path="/dokument/:token" element={<DokumentSignPage />} />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -84,6 +91,9 @@ export default function App() {
         <Route path="/admin/vermittlungen" element={<AdminRoute><AdminLayout><VermittlungenPage /></AdminLayout></AdminRoute>} />
         <Route path="/admin/vermittlungen/:id" element={<AdminRoute><AdminLayout><VermittlungDetailPage /></AdminLayout></AdminRoute>} />
         <Route path="/admin/broschuere" element={<AdminRoute><AdminLayout><BrochuerePage /></AdminLayout></AdminRoute>} />
+        <Route path="/admin/mediathek" element={<AdminRoute><AdminLayout><MediathekPage /></AdminLayout></AdminRoute>} />
+        <Route path="/admin/dokumente/editor/:templateId" element={<AdminRoute><AdminLayout><TemplateEditorPage /></AdminLayout></AdminRoute>} />
+        <Route path="/admin/postfach" element={<AdminRoute><AdminLayout><PostfachPage /></AdminLayout></AdminRoute>} />
 
         {/* Matching */}
         <Route path="/matching/login" element={<MatchingLogin />} />

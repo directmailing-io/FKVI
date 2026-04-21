@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { BookMarked, User, ChevronRight } from 'lucide-react'
+import { BookMarked, User, ChevronRight, CheckCircle2 } from 'lucide-react'
 
 export default function ReservedProfiles() {
   const [reservations, setReservations] = useState([])

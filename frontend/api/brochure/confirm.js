@@ -84,8 +84,7 @@ export default async function handler(req, res) {
           email: request.email,
           phone: request.phone,
           status: 'pending',
-          crm_type: 'lead',
-          source: 'brochure_download',
+          company_type: 'lead',
         })
         .select('id')
         .single()
@@ -97,12 +96,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // Update brochure_request with company_id
+    // Link ALL brochure_requests with this email to the company (retroactive)
     if (companyId) {
       await supabaseAdmin
         .from('brochure_requests')
         .update({ company_id: companyId })
-        .eq('id', request.id)
+        .eq('email', request.email)
+        .is('company_id', null)
     }
   }
 

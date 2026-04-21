@@ -24,11 +24,36 @@ export default async function handler(req, res) {
   const { data: company } = await supabaseAdmin
     .from('companies').select('user_id').eq('id', companyId).single()
 
+  // 1. Decouple reservations (set profile free again)
+  await supabaseAdmin
+    .from('reservations')
+    .delete()
+    .eq('company_id', companyId)
+
+  // 2. Remove favorites
+  await supabaseAdmin
+    .from('favorites')
+    .delete()
+    .eq('company_id', companyId)
+
+  // 3. Remove brochure requests
+  await supabaseAdmin
+    .from('brochure_requests')
+    .delete()
+    .eq('company_id', companyId)
+
+  // 4. Remove auth user if one was created
   if (company?.user_id) {
     await supabaseAdmin.auth.admin.deleteUser(company.user_id).catch(() => {})
   }
 
-  await supabaseAdmin.from('companies').delete().eq('id', companyId)
+  // 5. Delete the company record
+  const { error } = await supabaseAdmin
+    .from('companies')
+    .delete()
+    .eq('id', companyId)
+
+  if (error) return res.status(500).json({ error: error.message })
 
   res.json({ success: true })
 }

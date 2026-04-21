@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Phone, ChevronDown, ChevronUp, Lock, Clock, Star, Users, ArrowRight, Play, CheckCircle2 } from 'lucide-react'
+import { Phone, ChevronDown, ChevronUp, Lock, Clock, Star, Users, ArrowRight, Play, CheckCircle2, Info, X, Loader2, ShieldCheck, Building2 } from 'lucide-react'
 import { RECOGNITION_LABELS } from '@/lib/utils'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -32,15 +32,48 @@ const FUNNEL_DATA = {
   },
 }
 
-const ROI_TYPES = [
-  { label: 'Pflegefachkraft (QN4)', savingsPerYear: 61200, amortMonths: 3.3 },
-  { label: 'Pflegefachkraft (QN3)', savingsPerYear: 48000, amortMonths: 4.1 },
-  { label: 'Pflegehilfskraft', savingsPerYear: 36000, amortMonths: 5.2 },
-  { label: 'Stationsleitung', savingsPerYear: 72000, amortMonths: 2.8 },
+const ERFUELLQUOTE_TOOLTIP = 'Anteil der Fachkräfte, die im Jahr 2025 ihr Anerkennungsverfahren durchliefen und weiterhin in einem festen Einstellungsverhältnis bei ihrem ursprünglichen Arbeitgeber stehen.'
+
+const LOGO_PARTNERS = [
+  { name: 'Asklepios Klinik', abbr: 'AK' },
+  { name: 'Klinikgruppe West', abbr: 'KW' },
+  { name: 'Pflegezentrum Nord', abbr: 'PN' },
+  { name: 'Seniorenresidenz Frankfurt', abbr: 'SF' },
+  { name: 'Caritas Pflege', abbr: 'CP' },
+  { name: 'DRK Klinikum', abbr: 'DR' },
+  { name: 'Helios Kliniken', abbr: 'HK' },
+  { name: 'AWO Pflegedienst', abbr: 'AW' },
 ]
 
 // ─── Components ───────────────────────────────────────────────────────────────
-function NavBar({ funnelRef, roiRef, prozessRef }) {
+function InfoTooltip({ text }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        aria-label="Mehr Informationen"
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-100 text-green-700 hover:bg-green-200 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1 ml-1"
+      >
+        <Info className="w-2.5 h-2.5" />
+      </button>
+      {open && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none">
+          <span className="block w-72 bg-gray-900 text-white text-xs leading-relaxed rounded-xl px-4 py-3 shadow-2xl">
+            <span className="block font-semibold text-green-400 mb-1">98,1% Erfüllquote</span>
+            {text}
+          </span>
+          <span className="block w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
+        </span>
+      )}
+    </span>
+  )
+}
+
+function NavBar({ funnelRef, prozessRef }) {
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 20)
@@ -62,7 +95,6 @@ function NavBar({ funnelRef, roiRef, prozessRef }) {
         <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-gray-600">
           <button onClick={() => scroll(funnelRef)} className="hover:text-fkvi-blue transition-colors">Leistungen</button>
           <button onClick={() => scroll(funnelRef)} className="hover:text-fkvi-blue transition-colors">Kompetenzpass</button>
-          <button onClick={() => scroll(roiRef)} className="hover:text-fkvi-blue transition-colors">ROI-Rechner</button>
           <button onClick={() => scroll(prozessRef)} className="hover:text-fkvi-blue transition-colors">Prozess</button>
           <Link to="/downloads" className="hover:text-fkvi-blue transition-colors">Downloads</Link>
         </nav>
@@ -90,7 +122,9 @@ function HeroSection() {
           {/* Left */}
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-medium text-gray-500 mb-6">
-              <span className="text-green-600 font-semibold">✓</span> 98,1% Erfüllquote
+              <span className="text-green-600 font-semibold">✓</span>
+              98,1% Erfüllquote
+              <InfoTooltip text={ERFUELLQUOTE_TOOLTIP} />
               <span className="w-1 h-1 rounded-full bg-gray-300 mx-1" />
               <span className="text-green-600 font-semibold">✓</span> Pflegekräfte 2026
             </div>
@@ -160,16 +194,38 @@ function HeroSection() {
   )
 }
 
-function PartnersStrip() {
+function LogoMarquee() {
+  const logos = [...LOGO_PARTNERS, ...LOGO_PARTNERS]
   return (
-    <section className="py-10 border-y border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <p className="text-center text-xs font-semibold text-gray-400 tracking-widest uppercase mb-6">Vertrauensvolle Kooperationen mit</p>
-        <div className="flex flex-wrap items-center justify-center gap-8 opacity-60">
-          {['Asklepios Klinik Langen', 'Klinikgruppe West', 'Pflegezentrum Nord', 'Seniorenresidenz Frankfurt'].map(name => (
-            <div key={name} className="flex items-center gap-2 text-gray-500 font-semibold text-sm">
-              <div className="w-6 h-6 rounded bg-gray-200 flex items-center justify-center text-xs">🏥</div>
-              {name}
+    <section className="py-10 border-y border-gray-100 overflow-hidden">
+      <style>{`
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+        .marquee-track {
+          display: flex;
+          width: max-content;
+          animation: marquee 30s linear infinite;
+        }
+      `}</style>
+      <p className="text-center text-xs font-semibold text-gray-400 tracking-widest uppercase mb-6">
+        Vertrauensvolle Kooperationen mit
+      </p>
+      <div
+        className="relative"
+        style={{
+          maskImage: 'linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)',
+        }}
+      >
+        <div className="marquee-track">
+          {logos.map((logo, i) => (
+            <div key={i} className="flex items-center gap-3 mx-8 shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-fkvi-blue/8 border border-gray-100 flex items-center justify-center text-fkvi-blue font-bold text-xs shrink-0">
+                {logo.abbr}
+              </div>
+              <span className="text-gray-500 font-semibold text-sm whitespace-nowrap">{logo.name}</span>
             </div>
           ))}
         </div>
@@ -282,78 +338,66 @@ function KompetenzpassSection({ funnelRef }) {
   )
 }
 
-function RoiRechner({ roiRef }) {
-  const [typeIdx, setTypeIdx] = useState(0)
-  const [stellen, setStellen] = useState(5)
-  const type = ROI_TYPES[typeIdx]
-  const savings = type.savingsPerYear * stellen
-  const fmt = (n) => n.toLocaleString('de-DE') + ' €'
+function ProfilesSection({ profiles, profilesLoading }) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const visible = profiles.slice(0, 3)
 
   return (
-    <section ref={roiRef} className="py-20 px-4 sm:px-6">
-      <div className="max-w-3xl mx-auto">
-        <div className="rounded-3xl overflow-hidden shadow-xl border border-gray-100">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-fkvi-blue to-blue-600 px-8 py-8 text-center">
-            <p className="text-xs font-semibold tracking-widest uppercase text-blue-200 mb-2">ROI-Rechner</p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">Vom Kostenblock zum Ertragsfaktor</h2>
-            <p className="text-white/70 mt-2 text-sm">Berechnen Sie Ihre potenzielle Einsparung gegenüber Leasing-Modellen</p>
-          </div>
+    <>
+      <AccessRequestModal open={modalOpen} onClose={() => setModalOpen(false)} />
 
-          {/* Calculator */}
-          <div className="bg-white p-8">
-            <div className="grid sm:grid-cols-2 gap-8 mb-8">
-              <div>
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                  <span className="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center text-xs">i</span>
-                  Fachbereich
-                </label>
-                <select value={typeIdx} onChange={e => setTypeIdx(Number(e.target.value))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-fkvi-blue/20 appearance-none">
-                  {ROI_TYPES.map((t, i) => <option key={i} value={i}>{t.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="flex items-center justify-between text-sm font-semibold text-gray-700 mb-2">
-                  <span className="flex items-center gap-2">
-                    <span className="text-blue-500">〜</span> Stellenanzahl
-                  </span>
-                  <span className="text-blue-500 font-bold text-lg">{stellen}</span>
-                </label>
-                <input type="range" min={1} max={30} value={stellen} onChange={e => setStellen(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500" />
-                <div className="flex justify-between text-xs text-gray-400 mt-1"><span>1</span><span>15</span><span>30</span></div>
-              </div>
-            </div>
-
-            <div className="text-center mb-6">
-              <p className="text-sm text-gray-500 mb-2">Potenzielle jährliche Budget-Entlastung gegenüber Leasing:</p>
-              <div className="text-5xl font-bold text-green-500">{fmt(savings)}</div>
-            </div>
-
-            <div className="bg-red-50 border-l-4 border-red-400 rounded-r-xl p-4 mb-6">
-              <p className="text-sm text-red-700">
-                <strong>Hinweis:</strong> Vakanzkosten von 2.500 € – 5.000 € Umsatzverlust pro Monat je unbesetztem Bett sind hier noch nicht eingerechnet!
-              </p>
-            </div>
-
-            <Link to="/beratung"
-              className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-4 rounded-xl transition-colors text-sm">
-              Individuelle Analyse als PDF anfordern
-            </Link>
-
-            <p className="text-center text-sm text-gray-500 mt-4">
-              <strong>{type.label}:</strong> Amortisation der Investition in ca.{' '}
-              <span className="text-blue-500 font-semibold">{type.amortMonths} Monaten.</span>
+      <section className="py-24 px-4 sm:px-6 bg-gradient-to-b from-white to-gray-50/80">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-xs font-semibold tracking-widest uppercase text-fkvi-teal mb-3">Aktueller Pool</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-fkvi-blue">Fachkräfte verfügbar</h2>
+            <p className="text-gray-400 mt-4 max-w-md mx-auto text-sm leading-relaxed">
+              Vollständige Profile – Namen, Kontaktdaten und Dokumente – sind ausschließlich für freigeschaltete Partnereinrichtungen sichtbar.
             </p>
           </div>
+
+          {profilesLoading ? (
+            <div className="grid sm:grid-cols-3 gap-6">
+              {[...Array(3)].map((_,i) => (
+                <div key={i} className="bg-white rounded-3xl border border-gray-100 overflow-hidden animate-pulse">
+                  <div className="h-24 bg-gray-100" />
+                  <div className="px-5 pt-12 pb-5 space-y-3">
+                    <div className="h-4 bg-gray-100 rounded-full w-24 mx-auto" />
+                    <div className="h-3 bg-gray-100 rounded-full w-16 mx-auto" />
+                    <div className="h-px bg-gray-100 my-2" />
+                    <div className="flex gap-2 justify-center">
+                      <div className="h-6 w-20 bg-gray-100 rounded-full" />
+                      <div className="h-6 w-24 bg-gray-100 rounded-full" />
+                    </div>
+                    <div className="h-9 bg-gray-100 rounded-xl mt-4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : visible.length > 0 ? (
+            <div className="grid sm:grid-cols-3 gap-6">
+              {visible.map((p, i) => (
+                <ProfileCard key={p.id} profile={p} index={i} onRequestAccess={() => setModalOpen(true)} />
+              ))}
+            </div>
+          ) : null}
+
+          <div className="mt-10 text-center">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-fkvi-blue text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-fkvi-blue/90 transition-all shadow-lg shadow-fkvi-blue/20"
+            >
+              Vollprofile freischalten <ArrowRight className="h-4 w-4" />
+            </button>
+            <p className="text-xs text-gray-400 mt-3">Zugang nur für verifizierte Einrichtungen</p>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   )
 }
 
-function KundenstimmenSection({ profiles, profilesLoading }) {
+function KundenstimmenSection() {
   const testimonials = [
     { initial:'D', name:'Dr. med. Bernd Schmidt', role:'Geschäftsführer Klinikgruppe West', quote:'FKVI hat das Problem der Unterbringung für uns gelöst. Das ist der entscheidende Hebel für die erfolgreiche Integration.' },
     { initial:'S', name:'Sabine Müller', role:'Pflegedirektorin', quote:'Die Fachkräfte waren vom ersten Tag an einsatzbereit. Das 90-Tage-Mentoring hat uns und den neuen Mitarbeitern ab dem ersten Tag eine spürbare Entlastung gegeben.' },
@@ -370,7 +414,7 @@ function KundenstimmenSection({ profiles, profilesLoading }) {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6 mb-16">
+        <div className="grid lg:grid-cols-2 gap-6">
           {testimonials.map((t, i) => (
             <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               {/* Video placeholder */}
@@ -397,69 +441,375 @@ function KundenstimmenSection({ profiles, profilesLoading }) {
             </div>
           ))}
         </div>
-
-        {/* Anonymized Profiles */}
-        <div className="text-center mb-10">
-          <h3 className="text-2xl font-bold text-fkvi-blue">Aktuelle Fachkräfte im Pool</h3>
-          <p className="text-gray-500 mt-2 max-w-lg mx-auto text-sm">
-            Namen und Kontaktdaten sind nur für freigeschaltete Unternehmen sichtbar.
-          </p>
-        </div>
-        {profilesLoading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(3)].map((_,i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden animate-pulse">
-                <div className="h-44 bg-gray-100" />
-                <div className="p-4 space-y-3"><div className="h-4 bg-gray-100 rounded w-2/3" /><div className="h-8 bg-gray-100 rounded" /></div>
-              </div>
-            ))}
-          </div>
-        ) : profiles.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {profiles.slice(0,3).map((p,i) => <ProfileCard key={p.id} profile={p} index={i} />)}
-          </div>
-        ) : null}
-        {profiles.length > 0 && (
-          <div className="mt-8 text-center">
-            <Link to="/beratung" className="inline-flex items-center gap-2 bg-fkvi-blue text-white px-6 py-3 rounded-xl font-semibold hover:bg-fkvi-blue/90 transition-all">
-              Vollprofile freischalten <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        )}
       </div>
     </section>
   )
 }
 
-function ProfileCard({ profile, index }) {
-  const initials = `FK${String(index + 1).padStart(3, '0')}`
-  const age = profile.age ? `${profile.age} J.` : null
-  const specs = (profile.specializations || []).slice(0, 2)
-  const exp = profile.total_experience_years ? `${profile.total_experience_years} J. Erfahrung` : null
-  const recognition = profile.german_recognition ? RECOGNITION_LABELS?.[profile.german_recognition] : null
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
-      <div className="relative h-44 bg-gradient-to-br from-fkvi-blue/10 to-fkvi-blue/5 flex items-center justify-center overflow-hidden">
-        {profile.profile_image_url
-          ? <img src={profile.profile_image_url} alt="Fachkraft" className="w-full h-full object-cover" />
-          : <div className="w-16 h-16 rounded-full bg-fkvi-blue/20 flex items-center justify-center"><Users className="h-8 w-8 text-fkvi-blue/50" /></div>
+function AccessRequestModal({ open, onClose }) {
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', company_name: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+
+  const handleClose = () => {
+    if (loading) return
+    setForm({ first_name: '', last_name: '', email: '', phone: '', company_name: '' })
+    setError('')
+    setDone(false)
+    onClose()
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/request-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.error === 'already_approved') {
+          setError('Diese E-Mail-Adresse ist bereits freigeschaltet. Bitte melden Sie sich direkt an.')
+        } else if (data.error === 'already_pending') {
+          setError('Wir haben bereits eine Anfrage mit dieser E-Mail-Adresse erhalten und werden uns bald bei Ihnen melden.')
+        } else {
+          setError(data.error || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.')
         }
-        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-semibold text-fkvi-blue">{initials}</div>
-      </div>
-      <div className="p-4 space-y-3">
-        <div><div className="h-5 w-32 rounded bg-gray-200 blur-sm select-none" /><p className="text-xs text-gray-400 mt-1">{[profile.nationality, age].filter(Boolean).join(' · ')}</p></div>
-        <div className="flex flex-wrap gap-1.5">
-          {specs.map(s => <span key={s} className="text-xs bg-fkvi-blue/8 text-fkvi-blue px-2 py-0.5 rounded-full font-medium">{s}</span>)}
-          {exp && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full flex items-center gap-1"><Clock className="h-3 w-3" />{exp}</span>}
-        </div>
-        {recognition && <p className="text-xs text-gray-500 flex items-center gap-1"><Star className="h-3 w-3 text-amber-400" />Anerkennung: {recognition}</p>}
-        <Link to="/beratung" className="block">
-          <button className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-500 hover:bg-fkvi-blue hover:text-white hover:border-fkvi-blue transition-all group-hover:bg-fkvi-blue group-hover:text-white group-hover:border-fkvi-blue">
-            <Lock className="h-3.5 w-3.5" />Vollprofil freischalten
+        return
+      }
+      setDone(true)
+    } catch {
+      setError('Verbindungsfehler. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={handleClose}
+      />
+
+      {/* Modal */}
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+
+        {/* Header */}
+        <div className="bg-gradient-to-br from-fkvi-blue to-fkvi-blue/90 px-6 pt-7 pb-6 text-white">
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            aria-label="Schließen"
+          >
+            <X className="h-4 w-4" />
           </button>
-        </Link>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+              <ShieldCheck className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-bold text-lg leading-tight">Zugang beantragen</h2>
+              <p className="text-white/60 text-xs">Matching-Plattform & Vollprofile</p>
+            </div>
+          </div>
+          <p className="text-white/70 text-sm leading-relaxed">
+            Nach kurzer Prüfung schalten wir Ihren Zugang manuell frei und
+            senden Ihnen einen Link zur Passwortvergabe.
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5">
+          {done ? (
+            <div className="py-6 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg mb-1">Anfrage eingegangen!</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Wir melden uns so schnell wie möglich bei <strong>{form.email}</strong> – in der Regel innerhalb von 24 Stunden.
+                </p>
+              </div>
+              <button
+                onClick={handleClose}
+                className="w-full py-2.5 rounded-xl bg-fkvi-blue text-white text-sm font-semibold hover:bg-fkvi-blue/90 transition-colors"
+              >
+                Alles klar
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Name row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Vorname <span className="text-red-400">*</span></label>
+                  <input
+                    type="text"
+                    value={form.first_name}
+                    onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+                    placeholder="Max"
+                    required
+                    autoFocus
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Nachname <span className="text-red-400">*</span></label>
+                  <input
+                    type="text"
+                    value={form.last_name}
+                    onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
+                    placeholder="Mustermann"
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                  />
+                </div>
+              </div>
+
+              {/* Company (optional) */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                  <Building2 className="h-3 w-3" />
+                  Einrichtung / Unternehmen
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.company_name}
+                  onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
+                  placeholder="Muster Klinikum GmbH"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Telefonnummer <span className="text-red-400">*</span></label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="+49 160 1234567"
+                  required
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                />
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">E-Mail-Adresse <span className="text-red-400">*</span></label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="max@klinikum.de"
+                  required
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                />
+              </div>
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 leading-relaxed">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 bg-fkvi-blue text-white py-3 rounded-xl font-semibold text-sm hover:bg-fkvi-blue/90 disabled:opacity-60 transition-all"
+              >
+                {loading
+                  ? <><Loader2 className="h-4 w-4 animate-spin" />Wird gesendet…</>
+                  : <><ShieldCheck className="h-4 w-4" />Zugang beantragen</>
+                }
+              </button>
+
+              <p className="text-center text-xs text-gray-400 leading-relaxed">
+                Ihre Daten werden vertraulich behandelt und nur zur Zugangsprüfung verwendet.
+              </p>
+            </form>
+          )}
+        </div>
       </div>
     </div>
+  )
+}
+
+function ProfileCard({ profile, index, onRequestAccess }) {
+  const code = `FK${String(index + 1).padStart(3, '0')}`
+  const age = profile.age ? `${profile.age} J.` : null
+  const specs = (profile.specializations || []).slice(0, 3)
+  const exp = profile.total_experience_years
+  const recognition = profile.german_recognition ? RECOGNITION_LABELS?.[profile.german_recognition] : null
+
+  const recColor = recognition === 'Anerkannt'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : 'bg-amber-50 text-amber-700 border-amber-200'
+
+  return (
+    <div className="group relative bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col">
+      {/* Top gradient band */}
+      <div className="h-24 bg-gradient-to-br from-fkvi-blue/8 via-fkvi-teal/5 to-transparent" />
+
+      {/* Circular avatar — centered, overlapping the band */}
+      <div className="absolute top-8 left-1/2 -translate-x-1/2">
+        <div
+          className="w-24 h-24 rounded-full p-[3px] shadow-lg"
+          style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}
+        >
+          <div className="w-full h-full rounded-full overflow-hidden bg-gray-100">
+            {profile.profile_image_url
+              ? <img src={profile.profile_image_url} alt="Fachkraft" className="w-full h-full object-cover object-top" />
+              : (
+                <div className="w-full h-full flex items-center justify-center bg-fkvi-blue/10">
+                  <Users className="h-9 w-9 text-fkvi-blue/40" />
+                </div>
+              )
+            }
+          </div>
+        </div>
+        {/* ID badge below the circle */}
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-fkvi-blue text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md whitespace-nowrap tracking-wide">
+          {code}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="pt-16 pb-5 px-5 flex flex-col flex-1 gap-3">
+
+        {/* Blurred name + nationality */}
+        <div className="text-center">
+          <div className="inline-block h-4 w-28 rounded bg-gray-200 select-none mb-1.5" style={{ filter: 'blur(6px)' }} />
+          <p className="text-xs text-gray-400">
+            {[profile.nationality, age].filter(Boolean).join(' · ') || 'Internationale Fachkraft'}
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-gray-100" />
+
+        {/* Experience */}
+        {exp && (
+          <div className="flex items-center justify-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-fkvi-teal shrink-0" />
+            <span className="text-xs font-semibold text-gray-700">{exp} Jahre Berufserfahrung</span>
+          </div>
+        )}
+
+        {/* Specialization tags */}
+        {specs.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {specs.map(s => (
+              <span key={s} className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-fkvi-blue/8 text-fkvi-blue border border-fkvi-blue/10">
+                {s}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Recognition */}
+        {recognition && (
+          <div className="flex justify-center">
+            <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border ${recColor}`}>
+              <CheckCircle2 className="h-3 w-3" />
+              {recognition}
+            </span>
+          </div>
+        )}
+
+        <div className="flex-1" />
+
+        {/* CTA */}
+        <button
+          onClick={onRequestAccess}
+          className="mt-1 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-500 hover:bg-fkvi-blue hover:text-white hover:border-fkvi-blue group-hover:bg-fkvi-blue group-hover:text-white group-hover:border-fkvi-blue transition-all duration-200"
+        >
+          <Lock className="h-3.5 w-3.5" />
+          Vollprofil freischalten
+        </button>
+      </div>
+
+      {/* Teal accent line on hover */}
+      <div className="h-0.5 bg-gradient-to-r from-fkvi-teal/0 via-fkvi-teal/60 to-fkvi-teal/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+    </div>
+  )
+}
+
+function UeberUnsSection() {
+  return (
+    <section className="py-24 px-4 sm:px-6 bg-white">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid lg:grid-cols-2 gap-16 items-start">
+
+          {/* Left: Label + Heading + Image */}
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Über uns</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-fkvi-blue leading-tight mb-8">
+              Fachkraft Vermittlung:{' '}
+              <span className="text-fkvi-teal">Ihre Personalstrategie</span>{' '}
+              statt einfache Vermittlung
+            </h2>
+            <div className="rounded-2xl overflow-hidden shadow-lg">
+              <img
+                src="https://cdn.prod.website-files.com/6848a984ab0e450784c73da6/69b3f813bf4740250d286673_U%CC%88ber%20FKVI.jpeg"
+                alt="Das FKVI-Team"
+                className="w-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Right: Text content */}
+          <div className="lg:pt-16">
+            <p className="text-gray-600 leading-relaxed mb-5">
+              Fachkraft Vermittlung ist entstanden, weil wir selbst erlebt haben, wie schwer
+              es ist, gute Pflegekräfte nach Deutschland zu holen. Heute setzen wir genau das um.
+            </p>
+            <p className="text-gray-600 leading-relaxed mb-5">
+              Unsere Mission ist klar. Wir bringen erfahrene Pflegefachkräfte in die Einrichtungen,
+              die sie dringend brauchen. Aber nicht irgendwie. Sondern so, dass es funktioniert.
+              Mit klarer Vorauswahl, strukturiertem Integrationsprozess und persönlicher Begleitung.
+            </p>
+            <p className="text-gray-600 leading-relaxed mb-10">
+              Was uns auszeichnet, ist kein leeres Versprechen, sondern eine Lösung, die sich in
+              zahlreichen Pflegeeinrichtungen und Kliniken bereits im Alltag bewährt hat. Wir kennen
+              die Branche, sprechen Ihre Sprache und wissen, worauf es wirklich ankommt.
+              Verlässlichkeit, Geschwindigkeit und Qualität.
+            </p>
+
+            <div className="grid sm:grid-cols-2 gap-8">
+              <div>
+                <h3 className="font-bold text-gray-900 mb-3 leading-snug">
+                  Erprobt in der Praxis,<br />erfolgreich im Alltag
+                </h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Die vermittelten Pflegekräfte sind nicht nur qualifiziert, sondern auch vorbereitet.
+                  Jeder Schritt im Prozess ist darauf ausgelegt, dass sie langfristig bleiben.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-3 leading-snug">
+                  Verantwortung beginnt<br />vor dem 1. Arbeitstag
+                </h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Von der Auswahl bis zur Integration denken wir weiter als andere. Weil Sie
+                  kein Risiko brauchen, sondern echte Entlastung.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -567,7 +917,7 @@ function CtaSection() {
   )
 }
 
-function Footer({ funnelRef, roiRef, prozessRef }) {
+function Footer({ funnelRef, prozessRef }) {
   const scroll = (ref) => ref.current?.scrollIntoView({ behavior:'smooth' })
   return (
     <footer className="bg-fkvi-blue py-12 px-4 sm:px-6">
@@ -587,7 +937,6 @@ function Footer({ funnelRef, roiRef, prozessRef }) {
             <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Leistungen</p>
             <div className="space-y-2">
               <button onClick={() => scroll(funnelRef)} className="block text-white/60 text-sm hover:text-white transition-colors">Kompetenzpass</button>
-              <button onClick={() => scroll(roiRef)} className="block text-white/60 text-sm hover:text-white transition-colors">ROI-Rechner</button>
               <button onClick={() => scroll(prozessRef)} className="block text-white/60 text-sm hover:text-white transition-colors">Prozess</button>
             </div>
           </div>
@@ -621,7 +970,6 @@ export default function PublicHome() {
   const [profiles, setProfiles] = useState([])
   const [profilesLoading, setProfilesLoading] = useState(true)
   const funnelRef = useRef(null)
-  const roiRef = useRef(null)
   const prozessRef = useRef(null)
 
   useEffect(() => {
@@ -629,23 +977,24 @@ export default function PublicHome() {
       .select('id,age,nationality,profile_image_url,specializations,total_experience_years,german_recognition')
       .eq('status', 'published')
       .order('created_at', { ascending: false })
-      .limit(6)
+      .limit(3)
       .then(({ data }) => { setProfiles(data || []); setProfilesLoading(false) })
   }, [])
 
   return (
     <div className="min-h-screen bg-white">
-      <NavBar funnelRef={funnelRef} roiRef={roiRef} prozessRef={prozessRef} />
+      <NavBar funnelRef={funnelRef} prozessRef={prozessRef} />
       <HeroSection />
-      <PartnersStrip />
+      <LogoMarquee />
       <LeistungenSection />
       <KompetenzpassSection funnelRef={funnelRef} />
-      <RoiRechner roiRef={roiRef} />
-      <KundenstimmenSection profiles={profiles} profilesLoading={profilesLoading} />
+      <ProfilesSection profiles={profiles} profilesLoading={profilesLoading} />
+      <KundenstimmenSection />
+      <UeberUnsSection />
       <ProzessSection prozessRef={prozessRef} />
       <MotivationSection />
       <CtaSection />
-      <Footer funnelRef={funnelRef} roiRef={roiRef} prozessRef={prozessRef} />
+      <Footer funnelRef={funnelRef} prozessRef={prozessRef} />
     </div>
   )
 }

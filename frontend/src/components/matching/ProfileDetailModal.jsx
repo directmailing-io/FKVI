@@ -3,8 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Heart, User, MapPin, Briefcase, GraduationCap, Clock, Globe, CheckCircle2, FileText, Link as LinkIcon, EyeOff } from 'lucide-react'
+import { Heart, Lock, User, MapPin, Briefcase, GraduationCap, Clock, Globe, CheckCircle2, FileText, Link as LinkIcon, EyeOff, Video } from 'lucide-react'
 import { cn, RECOGNITION_LABELS } from '@/lib/utils'
+import VideoLightbox from '@/components/VideoLightbox'
 
 // IMPORTANT: We never do `if (!profile) return null` here.
 // Radix UI sets `pointer-events: none` on document.body when a Dialog opens.
@@ -12,8 +13,9 @@ import { cn, RECOGNITION_LABELS } from '@/lib/utils'
 // still open, Radix never runs its cleanup → body stays frozen permanently.
 // Instead we always render the Dialog wrapper and guard content with `{profile && …}`.
 
-export default function ProfileDetailModal({ profile, open, onClose, isFavorite, onToggleFavorite }) {
+export default function ProfileDetailModal({ profile, open, onClose, isFavorite, onToggleFavorite, isDemo, onRegister }) {
   const [linkCopied, setLinkCopied] = useState(false)
+  const [videoOpen, setVideoOpen] = useState(false)
 
   const cvUrl = profile ? `${window.location.origin}/lebenslauf/${profile.id}` : ''
 
@@ -31,7 +33,11 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => { if (videoOpen) e.preventDefault() }}
+        onEscapeKeyDown={(e) => { if (videoOpen) e.preventDefault() }}
+      >
         {profile && (
           <>
             <DialogHeader>
@@ -47,15 +53,26 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
                   <Button variant="outline" size="sm" onClick={handleOpenCv} className="gap-1.5 text-xs">
                     <FileText className="h-3.5 w-3.5" />Lebenslauf
                   </Button>
-                  <Button
-                    variant={isFavorite ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => onToggleFavorite(profile.id)}
-                    className={cn(isFavorite && 'bg-red-500 hover:bg-red-600 border-red-500')}
-                  >
-                    <Heart className={cn('h-4 w-4 mr-1.5', isFavorite && 'fill-white')} />
-                    {isFavorite ? 'Vorgemerkt' : 'Vormerken'}
-                  </Button>
+                  {isDemo ? (
+                    <Button
+                      size="sm"
+                      onClick={onRegister}
+                      className="bg-fkvi-teal hover:bg-fkvi-teal/90 text-white gap-1.5"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      Zugang anfragen
+                    </Button>
+                  ) : (
+                    <Button
+                      variant={isFavorite ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => onToggleFavorite(profile.id)}
+                      className={cn(isFavorite && 'bg-red-500 hover:bg-red-600 border-red-500')}
+                    >
+                      <Heart className={cn('h-4 w-4 mr-1.5', isFavorite && 'fill-white')} />
+                      {isFavorite ? 'Vorgemerkt' : 'Vormerken'}
+                    </Button>
+                  )}
                 </div>
               </DialogTitle>
             </DialogHeader>
@@ -86,19 +103,16 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
                 </div>
               </div>
 
-              {/* Video */}
+              {/* Video — compact button, opens lightbox */}
               {profile.vimeo_video_url && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-gray-900 text-sm">Vorstellungsvideo</h3>
-                  <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
-                    <iframe
-                      src={profile.vimeo_video_url}
-                      className="w-full h-full"
-                      allow="autoplay; fullscreen"
-                      allowFullScreen
-                    />
-                  </div>
-                </div>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 border-fkvi-teal/30 text-fkvi-teal hover:bg-fkvi-teal/5 hover:border-fkvi-teal"
+                  onClick={() => setVideoOpen(true)}
+                >
+                  <Video className="h-4 w-4" />
+                  Vorstellungsvideo ansehen
+                </Button>
               )}
 
               <Separator />
@@ -249,6 +263,12 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
           </>
         )}
       </DialogContent>
+
+      <VideoLightbox
+        url={profile?.vimeo_video_url}
+        open={videoOpen}
+        onClose={() => setVideoOpen(false)}
+      />
     </Dialog>
   )
 }

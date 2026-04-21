@@ -20,8 +20,9 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff, Link2, Copy, Check, ClipboardCopy
 } from 'lucide-react'
+import VimeoPlayer from '@/components/VimeoPlayer'
 import { toast } from '@/hooks/use-toast'
 
 // ─── Field helper — defined OUTSIDE component to avoid focus-jumping bug ──────
@@ -273,6 +274,192 @@ function DocEditDialog({ doc, onSave, onClose }) {
   )
 }
 
+// ─── SendTemplateDialog ───────────────────────────────────────────────────────
+function SendTemplateDialog({ profileId, profile, session, onClose, onSent }) {
+  const [templates, setTemplates] = useState([])
+  const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [selectedId, setSelectedId] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [templateLoading, setTemplateLoading] = useState(false)
+  const [signerName, setSignerName] = useState(
+    `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()
+  )
+  const [sending, setSending] = useState(false)
+  const [signerUrl, setSignerUrl] = useState(null)
+  const [copied, setCopied] = useState(false)
+
+  // Profile → prefill data map
+  const prefillData = {
+    'profile.first_name': profile?.first_name || '',
+    'profile.last_name': profile?.last_name || '',
+    'profile.nationality': profile?.nationality || '',
+    'profile.education': profile?.nursing_education || '',
+    'signer.name': `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+  }
+
+  useEffect(() => {
+    fetch('/api/admin/dokumente/list', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => { setTemplates(d.templates || []); setTemplatesLoading(false) })
+      .catch(() => setTemplatesLoading(false))
+  }, [])
+
+  useEffect(() => {
+    if (!selectedId) { setSelectedTemplate(null); return }
+    setTemplateLoading(true)
+    fetch(`/api/admin/dokumente/get?templateId=${selectedId}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => { setSelectedTemplate(d.template || null); setTemplateLoading(false) })
+      .catch(() => setTemplateLoading(false))
+  }, [selectedId])
+
+  const prefilledFields = (selectedTemplate?.fields || []).filter(
+    f => f.prefillKey && prefillData[f.prefillKey]
+  )
+
+  const handleCreate = async () => {
+    if (!selectedId || !signerName.trim()) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/admin/dokumente/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          templateId: selectedId,
+          profileId,
+          signerName: signerName.trim(),
+          signerEmail: null,
+          prefillData,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Erstellen')
+      setSignerUrl(data.signerUrl)
+      onSent?.()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(signerUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <Dialog open onOpenChange={open => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            {signerUrl ? 'Signierlink generiert' : 'Vorlage für Fachkraft erstellen'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {signerUrl ? (
+          /* ── URL success state ── */
+          <div className="space-y-4">
+            <div className="rounded-lg bg-green-50 border border-green-200 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                Link für {signerName} erstellt
+              </div>
+              <p className="text-xs text-gray-500">
+                Sende diesen Link manuell an die Fachkraft (E-Mail, WhatsApp, o.ä.):
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-white border border-green-200 rounded px-3 py-2 break-all text-gray-700 select-all">
+                  {signerUrl}
+                </code>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={copyUrl}>
+                  {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90" onClick={onClose}>Fertig</Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          /* ── Form state ── */
+          <div className="space-y-4 py-1">
+            {/* Template picker */}
+            <div className="space-y-1.5">
+              <Label>Vorlage <span className="text-red-500">*</span></Label>
+              {templatesLoading ? (
+                <div className="h-9 animate-pulse bg-gray-100 rounded-md" />
+              ) : templates.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">Keine aktiven Vorlagen vorhanden.</p>
+              ) : (
+                <Select value={selectedId} onValueChange={setSelectedId}>
+                  <SelectTrigger><SelectValue placeholder="Vorlage wählen..." /></SelectTrigger>
+                  <SelectContent>
+                    {templates.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* Signer name */}
+            <Field label="Unterzeichner (Fachkraft)" required>
+              <Input
+                value={signerName}
+                onChange={e => setSignerName(e.target.value)}
+                placeholder="Vor- und Nachname"
+              />
+            </Field>
+
+            {/* Pre-fill preview */}
+            {selectedId && templateLoading && (
+              <div className="h-8 animate-pulse bg-gray-100 rounded" />
+            )}
+            {selectedId && !templateLoading && prefilledFields.length > 0 && (
+              <div className="rounded-lg bg-[#1a3a5c]/5 border border-[#1a3a5c]/15 p-3 space-y-1.5">
+                <p className="text-xs font-medium text-[#1a3a5c]">Vorausgefüllte Felder aus Profil:</p>
+                {prefilledFields.map(f => (
+                  <div key={f.id} className="flex items-center gap-2 text-xs">
+                    <span className="text-gray-400 shrink-0 w-28 truncate">{f.label}:</span>
+                    <span className="text-gray-700 font-medium truncate">{prefillData[f.prefillKey]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selectedId && !templateLoading && prefilledFields.length === 0 && (
+              <p className="text-xs text-gray-400 italic">
+                Keine automatisch vorausfüllbaren Felder in dieser Vorlage.
+              </p>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>Abbrechen</Button>
+              <Button
+                onClick={handleCreate}
+                disabled={!selectedId || !signerName.trim() || sending}
+                className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
+              >
+                {sending
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Erstelle Link...</>
+                  : <><Link2 className="h-3.5 w-3.5 mr-1.5" />Link generieren</>
+                }
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Empty profile defaults ───────────────────────────────────────────────────
 const EMPTY_PROFILE = {
   status: 'draft',
@@ -308,6 +495,9 @@ export default function ProfileForm() {
   const [cropSrc, setCropSrc] = useState(null)   // raw image waiting to be cropped
   const [videoFile, setVideoFile] = useState(null)
   const [videoUploading, setVideoUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null) // null | 0-100
+  const [videoMode, setVideoMode] = useState('upload') // 'upload' | 'url'
+  const [urlInput, setUrlInput] = useState('')
   const [error, setError] = useState('')
   const [deleteDialog, setDeleteDialog] = useState(false)
   const [editingDoc, setEditingDoc] = useState(null) // { idx: number|null, doc: {} } — null idx = new doc
@@ -320,6 +510,9 @@ export default function ProfileForm() {
   const [reserving, setReserving] = useState(false)
   const [reserveForCompany, setReserveForCompany] = useState(null)
   const [reservation, setReservation] = useState(null)
+  const [docSends, setDocSends] = useState([])
+  const [docSendsLoading, setDocSendsLoading] = useState(false)
+  const [sendTemplateDialog, setSendTemplateDialog] = useState(false)
   const [reservationHistory, setReservationHistory] = useState([])
   const [advancing, setAdvancing] = useState(false)
   const [decoupling, setDecoupling] = useState(false)
@@ -334,8 +527,8 @@ export default function ProfileForm() {
   const videoRef = useRef()
 
   useEffect(() => {
-    if (isEdit) fetchProfile()
-  }, [id])
+    if (isEdit) { fetchProfile(); loadDocSends() }
+  }, [id, session])
 
   useEffect(() => {
     if (!reserveFor) return
@@ -397,24 +590,89 @@ export default function ProfileForm() {
   const handleVideoUpload = async () => {
     if (!videoFile || !isEdit) return
     setVideoUploading(true)
+    setUploadProgress(0)
     try {
-      const formData = new FormData()
-      formData.append('video', videoFile)
-      const res = await fetch(`/api/vimeo/upload/${id}`, {
+      // Step 1: Create upload slot on Vimeo via backend
+      const initRes = await fetch('/api/admin/vimeo/init-upload', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-        body: formData,
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          profileId: id,
+          fileName: videoFile.name,
+          fileSize: videoFile.size,
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setProfile(prev => ({ ...prev, vimeo_video_url: data.embedUrl, vimeo_video_id: data.videoId }))
+      const initData = await initRes.json()
+      if (!initRes.ok) throw new Error(initData.error)
+
+      const { uploadLink, videoId, embedUrl } = initData
+
+      // Step 2: Upload file directly to Vimeo via TUS (PATCH with offset 0)
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PATCH', uploadLink, true)
+        xhr.setRequestHeader('Tus-Resumable', '1.0.0')
+        xhr.setRequestHeader('Upload-Offset', '0')
+        xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream')
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100))
+          }
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`Upload fehlgeschlagen: HTTP ${xhr.status}`))
+        }
+        xhr.onerror = () => reject(new Error('Netzwerkfehler beim Upload'))
+        xhr.send(videoFile)
+      })
+
+      // Step 3: Save video URL to Supabase
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ vimeo_video_url: embedUrl, vimeo_video_id: videoId })
+        .eq('id', id)
+      if (updateErr) throw updateErr
+
+      setProfile(prev => ({ ...prev, vimeo_video_url: embedUrl, vimeo_video_id: videoId }))
       setVideoFile(null)
+      setUploadProgress(null)
       toast({ title: 'Video hochgeladen', description: 'Das Video wurde erfolgreich zu Vimeo hochgeladen.', variant: 'success' })
     } catch (err) {
-      toast({ title: 'Fehler', description: translateError(err.message), variant: 'destructive' })
+      setUploadProgress(null)
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {
       setVideoUploading(false)
     }
+  }
+
+  const handleUrlSave = async () => {
+    if (!urlInput.trim() || !isEdit) return
+    const trimmed = urlInput.trim()
+    // Accept full Vimeo URLs or bare IDs
+    const idMatch = trimmed.match(/(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/) ||
+      trimmed.match(/^(\d+)$/)
+    if (!idMatch) {
+      toast({ title: 'Ungültige URL', description: 'Bitte eine gültige Vimeo-URL oder Video-ID eingeben.', variant: 'destructive' })
+      return
+    }
+    const videoId = idMatch[1]
+    const embedUrl = `https://player.vimeo.com/video/${videoId}`
+    const { error: updateErr } = await supabase
+      .from('profiles')
+      .update({ vimeo_video_url: embedUrl, vimeo_video_id: videoId })
+      .eq('id', id)
+    if (updateErr) {
+      toast({ title: 'Fehler', description: updateErr.message, variant: 'destructive' })
+      return
+    }
+    setProfile(prev => ({ ...prev, vimeo_video_url: embedUrl, vimeo_video_id: videoId }))
+    setUrlInput('')
+    toast({ title: 'Video gespeichert', description: 'Vimeo-Video wurde verknüpft.', variant: 'success' })
   }
 
   const handleSave = async () => {
@@ -655,6 +913,22 @@ export default function ProfileForm() {
   }
 
   // ── Document helpers ──────────────────────────────────────────────────────────
+  const loadDocSends = async () => {
+    if (!id || !session) return
+    setDocSendsLoading(true)
+    try {
+      const res = await fetch(`/api/admin/dokumente/sends-list?profileId=${id}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const data = await res.json()
+      setDocSends(data.sends || [])
+    } catch {
+      // non-critical
+    } finally {
+      setDocSendsLoading(false)
+    }
+  }
+
   const saveDocumentsToApi = async (docs) => {
     if (!id) return // only for edit mode
     setDocSaving(true)
@@ -1323,64 +1597,134 @@ export default function ProfileForm() {
 
           {/* ── TAB: Medien ─────────────────────────────────────────────── */}
           <TabsContent value="media" className="space-y-6 mt-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
               <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <Video className="h-5 w-5" />Präsentationsvideo (Vimeo)
+                <Video className="h-5 w-5 text-fkvi-teal" />Präsentationsvideo (Vimeo)
               </h3>
+
+              {/* ── Video already saved ── */}
               {profile.vimeo_video_url ? (
-                <div className="space-y-3">
-                  <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
-                    <iframe
-                      src={profile.vimeo_video_url}
-                      className="w-full h-full"
-                      allow="autoplay; fullscreen"
-                      allowFullScreen
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-700">Video vorhanden</span>
+                <div className="space-y-4">
+                  <VimeoPlayer url={profile.vimeo_video_url} showToggle />
+                  <div className="flex items-center gap-2 pt-1">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    <span className="text-sm text-green-700 flex-1">Video verknüpft</span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => set('vimeo_video_url', '')}
-                      className="ml-auto text-red-500 hover:text-red-700"
+                      onClick={async () => {
+                        await supabase.from('profiles').update({ vimeo_video_url: '', vimeo_video_id: '' }).eq('id', id)
+                        set('vimeo_video_url', '')
+                        set('vimeo_video_id', '')
+                      }}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
                     >
-                      Video entfernen
+                      <X className="h-3.5 w-3.5 mr-1" />Video entfernen
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {!isEdit && (
+                  {!isEdit ? (
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>Speichern Sie das Profil zuerst, um ein Video hochzuladen.</AlertDescription>
+                      <AlertDescription>Speichern Sie das Profil zuerst, um ein Video hinzuzufügen.</AlertDescription>
                     </Alert>
-                  )}
-                  {isEdit && (
+                  ) : (
                     <>
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
-                        <Video className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                        <p className="text-sm text-gray-500 mb-3">Video auswählen und zu Vimeo hochladen</p>
-                        <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={e => setVideoFile(e.target.files[0])} />
-                        <Button variant="outline" onClick={() => videoRef.current.click()}>
-                          <Upload className="h-4 w-4 mr-2" />Video auswählen
-                        </Button>
-                        {videoFile && <p className="text-xs text-gray-500 mt-2">{videoFile.name}</p>}
-                      </div>
-                      {videoFile && (
-                        <Button
-                          onClick={handleVideoUpload}
-                          disabled={videoUploading}
-                          className="w-full"
-                          variant="teal"
+                      {/* Mode toggle */}
+                      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+                        <button
+                          onClick={() => setVideoMode('upload')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${videoMode === 'upload' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                         >
-                          {videoUploading
-                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Upload läuft...</>
-                            : <><Upload className="mr-2 h-4 w-4" />Video zu Vimeo hochladen</>
-                          }
-                        </Button>
+                          <Upload className="h-3.5 w-3.5" />Datei hochladen
+                        </button>
+                        <button
+                          onClick={() => setVideoMode('url')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${videoMode === 'url' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                          <Link2 className="h-3.5 w-3.5" />Vimeo-URL eingeben
+                        </button>
+                      </div>
+
+                      {/* Upload mode */}
+                      {videoMode === 'upload' && (
+                        <div className="space-y-3">
+                          <div
+                            className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-fkvi-teal/50 hover:bg-fkvi-teal/5 transition-colors"
+                            onClick={() => !videoUploading && videoRef.current.click()}
+                          >
+                            <Video className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                            <p className="text-sm text-gray-500 mb-1">Video direkt zu Vimeo hochladen</p>
+                            <p className="text-xs text-gray-400 mb-3">Hochformat (9:16) und Querformat werden unterstützt</p>
+                            <input
+                              ref={videoRef}
+                              type="file"
+                              accept="video/*"
+                              className="hidden"
+                              onChange={e => { setVideoFile(e.target.files[0]); setUploadProgress(null) }}
+                              disabled={videoUploading}
+                            />
+                            <Button variant="outline" size="sm" disabled={videoUploading} onClick={e => { e.stopPropagation(); videoRef.current.click() }}>
+                              <Upload className="h-3.5 w-3.5 mr-1.5" />Datei auswählen
+                            </Button>
+                            {videoFile && (
+                              <p className="text-xs text-gray-600 mt-2 font-medium">{videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(1)} MB)</p>
+                            )}
+                          </div>
+
+                          {/* Progress bar */}
+                          {videoUploading && uploadProgress !== null && (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <span>Wird hochgeladen…</span>
+                                <span>{uploadProgress}%</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-fkvi-teal rounded-full transition-all duration-300"
+                                  style={{ width: `${uploadProgress}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {videoFile && !videoUploading && (
+                            <Button
+                              onClick={handleVideoUpload}
+                              className="w-full bg-fkvi-teal hover:bg-fkvi-teal/90 text-white"
+                            >
+                              <Upload className="mr-2 h-4 w-4" />Video zu Vimeo hochladen
+                            </Button>
+                          )}
+
+                          {videoUploading && (
+                            <Button disabled className="w-full">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />Upload läuft…
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* URL mode */}
+                      {videoMode === 'url' && (
+                        <div className="space-y-3">
+                          <p className="text-sm text-gray-500">Bereits bei Vimeo hochgeladenes Video verknüpfen</p>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="https://vimeo.com/123456789 oder Video-ID"
+                              value={urlInput}
+                              onChange={e => setUrlInput(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleUrlSave()}
+                              className="flex-1"
+                            />
+                            <Button onClick={handleUrlSave} className="bg-fkvi-teal hover:bg-fkvi-teal/90 text-white shrink-0">
+                              Speichern
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-400">Beispiele: vimeo.com/123456789 · player.vimeo.com/video/123456789 · 123456789</p>
+                        </div>
                       )}
                     </>
                   )}
@@ -1536,6 +1880,96 @@ export default function ProfileForm() {
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
                 Dokumente werden beim Speichern des Profils gespeichert.
               </p>
+            )}
+
+            {/* ── Signierungsanfragen aus Mediathek ── */}
+            {isEdit && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      Signierungsanfragen
+                      {docSends.length > 0 && (
+                        <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
+                      )}
+                      {docSendsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                    </h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Vorlagen aus der Mediathek zum Unterzeichnen senden</p>
+                  </div>
+                  <Button size="sm" onClick={() => setSendTemplateDialog(true)} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />Vorlage senden
+                  </Button>
+                </div>
+                {docSends.length === 0 && !docSendsLoading ? (
+                  <div className="text-center py-10 text-gray-400">
+                    <FileText className="h-7 w-7 mx-auto mb-2 text-gray-200" />
+                    <p className="text-sm font-medium text-gray-500">Noch keine Signierungsanfragen</p>
+                    <p className="text-xs mt-1">Wähle eine Vorlage aus der Mediathek und sende sie an die Fachkraft.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50/50">
+                        <th className="text-left px-6 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Vorlage</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Unterzeichner</th>
+                        <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</th>
+                        <th className="px-3 py-2.5 w-16"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {docSends.map(send => (
+                        <tr key={send.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-6 py-3">
+                            <p className="font-medium text-gray-900 text-sm">{send.template_name || '–'}</p>
+                            <p className="text-xs text-gray-400">{new Date(send.created_at).toLocaleDateString('de-DE')}</p>
+                          </td>
+                          <td className="px-3 py-3 text-sm text-gray-600">{send.signer_name}</td>
+                          <td className="px-3 py-3">
+                            {send.status === 'signed' ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">
+                                <CheckCircle2 className="h-3 w-3" />Unterschrieben
+                              </span>
+                            ) : send.status === 'opened' ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full font-medium">
+                                Geöffnet
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
+                                Ausstehend
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3">
+                            {send.signer_url && (
+                              <a
+                                href={send.signer_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors inline-flex"
+                                title="Signierlink öffnen"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {/* Send template dialog */}
+            {sendTemplateDialog && (
+              <SendTemplateDialog
+                profileId={id}
+                profile={profile}
+                session={session}
+                onClose={() => setSendTemplateDialog(false)}
+                onSent={loadDocSends}
+              />
             )}
           </TabsContent>
         </Tabs>

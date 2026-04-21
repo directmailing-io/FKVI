@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import {
   FileText, Upload, CheckCircle2, Clock, AlertCircle, Download, ExternalLink,
   Loader2, ChevronUp, ChevronDown, Search, RefreshCw, Building2, Mail, Phone,
-  History, Eye, Send, FileDown, User, SortAsc,
+  History, Eye, Send, FileDown, User, SortAsc, Trash2,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
@@ -355,7 +355,7 @@ export default function BrochuerePage() {
               ) : versions.length === 0 ? (
                 <div className="px-5 py-8 text-center text-sm text-gray-400">Keine Versionen vorhanden</div>
               ) : versions.map((v, i) => (
-                <div key={v.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors">
+                <div key={v.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors group">
                   <div className={cn(
                     'w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black shrink-0',
                     i === 0 ? 'bg-fkvi-blue text-white' : 'bg-gray-100 text-gray-400'
@@ -369,9 +369,53 @@ export default function BrochuerePage() {
                     </p>
                     {v.notes && <p className="text-xs text-gray-500 italic mt-0.5">{v.notes}</p>}
                   </div>
-                  {i === 0 && (
-                    <span className="text-xs font-semibold text-fkvi-blue bg-fkvi-blue/8 px-2 py-0.5 rounded-full shrink-0">Aktuell</span>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {i === 0 && (
+                      <span className="text-xs font-semibold text-fkvi-blue bg-fkvi-blue/8 px-2 py-0.5 rounded-full">Aktuell</span>
+                    )}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/admin/brochure/view-url?versionId=${v.id}`, {
+                            headers: { Authorization: `Bearer ${session.access_token}` },
+                          })
+                          const data = await res.json()
+                          if (!res.ok) throw new Error(data.error)
+                          window.open(data.url, '_blank')
+                        } catch (err) {
+                          toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+                        }
+                      }}
+                      className="ml-1 p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-fkvi-blue/8 transition-colors"
+                      title="Ansehen"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    {i !== 0 && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Version ${v.version_number} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return
+                          try {
+                            const res = await fetch('/api/admin/brochure/delete-version', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                              body: JSON.stringify({ versionId: v.id }),
+                            })
+                            const data = await res.json()
+                            if (!res.ok) throw new Error(data.error)
+                            toast({ title: `Version ${v.version_number} gelöscht` })
+                            fetchVersions()
+                          } catch (err) {
+                            toast({ title: 'Fehler beim Löschen', description: err.message, variant: 'destructive' })
+                          }
+                        }}
+                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Löschen"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

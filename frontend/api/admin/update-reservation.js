@@ -149,11 +149,6 @@ export default async function handler(req, res) {
   // Update process status
   await supabaseAdmin.from('reservations').update({ process_status: newStatus }).eq('id', reservationId)
 
-  // If final step → mark profile as completed
-  if (newStatus === 11) {
-    await supabaseAdmin.from('profiles').update({ status: 'completed' }).eq('id', reservation.profile_id)
-  }
-
   // History entry
   const historyNotes = stepDate ? `Datum: ${stepDate}${notes && notes !== `Datum: ${stepDate}` ? ` | ${notes}` : ''}` : (notes || null)
   await supabaseAdmin.from('process_status_history').insert({

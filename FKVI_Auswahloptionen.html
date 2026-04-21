@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>FKVI – Auswahloptionen Fachkraft-Profile</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #1e293b; font-size: 13px; }
+  .page { max-width: 800px; margin: 0 auto; padding: 32px 28px; }
+  header { background: #1a3a5c; color: white; padding: 24px 28px; border-radius: 10px; margin-bottom: 24px; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header p { margin-top: 4px; color: rgba(255,255,255,0.6); font-size: 11px; }
+  .field { margin-bottom: 18px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+  .field-header { background: #1a3a5c; color: white; padding: 9px 16px; display: flex; align-items: baseline; gap: 10px; }
+  .field-header h2 { font-size: 13px; font-weight: 600; }
+  .field-header .key { font-size: 10px; color: rgba(255,255,255,0.5); font-family: 'Courier New', monospace; }
+  .field-body { padding: 14px 16px; background: #fff; }
+  .options { display: flex; flex-wrap: wrap; gap: 6px; }
+  .option { display: inline-block; background: #f1f5f9; color: #1e293b; font-size: 12px; padding: 4px 12px; border-radius: 5px; border: 1px solid #e2e8f0; line-height: 1.4; }
+  .option.warn { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+  .count { font-size: 10px; color: #94a3b8; margin-left: 6px; }
+  .note { font-size: 11px; color: #94a3b8; margin-top: 10px; font-style: italic; }
+  .note.red { color: #dc2626; }
+  footer { text-align: center; color: #94a3b8; font-size: 10px; margin-top: 28px; padding-top: 16px; border-top: 1px solid #f1f5f9; }
+  @media print {
+    .page { padding: 12px; max-width: 100%; }
+    .field { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>FKVI – Auswahloptionen Fachkraft-Profile</h1>
+  <p>Fachkraft Vermittlung International · Stand April 2026 · Zur internen Prüfung</p>
+</header>
+
+<!-- 1 -->
+<div class="field">
+  <div class="field-header">
+    <h2>Bundesland-Präferenzen</h2>
+    <span class="key">state_preferences · Mehrfachauswahl</span>
+    <span class="count">16 Optionen</span>
+  </div>
+  <div class="field-body">
+    <div class="options">
+      <span class="option">Baden-Württemberg</span>
+      <span class="option">Bayern</span>
+      <span class="option">Berlin</span>
+      <span class="option">Brandenburg</span>
+      <span class="option">Bremen</span>
+      <span class="option">Hamburg</span>
+      <span class="option">Hessen</span>
+      <span class="option">Mecklenburg-Vorpommern</span>
+      <span class="option">Niedersachsen</span>
+      <span class="option">Nordrhein-Westfalen</span>
+      <span class="option">Rheinland-Pfalz</span>
+      <span class="option">Saarland</span>
+      <span class="option">Sachsen</span>
+      <span class="option">Sachsen-Anhalt</span>
+      <span class="option">Schleswig-Holstein</span>
+      <span class="option">Thüringen</span>
+    </div>
+    <p class="note">Alle 16 Bundesländer vorhanden. Alternativ: „Bundesweit" (separate Checkbox).</p>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="field">
+  <div class="field-header">
+    <h2>Bevorzugte Einrichtungstypen</h2>
+    <span class="key">preferred_facility_types · Mehrfachauswahl</span>
+    <span class="count">9 Optionen</span>
+  </div>
+  <div class="field-body">
+    <div class="options">
+      <span class="option">Stationäre Pflege / Pflegeheim</span>
+      <span class="option">Ambulante Pflege</span>
+      <span class="option">Intensivpflege</span>
+      <span class="option">Krankenhaus</span>
+      <span class="option">Rehabilitationszentrum</span>
+      <span class="option">Psychiatrie</span>
+      <span class="option">Hospiz</span>
+      <span class="option">Behinderteneinrichtung</span>
+      <span class="option">Tagespflege</span>
+    </div>
+    <p class="note">Zu prüfen: Fehlen weitere Einrichtungstypen (z. B. Sozialstation, betreutes Wohnen, Notaufnahme)?</p>
+  </div>
+</div>
+
+<!-- 3 -->
+<div class="field">
+  <div class="field-header">
+    <h2>Arbeitszeitpräferenz</h2>
+    <span class="key">work_time_preference · Einzelauswahl (Pflicht)</span>
+    <span class="count">6 Optionen</span>
+  </div>
+  <div class="field-body">
+    <div class="options">
+      <span class="option">Vollzeit</span>
+      <span class="option">Teilzeit</span>
+      <span class="option">Flexibel</span>
+      <span class="option">Frühdienst bevorzugt</span>
+      <span class="option">Spätdienst bevorzugt</span>
+      <span class="option">Nachtdienst möglich</span>
+    </div>
+    <p class="note">DB-Constraint aktiv (Pflichtfeld). Zu prüfen: Kombination aus Schicht + Umfang abbildbar?</p>
+  </div>
+</div>
+
+<!-- 4 -->
+<div class="field">
+  <div class="field-header">
+    <h2>Anerkennung in Deutschland</h2>
+    <span class="key">german_recognition · Einzelauswahl (Pflicht)</span>
+    <span class="count">4 Optionen</span>
+  </div>
+  <div class="field-body">
+    <div class="options">
+      <span class="option">Anerkannt</span>
+      <span class="option">In Bearbeitung</span>
+      <span class="option">Nicht beantragt</span>
+      <span class="option">Abgelehnt</span>
+    </div>
+    <p class="note">DB-Werte: anerkannt · in_bearbeitung · nicht_beantragt · abgelehnt. Vollständig?</p>
+  </div>
+</div>
+
+<!-- 5 -->
+<div class="field">
+  <div class="field-header">
+    <h2>Spezialisierungen</h2>
+    <span class="key">specializations · Mehrfachauswahl</span>
+    <span class="count">12 Optionen</span>
+  </div>
+  <div class="field-body">
+    <div class="options">
+      <span class="option">Altenpflege</span>
+      <span class="option">Krankenpflege</span>
+      <span class="option">Kinderkrankenpflege</span>
+      <span class="option">Intensivpflege</span>
+      <span class="option">Onkologie</span>
+      <span class="option">Palliativpflege</span>
+      <span class="option">Psychiatrie</span>
+      <span class="option">Neurologie</span>
+      <span class="option">Orthopädie</span>
+      <span class="option">Geriatrie</span>
+      <span class="option">Demenzpflege</span>
+      <span class="option">Wundmanagement</span>
+    </div>
+    <p class="note">Auf der Profilkarte werden max. 3 angezeigt. Zu prüfen: Orthopädie / Onkologie relevant? Fehlt z. B. OP-Pflege, Anästhesiepflege?</p>
+  </div>
+</div>
+
+<!-- 6 -->
+<div class="field">
+  <div class="field-header">
+    <h2>Erfahrungsbereiche</h2>
+    <span class="key">experience_areas · Mehrfachauswahl</span>
+    <span class="count">12 Optionen</span>
+  </div>
+  <div class="field-body">
+    <div class="options">
+      <span class="option">Grundpflege</span>
+      <span class="option">Behandlungspflege</span>
+      <span class="option">Wundversorgung</span>
+      <span class="option">Medikamentengabe</span>
+      <span class="option">Infusionstherapie</span>
+      <span class="option">Beatmungspflege</span>
+      <span class="option">Stomapflege</span>
+      <span class="option">Kinästhetik</span>
+      <span class="option">Palliative Care</span>
+      <span class="option">Demenzbetreuung</span>
+      <span class="option">Dokumentation</span>
+      <span class="option">Pflegeplanung</span>
+    </div>
+    <p class="note">Zu prüfen: Fehlen weitere Bereiche (z. B. Geriatrie, OP-Assistenz, Notfallpflege, Schmerzmanagement)?</p>
+  </div>
+</div>
+
+<!-- 7 -->
+<div class="field">
+  <div class="field-header">
+    <h2>Zusatzqualifikationen</h2>
+    <span class="key">additional_qualifications · Mehrfachauswahl</span>
+    <span class="count" style="color:#fca5a5">⚠ nur 4 Optionen</span>
+  </div>
+  <div class="field-body">
+    <div class="options">
+      <span class="option">Wundmanagement</span>
+      <span class="option">Kinästhetik</span>
+      <span class="option">Diabetes-Beratung</span>
+      <span class="option">Palliative Care</span>
+    </div>
+    <p class="note red">⚠ Sehr wenige Optionen. Zu ergänzen: Praxisanleitung, Hygienebeauftragter, Palliativzertifikat, Qualitätsmanagement, Sturzprophylaxe, Bobath, Basale Stimulation, Aromapflege, Ernährungsberatung?</p>
+  </div>
+</div>
+
+<footer>FKVI Fachkraft Vermittlung International · Interne Dokumentation · April 2026</footer>
+</div>
+</body>
+</html>

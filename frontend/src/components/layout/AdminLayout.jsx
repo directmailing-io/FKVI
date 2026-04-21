@@ -3,12 +3,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity, BookOpen } from 'lucide-react'
+import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity, BookOpen, Library, Inbox } from 'lucide-react'
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [activeVermittlungen, setActiveVermittlungen] = useState(0)
+  const [postfachCount, setPostfachCount] = useState(0)
   const { user, signOut } = useAuthStore()
   const location = useLocation()
   const navigate = useNavigate()
@@ -20,12 +21,17 @@ export default function AdminLayout({ children }) {
   }, [])
 
   const fetchCounts = async () => {
-    const [pendingRes, vermittlungRes] = await Promise.all([
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const [pendingRes, vermittlungRes, postfachRes] = await Promise.all([
       supabase.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('reservations').select('id', { count: 'exact', head: true }).lt('process_status', 11),
+      supabase.from('document_sends').select('id', { count: 'exact', head: true })
+        .in('status', ['signed', 'submitted'])
+        .gte('signed_at', sevenDaysAgo),
     ])
     setPendingCount(pendingRes.count || 0)
     setActiveVermittlungen(vermittlungRes.count || 0)
+    setPostfachCount(postfachRes.count || 0)
   }
 
   const handleSignOut = async () => {
@@ -40,6 +46,8 @@ export default function AdminLayout({ children }) {
     { label: 'Vermittlungen',    icon: Activity,         href: '/admin/vermittlungen', badge: activeVermittlungen },
     { label: 'Freigabezentrale', icon: Building2,        href: '/admin/leads', badge: pendingCount },
     { label: 'Broschüre',        icon: BookOpen,         href: '/admin/broschuere' },
+    { label: 'Dokumentenmediathek', icon: Library,        href: '/admin/mediathek' },
+    { label: 'Postfach',         icon: Inbox,            href: '/admin/postfach', badge: postfachCount },
   ]
 
   return (

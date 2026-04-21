@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FKVI – Übersicht Profileigenschaften</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #1e293b; font-size: 14px; }
+  .page { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+  header { background: #1a3a5c; color: white; padding: 32px 40px; border-radius: 12px; margin-bottom: 32px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  header p { margin-top: 6px; color: rgba(255,255,255,0.65); font-size: 13px; }
+  header .meta { margin-top: 16px; display: flex; gap: 24px; font-size: 12px; color: rgba(255,255,255,0.5); }
+  .section { background: white; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 20px; overflow: hidden; }
+  .section-header { background: #1a3a5c; color: white; padding: 12px 20px; display: flex; align-items: center; gap-8px; }
+  .section-header h2 { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; }
+  .section-header .icon { font-size: 16px; margin-right: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #64748b; background: #f8fafc; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbfd; }
+  .field-name { font-weight: 600; color: #1e293b; }
+  .field-key { font-size: 11px; color: #94a3b8; font-family: 'Courier New', monospace; margin-top: 2px; }
+  .required { display: inline-block; color: #ef4444; font-size: 10px; font-weight: 700; margin-left: 4px; vertical-align: top; }
+  .type-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+  .type-text { background: #eff6ff; color: #1d4ed8; }
+  .type-select { background: #fef3c7; color: #92400e; }
+  .type-multi { background: #f0fdf4; color: #166534; }
+  .type-bool { background: #fdf4ff; color: #7e22ce; }
+  .type-number { background: #fff7ed; color: #c2410c; }
+  .type-media { background: #ecfdf5; color: #065f46; }
+  .type-json { background: #f8fafc; color: #475569; }
+  .options { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .option { display: inline-block; background: #f1f5f9; color: #334155; font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid #e2e8f0; }
+  .option.key { font-family: 'Courier New', monospace; background: #fafafa; color: #64748b; }
+  .note { font-size: 11px; color: #94a3b8; margin-top: 4px; font-style: italic; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; }
+  .status-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .status-draft { background: #f1f5f9; color: #475569; }
+  .status-pub { background: #dcfce7; color: #166534; }
+  .status-reserved { background: #dbeafe; color: #1d4ed8; }
+  .status-done { background: #ede9fe; color: #5b21b6; }
+  .process-step { display: flex; align-items: flex-start; gap: 10px; padding: 8px 16px; border-bottom: 1px solid #f1f5f9; }
+  .process-step:last-child { border-bottom: none; }
+  .step-num { min-width: 28px; height: 28px; border-radius: 50%; background: #1a3a5c; color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .step-label { padding-top: 4px; font-size: 13px; }
+  .step-note { font-size: 11px; color: #94a3b8; }
+  .step-num.email { background: #0d9488; }
+  .step-num.date { background: #7c3aed; }
+  @media print {
+    body { background: white; }
+    .page { padding: 20px; }
+    .section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>FKVI – Übersicht aller Profileigenschaften</h1>
+  <p>Fachkraft Vermittlung International · Admin-Dokumentation</p>
+  <div class="meta">
+    <span>Stand: April 2026</span>
+    <span>Datei: ProfileForm.jsx · ProfileList.jsx · utils.js</span>
+    <span>Zur internen Prüfung</span>
+  </div>
+</header>
+
+<!-- Legend -->
+<div class="legend">
+  <strong style="font-size:12px;color:#1e293b">Feldtypen:</strong>
+  <span><span class="type-badge type-text">Text</span> Freitext</span>
+  <span><span class="type-badge type-select">Auswahl</span> Dropdown</span>
+  <span><span class="type-badge type-multi">Mehrfach</span> MultiSelect</span>
+  <span><span class="type-badge type-bool">Boolean</span> Ja/Nein</span>
+  <span><span class="type-badge type-number">Zahl</span> Numerisch</span>
+  <span><span class="type-badge type-media">Medien</span> Bild/Video</span>
+  <span><span class="type-badge type-json">JSON</span> Strukturierte Daten</span>
+  <span style="margin-left:auto;font-size:12px;color:#ef4444">* = Pflichtfeld (DB-Constraint)</span>
+</div>
+
+<!-- 1. Status & System -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">⚙️</span> Profil-Status &amp; System</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Status <span class="required">*</span></div><div class="field-key">status</div></td>
+        <td><span class="type-badge type-select">Auswahl</span></td>
+        <td>
+          <div class="options">
+            <span class="status-badge status-draft">Entwurf</span>
+            <span class="status-badge status-pub">Veröffentlicht</span>
+            <span class="status-badge status-reserved">Reserviert</span>
+            <span class="status-badge status-done">Abgeschlossen</span>
+          </div>
+          <div class="note">DB-Werte: <code>draft</code> · <code>published</code> · <code>reserved</code> · <code>completed</code></div>
+          <div class="note">Nur „Veröffentlicht"-Profile sind in der Matching-Plattform sichtbar.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Reihenfolge</div><div class="field-key">sort_order</div></td>
+        <td><span class="type-badge type-number">Zahl</span></td>
+        <td><div class="note">Integer. Per Drag &amp; Drop im Admin änderbar. Bestimmt die Anzeigereihenfolge in Matching-Plattform und Webseite. Die ersten 3 veröffentlichten Profile werden auf der Hauptseite beworben.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Interne Notiz</div><div class="field-key">internal_notes</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Nur intern sichtbar. Kein Pflichtfeld.</div></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 2. Persönliche Daten -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">👤</span> Persönliche Daten</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Vorname</div><div class="field-key">first_name</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Wird intern verwendet, nach außen anonymisiert.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Nachname</div><div class="field-key">last_name</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Intern. Extern anonymisiert.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Geschlecht <span class="required">*</span></div><div class="field-key">gender</div></td>
+        <td><span class="type-badge type-select">Auswahl</span></td>
+        <td>
+          <div class="options">
+            <span class="option">weiblich</span>
+            <span class="option">männlich</span>
+            <span class="option">divers</span>
+          </div>
+          <div class="note">DB-Constraint aktiv. Pflichtfeld für Speicherung.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Alter</div><div class="field-key">age</div></td>
+        <td><span class="type-badge type-number">Zahl</span></td>
+        <td><div class="note">Als Text gespeichert (z. B. „32"). Wird auf Karte angezeigt.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Nationalität</div><div class="field-key">nationality</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Beispiele: Philippinen, Rumänien, Vietnam, Indien, Ukraine, Georgien, Kosovo, Bosnien, Tunesien, Mexiko.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Familienstand <span class="required">*</span></div><div class="field-key">marital_status</div></td>
+        <td><span class="type-badge type-select">Auswahl</span></td>
+        <td>
+          <div class="options">
+            <span class="option">ledig</span>
+            <span class="option">verheiratet</span>
+            <span class="option">geschieden</span>
+            <span class="option">verwitwet</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Anzahl Kinder</div><div class="field-key">children_count</div></td>
+        <td><span class="type-badge type-number">Zahl</span></td>
+        <td><div class="note">Als Text gespeichert (z. B. „0", „2"). Standard: „0".</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Führerschein</div><div class="field-key">has_drivers_license</div></td>
+        <td><span class="type-badge type-bool">Boolean</span></td>
+        <td><div class="options"><span class="option">Ja</span><span class="option">Nein</span></div></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 3. Einsatz-Präferenzen -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">📍</span> Einsatz-Präferenzen</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Bundesland-Präferenzen</div><div class="field-key">state_preferences</div></td>
+        <td><span class="type-badge type-multi">Mehrfach</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Baden-Württemberg</span><span class="option">Bayern</span>
+            <span class="option">Berlin</span><span class="option">Brandenburg</span>
+            <span class="option">Bremen</span><span class="option">Hamburg</span>
+            <span class="option">Hessen</span><span class="option">Mecklenburg-Vorpommern</span>
+            <span class="option">Niedersachsen</span><span class="option">Nordrhein-Westfalen</span>
+            <span class="option">Rheinland-Pfalz</span><span class="option">Saarland</span>
+            <span class="option">Sachsen</span><span class="option">Sachsen-Anhalt</span>
+            <span class="option">Schleswig-Holstein</span><span class="option">Thüringen</span>
+          </div>
+          <div class="note">Alle 16 Bundesländer. Gespeichert als JSON-Array.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Bundesweit</div><div class="field-key">nationwide</div></td>
+        <td><span class="type-badge type-bool">Boolean</span></td>
+        <td><div class="note">Wenn aktiviert: kein Bundesland-Filter erforderlich.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Bevorzugte Einrichtungstypen</div><div class="field-key">preferred_facility_types</div></td>
+        <td><span class="type-badge type-multi">Mehrfach</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Stationäre Pflege / Pflegeheim</span>
+            <span class="option">Ambulante Pflege</span>
+            <span class="option">Intensivpflege</span>
+            <span class="option">Krankenhaus</span>
+            <span class="option">Rehabilitationszentrum</span>
+            <span class="option">Psychiatrie</span>
+            <span class="option">Hospiz</span>
+            <span class="option">Behinderteneinrichtung</span>
+            <span class="option">Tagespflege</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Arbeitszeitpräferenz <span class="required">*</span></div><div class="field-key">work_time_preference</div></td>
+        <td><span class="type-badge type-select">Auswahl</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Vollzeit</span>
+            <span class="option">Teilzeit</span>
+            <span class="option">Flexibel</span>
+            <span class="option">Frühdienst bevorzugt</span>
+            <span class="option">Spätdienst bevorzugt</span>
+            <span class="option">Nachtdienst möglich</span>
+          </div>
+          <div class="note">DB-Constraint aktiv.</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 4. Ausbildung -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">🎓</span> Ausbildung &amp; Qualifikation</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Schulabschluss</div><div class="field-key">school_education</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Beispiele: Abitur, Mittlere Reife, Hochschulreife, Berufsschule.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Pflegeausbildung</div><div class="field-key">nursing_education</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Beispiele: Gesundheits- und Krankenpfleger/in, Altenpfleger/in, Kinderkrankenpfleger/in, Pflegefachkraft.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Ausbildungsdauer</div><div class="field-key">education_duration</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Beispiele: 2 Jahre, 3 Jahre, 3,5 Jahre, 4 Jahre.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Abschlussjahr</div><div class="field-key">graduation_year</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Vierstellige Jahreszahl (z. B. „2019").</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Anerkennung in Deutschland <span class="required">*</span></div><div class="field-key">german_recognition</div></td>
+        <td><span class="type-badge type-select">Auswahl</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Anerkannt</span>
+            <span class="option">In Bearbeitung</span>
+            <span class="option">Nicht beantragt</span>
+            <span class="option">Abgelehnt</span>
+          </div>
+          <div class="note">DB-Werte: <code>anerkannt</code> · <code>in_bearbeitung</code> · <code>nicht_beantragt</code> · <code>abgelehnt</code>. DB-Constraint aktiv.</div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Ausbildungsnotiz</div><div class="field-key">education_notes</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Zusätzliche Infos zur Ausbildung oder zum Anerkennungsstand.</div></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 5. Erfahrung & Spezialisierung -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">💼</span> Berufserfahrung &amp; Spezialisierungen</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Berufserfahrung gesamt (Jahre)</div><div class="field-key">total_experience_years</div></td>
+        <td><span class="type-badge type-number">Zahl</span></td>
+        <td><div class="note">Als Text gespeichert (z. B. „5").</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Davon in Deutschland (Jahre)</div><div class="field-key">germany_experience_years</div></td>
+        <td><span class="type-badge type-number">Zahl</span></td>
+        <td><div class="note">Als Text gespeichert. Kann 0 sein.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Spezialisierungen</div><div class="field-key">specializations</div></td>
+        <td><span class="type-badge type-multi">Mehrfach</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Altenpflege</span>
+            <span class="option">Krankenpflege</span>
+            <span class="option">Kinderkrankenpflege</span>
+            <span class="option">Intensivpflege</span>
+            <span class="option">Onkologie</span>
+            <span class="option">Palliativpflege</span>
+            <span class="option">Psychiatrie</span>
+            <span class="option">Neurologie</span>
+            <span class="option">Orthopädie</span>
+            <span class="option">Geriatrie</span>
+            <span class="option">Demenzpflege</span>
+            <span class="option">Wundmanagement</span>
+          </div>
+          <div class="note">Auf der Profilkarte werden maximal 3 angezeigt (+ Anzahl Rest).</div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Erfahrungsbereiche</div><div class="field-key">experience_areas</div></td>
+        <td><span class="type-badge type-multi">Mehrfach</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Grundpflege</span>
+            <span class="option">Behandlungspflege</span>
+            <span class="option">Wundversorgung</span>
+            <span class="option">Medikamentengabe</span>
+            <span class="option">Infusionstherapie</span>
+            <span class="option">Beatmungspflege</span>
+            <span class="option">Stomapflege</span>
+            <span class="option">Kinästhetik</span>
+            <span class="option">Palliative Care</span>
+            <span class="option">Demenzbetreuung</span>
+            <span class="option">Dokumentation</span>
+            <span class="option">Pflegeplanung</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Zusatzqualifikationen</div><div class="field-key">additional_qualifications</div></td>
+        <td><span class="type-badge type-multi">Mehrfach</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Wundmanagement</span>
+            <span class="option">Kinästhetik</span>
+            <span class="option">Diabetes-Beratung</span>
+            <span class="option">Palliative Care</span>
+          </div>
+          <div class="note" style="color:#ef4444">⚠️ Nur 4 vordefinierte Optionen. Zu prüfen: sind weitere Zusatzqualifikationen erforderlich?</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 6. Sprachen -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">🌐</span> Sprachkenntnisse</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Sprachkenntnisse</div><div class="field-key">language_skills</div></td>
+        <td><span class="type-badge type-json">JSON</span></td>
+        <td>
+          <div class="note">Array von Objekten: <code>[{ "language": "Deutsch", "level": "B2" }, ...]</code></div>
+          <div style="margin-top:8px">
+            <strong style="font-size:12px">Sprache:</strong>
+            <div class="options" style="margin-top:4px">
+              <span class="option">Deutsch</span><span class="option">Englisch</span><span class="option">Französisch</span>
+              <span class="option">Spanisch</span><span class="option">Russisch</span><span class="option">Tagalog</span>
+              <span class="option">Vietnamesisch</span><span class="option">Arabisch</span><span class="option">Rumänisch</span>
+              <span class="option">Serbisch</span>
+              <span class="note">(Freitext, beliebige Sprache möglich)</span>
+            </div>
+          </div>
+          <div style="margin-top:8px">
+            <strong style="font-size:12px">Niveau (GER):</strong>
+            <div class="options" style="margin-top:4px">
+              <span class="option">A1</span><span class="option">A2</span>
+              <span class="option">B1</span><span class="option">B2</span>
+              <span class="option">C1</span><span class="option">C2</span>
+              <span class="option">Muttersprache</span>
+            </div>
+          </div>
+          <div class="note" style="color:#ef4444">⚠️ Zu prüfen: Sind die verfügbaren Niveaustufen vollständig? Fehlt „Grundkenntnisse" o.Ä.?</div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">FKVI Kompetenznachweis</div><div class="field-key">fkvi_competency_proof</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Freitext. Beispiel: „Bestanden am 15.03.2024".</div></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 7. Medien -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">📸</span> Medien</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Profilbild</div><div class="field-key">profile_image_url</div></td>
+        <td><span class="type-badge type-media">Medien</span></td>
+        <td><div class="note">JPG oder PNG, max. 5 MB. Upload in Supabase Storage (Bucket: profile-images). Zuschnitt-Dialog (1:1 Format). Öffentliche URL wird gespeichert. Extern immer anonymisiert/unscharf dargestellt auf der Karte.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Vimeo Video URL</div><div class="field-key">vimeo_video_url</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Vollständige Vimeo-URL (z. B. https://vimeo.com/123456789). Für den Video-Button auf der Profilkarte.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Vimeo Video ID</div><div class="field-key">vimeo_video_id</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Wird automatisch aus der URL extrahiert. Für Embedding.</div></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 8. Dokumente -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">📄</span> Dokumente (profile_documents Tabelle)</h2></div>
+  <table>
+    <thead><tr><th style="width:220px">Feld</th><th style="width:100px">Typ</th><th>Optionen / Werte</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><div class="field-name">Titel</div><div class="field-key">title</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Pflicht. Beispiel: „Abschlusszeugnis", „Sprachzertifikat B2".</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Dokumenttyp</div><div class="field-key">doc_type</div></td>
+        <td><span class="type-badge type-select">Auswahl</span></td>
+        <td>
+          <div class="options">
+            <span class="option">Zeugnis</span>
+            <span class="option">Anerkennungsbescheid</span>
+            <span class="option">Sprachzertifikat</span>
+            <span class="option">Lebenslauf</span>
+            <span class="option">Referenz</span>
+            <span class="option">Sonstiges</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Link</div><div class="field-key">link</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">URL zu Google Drive, Dropbox o.ä. Pflicht für Speicherung.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Beschreibung</div><div class="field-key">description</div></td>
+        <td><span class="type-badge type-text">Text</span></td>
+        <td><div class="note">Optional. Kurze Beschreibung des Dokuments.</div></td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Intern</div><div class="field-key">is_internal</div></td>
+        <td><span class="type-badge type-bool">Boolean</span></td>
+        <td>
+          <div class="options"><span class="option">Ja – nur für Admins</span><span class="option">Nein – im Statustracker für Unternehmen sichtbar</span></div>
+        </td>
+      </tr>
+      <tr>
+        <td><div class="field-name">Reihenfolge</div><div class="field-key">sort_order</div></td>
+        <td><span class="type-badge type-number">Zahl</span></td>
+        <td><div class="note">Für Anzeige-Reihenfolge der Dokumente.</div></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 9. Vermittlungsprozess -->
+<div class="section">
+  <div class="section-header"><h2><span class="icon">🔄</span> Vermittlungsprozess (process_status 1–11)</h2></div>
+  <div style="padding:8px 0">
+    <div class="process-step">
+      <div class="step-num">1</div>
+      <div class="step-label">Kennenlernen gestartet</div>
+    </div>
+    <div class="process-step">
+      <div class="step-num email" title="E-Mail an Unternehmen">2</div>
+      <div>
+        <div class="step-label">Kennenlerngespräch terminiert</div>
+        <div class="step-note">🟢 E-Mail an Unternehmen · 📅 Datumsangabe möglich</div>
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="step-num">3</div>
+      <div class="step-label">Kennenlerngespräch durchgeführt</div>
+    </div>
+    <div class="process-step">
+      <div class="step-num">4</div>
+      <div class="step-label">Zusage erfolgt</div>
+    </div>
+    <div class="process-step">
+      <div class="step-num">5</div>
+      <div class="step-label">Vertrag unterzeichnet</div>
+    </div>
+    <div class="process-step">
+      <div class="step-num">6</div>
+      <div class="step-label">Visumverfahren läuft</div>
+    </div>
+    <div class="process-step">
+      <div class="step-num date" title="Datumsangabe">7</div>
+      <div>
+        <div class="step-label">Botschaftstermin erfolgt</div>
+        <div class="step-note">📅 Datumsangabe möglich</div>
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="step-num email">8</div>
+      <div>
+        <div class="step-label">Visum erteilt</div>
+        <div class="step-note">🟢 E-Mail an Unternehmen</div>
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="step-num email">9</div>
+      <div>
+        <div class="step-label">Einreise geplant</div>
+        <div class="step-note">🟢 E-Mail an Unternehmen · 📅 Datumsangabe möglich</div>
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="step-num date">10</div>
+      <div>
+        <div class="step-label">Eingereist</div>
+        <div class="step-note">📅 Datumsangabe möglich</div>
+      </div>
+    </div>
+    <div class="process-step">
+      <div class="step-num date" style="background:#16a34a">11</div>
+      <div>
+        <div class="step-label">Arbeitsstart erfolgt ✅</div>
+        <div class="step-note">📅 Datumsangabe möglich · Vermittlung abgeschlossen</div>
+      </div>
+    </div>
+  </div>
+  <div style="padding:12px 16px;background:#f8fafc;border-top:1px solid #f1f5f9;font-size:11px;color:#64748b">
+    <strong>Legende:</strong> 🟢 E-Mail-Benachrichtigung an Unternehmen (Schritte 2, 8, 9) &nbsp;·&nbsp;
+    📅 Datumsangabe möglich (Schritte 2, 7, 9, 10, 11) &nbsp;·&nbsp;
+    Rückwärts-Navigation möglich &nbsp;·&nbsp;
+    Auf Schritt 11 bleibt Fachkraft sichtbar mit grünem „Abgeschlossen"-Badge
+  </div>
+</div>
+
+<!-- 10. Prüf-Checkliste -->
+<div class="section">
+  <div class="section-header" style="background:#0d9488"><h2><span class="icon">✅</span> Offene Punkte zur Prüfung</h2></div>
+  <table>
+    <thead><tr><th>Bereich</th><th>Frage / Prüfpunkt</th></tr></thead>
+    <tbody>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:600;color:#ef4444">Zusatzqualifikationen</td>
+        <td>Aktuell nur 4 Optionen: Wundmanagement, Kinästhetik, Diabetes-Beratung, Palliative Care.<br><span class="note">Vollständig? Weitere erforderlich (z. B. Palliativzertifikat, Praxisanleitung, Hygienebeauftragter)?</span></td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:600;color:#ef4444">Pflegeausbildung</td>
+        <td>Aktuell Freitext (keine fest definierten Optionen).<br><span class="note">Sollte das ein Dropdown werden? Häufige Werte: Gesundheits- und Krankenpfleger/in, Altenpfleger/in, Kinderkrankenpfleger/in, Pflegefachkraft (generalistisch), Pflegehilfskraft.</span></td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:600;color:#ef4444">Sprachniveaus</td>
+        <td>Aktuell: A1–C2 + Muttersprache.<br><span class="note">Fehlt „Grundkenntnisse" als nicht-GER-Stufe? Oder andere Bezeichnungen?</span></td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:600;color:#ef4444">Nationalität</td>
+        <td>Aktuell Freitext.<br><span class="note">Sollte das eine standardisierte Länderliste werden?</span></td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:600;color:#ef4444">Schulabschluss</td>
+        <td>Aktuell Freitext.<br><span class="note">Dropdown mit: Abitur, Fachhochschulreife, Mittlere Reife, Hauptschulabschluss, Berufsschule, Sonstiges?</span></td>
+      </tr>
+      <tr style="background:#fef2f2">
+        <td style="font-weight:600;color:#ef4444">Erfahrungsbereiche</td>
+        <td>12 Optionen vorhanden.<br><span class="note">Vollständig für alle Pflegebereiche? Fehlt z. B. Geriatrie, OP-Pflege, Anästhesiepflege?</span></td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;color:#166534">Einrichtungstypen</td>
+        <td>9 Optionen vorhanden. Scheint vollständig für Pflege-Kontext.</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;color:#166534">Spezialisierungen</td>
+        <td>12 Optionen vorhanden. Zu prüfen ob Orthopädie und Onkologie für Pflege-Fachkräfte relevant.</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;color:#166534">Bundesländer</td>
+        <td>Alle 16 vorhanden. ✓</td>
+      </tr>
+      <tr>
+        <td style="font-weight:600;color:#166534">Anerkennung</td>
+        <td>4 Optionen (anerkannt, in Bearbeitung, nicht beantragt, abgelehnt). Vollständig?</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="text-align:center;color:#94a3b8;font-size:11px;margin-top:32px;padding-bottom:20px">
+  FKVI Fachkraft Vermittlung International · Interne Dokumentation · Stand April 2026
+</div>
+
+</div>
+</body>
+</html>

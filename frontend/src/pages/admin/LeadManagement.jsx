@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { formatDateTime } from '@/lib/utils'
-import { Building2, CheckCircle2, X, Trash2, Phone, Mail, Loader2 } from 'lucide-react'
+import { Building2, CheckCircle2, X, Trash2, Phone, Mail, Loader2, FileText, Eye } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const STATUS_CONFIG = {
@@ -25,9 +25,24 @@ export default function LeadManagement() {
   const [actionLoading, setActionLoading] = useState(false)
   const [rejectNote, setRejectNote] = useState('')
   const [rejectDialog, setRejectDialog] = useState(false)
+  const [brochureData, setBrochureData] = useState(null)
+  const [brochureLoading, setBrochureLoading] = useState(false)
   const { session } = useAuthStore()
 
   useEffect(() => { fetchCompanies() }, [])
+
+  useEffect(() => {
+    if (!selected) { setBrochureData(null); return }
+    setBrochureLoading(true)
+    setBrochureData(null)
+    fetch(`/api/admin/brochure/company-data?companyId=${selected.id}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => setBrochureData(d.request || null))
+      .catch(() => {})
+      .finally(() => setBrochureLoading(false))
+  }, [selected?.id])
 
   const fetchCompanies = async () => {
     setLoading(true)
@@ -217,6 +232,37 @@ export default function LeadManagement() {
                   </div>
                 )}
                 <p className="text-xs text-gray-400 pt-1">Eingegangen: {formatDateTime(selected.created_at)}</p>
+              </div>
+
+              {/* Brochure download info */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" />Broschüren-Download
+                </p>
+                {brochureLoading ? (
+                  <p className="text-xs text-gray-400">Lädt...</p>
+                ) : brochureData ? (
+                  <div className="space-y-1 text-xs text-gray-600 bg-fkvi-blue/4 rounded-lg px-3 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">Version</span>
+                      <span className="font-semibold text-fkvi-blue">
+                        {brochureData.brochure_versions ? `v${brochureData.brochure_versions.version_number}` : '–'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">Angefragt</span>
+                      <span>{brochureData.created_at ? new Date(brochureData.created_at).toLocaleDateString('de-DE') : '–'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">E-Mail bestätigt</span>
+                      <span className={brochureData.email_confirmed_at ? 'text-green-700 font-medium' : 'text-gray-400'}>
+                        {brochureData.email_confirmed_at ? new Date(brochureData.email_confirmed_at).toLocaleDateString('de-DE') : 'Nein'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">Keine Broschüre angefordert</p>
+                )}
               </div>
 
               <div className="space-y-1.5">

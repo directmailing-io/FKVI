@@ -20,16 +20,40 @@ export default async function handler(req, res) {
   const { companyId } = req.query
   if (!companyId) return res.status(400).json({ error: 'companyId required' })
 
-  // Get brochure request for this company
-  const { data: request } = await supabaseAdmin
+  // Get brochure request for this company — first by company_id, then by email (retroactive fallback)
+  let { data: request } = await supabaseAdmin
     .from('brochure_requests')
     .select('*, brochure_versions(version_number, file_name, uploaded_at)')
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (!request) return res.status(200).json({ request: null })
+  if (!request) {
+    // Try email fallback
+    const { data: company } = await supabaseAdmin
+      .from('companies').select('email').eq('id', companyId).single()
+    if (company?.email) {
+      const { data: byEmail } = await supabaseAdmin
+        .from('brochure_requests')
+        .select('*, brochure_versions(version_number, file_name, uploaded_at)')
+        .eq('email', company.email)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (byEmail) {
+        request = byEmail
+        // Retroactively link
+        await supabaseAdmin
+          .from('brochure_requests')
+          .update({ company_id: companyId })
+          .eq('email', company.email)
+          .is('company_id', null)
+      }
+    }
+  }
+
+  if (!request) return res.json({ request: null })
 
   // Get confirmation
   const { data: confirmation } = await supabaseAdmin
