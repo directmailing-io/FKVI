@@ -26,7 +26,7 @@ export default withHandler(async (req, res) => {
     return res.status(e.status || 401).json({ error: e.message })
   }
 
-  const { status, profileId } = req.query
+  const { status, profileId, companyId } = req.query
 
   let query = supabaseAdmin
     .from('document_sends')
@@ -39,6 +39,7 @@ export default withHandler(async (req, res) => {
     .limit(100)
 
   if (profileId) query = query.eq('profile_id', profileId)
+  if (companyId) query = query.eq('company_id', companyId)
 
   if (status) {
     const statuses = status.split(',').map(s => s.trim()).filter(Boolean)

@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, BookOpen, Clock, Eye, Send } from 'lucide-react'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, BookOpen, Clock, Eye, Send, FileText, Download } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import SendDocumentDialog from '@/components/SendDocumentDialog'
 
 const COMPANY_TYPE_LABELS = {
   lead: 'Lead',
@@ -168,9 +169,21 @@ export default function CompanyDetailPage() {
   // Brochure data
   const [brochureData, setBrochureData] = useState(undefined) // undefined = loading, null = none
 
+  // Signierdokumente state
+  const [docSends, setDocSends] = useState([])
+  const [docSendsLoading, setDocSendsLoading] = useState(false)
+  const [showSendDialog, setShowSendDialog] = useState(false)
+  const [deletingSendId, setDeletingSendId] = useState(null)
+  const [deletingSendBusy, setDeletingSendBusy] = useState(false)
+  const [downloadingSendId, setDownloadingSendId] = useState(null)
+
   useEffect(() => {
     fetchCompany()
   }, [id])
+
+  useEffect(() => {
+    if (id && session?.access_token) loadDocSends()
+  }, [id, session?.access_token])
 
   useEffect(() => {
     const interestNotes = notesList.filter(n => n.type === 'interest_booking')
@@ -199,6 +212,60 @@ export default function CompanyDetailPage() {
       setBrochureData(data.request ? data : null)
     } catch {
       setBrochureData(null)
+    }
+  }
+
+  const loadDocSends = async () => {
+    if (!session?.access_token) return
+    setDocSendsLoading(true)
+    try {
+      const res = await fetch(`/api/admin/dokumente/sends-list?companyId=${id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      setDocSends(data.sends || [])
+    } catch {
+      // ignore
+    } finally {
+      setDocSendsLoading(false)
+    }
+  }
+
+  const handleDeleteSend = async (sendId) => {
+    setDeletingSendBusy(true)
+    try {
+      const res = await fetch('/api/admin/dokumente/delete-send', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ sendId }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Fehler')
+      setDocSends(prev => prev.filter(s => s.id !== sendId))
+      toast({ title: 'Signierlink gelöscht', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Fehler beim Löschen', description: err.message, variant: 'destructive' })
+    } finally {
+      setDeletingSendBusy(false)
+      setDeletingSendId(null)
+    }
+  }
+
+  const handleDownloadSend = async (sendId) => {
+    setDownloadingSendId(sendId)
+    try {
+      const res = await fetch(`/api/admin/dokumente/sends-detail?sendId=${sendId}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const data = await res.json()
+      if (data.signedPdfUrl) {
+        window.open(data.signedPdfUrl, '_blank')
+      } else {
+        toast({ title: 'Dokument nicht verfügbar', description: 'Das Dokument wurde noch nicht unterzeichnet.', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Fehler beim Laden', variant: 'destructive' })
+    } finally {
+      setDownloadingSendId(null)
     }
   }
 
@@ -699,6 +766,105 @@ export default function CompanyDetailPage() {
             )}
           </div>
 
+          {/* Signierdokumente */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-400" />
+                  Signierdokumente
+                  {docSends.length > 0 && (
+                    <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
+                  )}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">Dokumente, die das Unternehmen unterschreiben soll</p>
+              </div>
+              <Button
+                size="sm"
+                className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white"
+                onClick={() => setShowSendDialog(true)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />Dokument senden
+              </Button>
+            </div>
+
+            {docSendsLoading ? (
+              <div className="px-6 py-8 flex items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+              </div>
+            ) : docSends.length === 0 ? (
+              <div className="text-center py-10 px-6 text-gray-400">
+                <FileText className="h-7 w-7 mx-auto mb-2 text-gray-200" />
+                <p className="text-sm font-medium text-gray-500">Noch keine Signierdokumente</p>
+                <p className="text-xs mt-1">Sende ein Dokument aus der Mediathek an dieses Unternehmen.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {docSends.map(send => {
+                  const isSigned = send.status === 'submitted' || send.status === 'signed'
+                  const isRevoked = send.status === 'revoked'
+                  const statusLabel = isSigned ? 'Unterzeichnet' : isRevoked ? 'Widerrufen' : send.status === 'opened' ? 'Geöffnet' : 'Ausstehend'
+                  const statusColor = isSigned ? 'bg-green-50 text-green-700 border-green-200' : isRevoked ? 'bg-red-50 text-red-600 border-red-200' : send.status === 'opened' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+
+                  return (
+                    <div key={send.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${isSigned ? 'bg-green-500' : isRevoked ? 'bg-red-400' : send.status === 'opened' ? 'bg-blue-500' : 'bg-amber-400'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{send.template_name || '–'}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(send.created_at).toLocaleDateString('de-DE')}
+                          {send.signer_name ? ` · ${send.signer_name}` : ''}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${statusColor}`}>
+                        {statusLabel}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isSigned && (
+                          <button
+                            onClick={() => handleDownloadSend(send.id)}
+                            disabled={downloadingSendId === send.id}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
+                            title="Unterzeichnetes Dokument herunterladen"
+                          >
+                            {downloadingSendId === send.id
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <Download className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                        {send.signer_url && (
+                          <a
+                            href={send.signer_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
+                            title="Signierlink öffnen"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        <button
+                          onClick={() => setDeletingSendId(send.id)}
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
+                          title="Signierlink löschen"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
+              <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+                <Download className="h-3.5 w-3.5 shrink-0" />
+                Unterzeichnete Dokumente können direkt heruntergeladen werden.
+              </div>
+            )}
+          </div>
+
           {/* Broschüre */}
           {brochureData !== undefined && (
             <BrochureCard data={brochureData} />
@@ -979,6 +1145,54 @@ export default function CompanyDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete send confirmation */}
+      {deletingSendId && (
+        <Dialog open onOpenChange={open => !open && setDeletingSendId(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />Signierlink löschen?
+              </DialogTitle>
+              <DialogDescription>
+                Der Link und das unterzeichnete Dokument werden dauerhaft gelöscht.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeletingSendId(null)}>Abbrechen</Button>
+              <Button variant="destructive" disabled={deletingSendBusy} onClick={() => handleDeleteSend(deletingSendId)}>
+                {deletingSendBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Löschen
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Send document dialog */}
+      {showSendDialog && company && (
+        <SendDocumentDialog
+          entityType="company"
+          entityId={id}
+          prefillData={{
+            'company.company_name': company.company_name || '',
+            'company.contact_name': `${company.first_name || ''} ${company.last_name || ''}`.trim(),
+            'company.contact_first_name': company.first_name || '',
+            'company.contact_last_name': company.last_name || '',
+            'company.email': company.email || '',
+            'company.phone': company.phone || '',
+            'company.address': company.address || '',
+            'company.city': company.city || '',
+            'company.postal_code': company.postal_code || '',
+            'signer.name': `${company.first_name || ''} ${company.last_name || ''}`.trim() || company.company_name || '',
+            'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          }}
+          defaultSignerName={`${company.first_name || ''} ${company.last_name || ''}`.trim() || company.company_name || ''}
+          session={session}
+          onClose={() => setShowSendDialog(false)}
+          onSent={() => { setShowSendDialog(false); loadDocSends() }}
+        />
+      )}
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteDialog} onOpenChange={open => !open && setDeleteDialog(false)}>

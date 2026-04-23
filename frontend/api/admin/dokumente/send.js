@@ -167,6 +167,7 @@ export default withHandler(async (req, res) => {
   const {
     templateId,
     profileId,
+    companyId,
     signerName,
     signerEmail,
     message,
@@ -264,6 +265,7 @@ export default withHandler(async (req, res) => {
     .insert({
       template_id: templateId,
       profile_id: profileId || null,
+      company_id: companyId || null,
       signer_name: signerName,
       signer_email: signerEmail || null,
       message: message || null,

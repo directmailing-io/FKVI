@@ -29,13 +29,25 @@ const FIELD_TYPES = [
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
 
 const PREFILL_OPTIONS = [
-  { value: '',                    label: 'Kein' },
-  { value: 'profile.first_name',  label: 'Vorname (Fachkraft)' },
-  { value: 'profile.last_name',   label: 'Nachname (Fachkraft)' },
-  { value: 'profile.nationality', label: 'Nationalität' },
-  { value: 'profile.education',   label: 'Ausbildung' },
-  { value: 'today',               label: 'Heutiges Datum' },
-  { value: 'signer.name',         label: 'Unterzeichner Name' },
+  { value: '',                           label: 'Kein Vorausfüllen' },
+  // Fachkraft
+  { value: 'profile.first_name',         label: 'Vorname (Fachkraft)' },
+  { value: 'profile.last_name',          label: 'Nachname (Fachkraft)' },
+  { value: 'profile.nationality',        label: 'Nationalität (Fachkraft)' },
+  { value: 'profile.education',          label: 'Ausbildung (Fachkraft)' },
+  // Unternehmen
+  { value: 'company.company_name',       label: 'Unternehmensname' },
+  { value: 'company.contact_name',       label: 'Ansprechpartner Name' },
+  { value: 'company.contact_first_name', label: 'Ansprechpartner Vorname' },
+  { value: 'company.contact_last_name',  label: 'Ansprechpartner Nachname' },
+  { value: 'company.email',              label: 'E-Mail (Unternehmen)' },
+  { value: 'company.phone',              label: 'Telefon (Unternehmen)' },
+  { value: 'company.address',            label: 'Adresse' },
+  { value: 'company.city',               label: 'Stadt' },
+  { value: 'company.postal_code',        label: 'PLZ' },
+  // Allgemein
+  { value: 'today',                      label: 'Heutiges Datum' },
+  { value: 'signer.name',                label: 'Unterzeichner Name' },
 ]
 
 function cfg(type) { return FIELD_TYPE_MAP[type] || FIELD_TYPES[0] }
@@ -211,7 +223,7 @@ function OptionMarker({ option, field, isGroupSelected, onClick }) {
 
 // ─── Sidebar field properties ──────────────────────────────────────────────────
 
-function FieldProperties({ field, onChange, onDelete, onAddOption, onDrawOption }) {
+function FieldProperties({ field, onChange, onDelete }) {
   if (!field) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
@@ -276,8 +288,12 @@ function FieldProperties({ field, onChange, onDelete, onAddOption, onDrawOption 
 
           <div className="space-y-1">
             <Label className="text-xs text-gray-500">Optionen</Label>
+            <div className="rounded-lg bg-orange-50 border border-orange-200 px-2.5 py-2 text-[10px] text-orange-700 flex items-start gap-1.5">
+              <CheckSquare className="h-3 w-3 shrink-0 mt-0.5" />
+              <span>Einfach auf dem PDF zeichnen um eine neue Option mit Position hinzuzufügen.</span>
+            </div>
             {(field.options || []).length === 0 && (
-              <p className="text-xs text-gray-400 italic py-1">Noch keine Optionen — füge welche hinzu und zeichne ihre Position</p>
+              <p className="text-xs text-gray-400 italic py-1">Noch keine Optionen</p>
             )}
             <ul className="space-y-2">
               {(field.options || []).map((opt) => (
@@ -311,14 +327,7 @@ function FieldProperties({ field, onChange, onDelete, onAddOption, onDrawOption 
                       >entfernen</button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => onDrawOption(field.id, opt.id, opt.label)}
-                      className="w-full text-[11px] font-medium text-orange-600 bg-orange-50 border border-orange-300 rounded-lg py-1.5 hover:bg-orange-100 transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <CheckSquare className="h-3 w-3" />
-                      Im Dokument einzeichnen
-                    </button>
+                    <p className="text-[10px] text-orange-500 pl-1 italic">Noch keine Position — auf PDF zeichnen</p>
                   )}
                 </li>
               ))}
@@ -326,9 +335,9 @@ function FieldProperties({ field, onChange, onDelete, onAddOption, onDrawOption 
             <button
               type="button"
               onClick={() => onChange({ ...field, options: [...(field.options || []), { id: crypto.randomUUID(), label: '' }] })}
-              className="w-full text-xs text-[#0d9488] border border-dashed border-[#0d9488]/40 rounded-lg py-1.5 hover:bg-[#0d9488]/5 transition-colors flex items-center justify-center gap-1"
+              className="w-full text-xs text-gray-500 border border-dashed border-gray-300 rounded-lg py-1.5 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
             >
-              <Plus className="h-3 w-3" />Option hinzufügen
+              <Plus className="h-3 w-3" />Option ohne Position hinzufügen
             </button>
           </div>
         </>
@@ -483,6 +492,11 @@ export default function TemplateEditorPage() {
     } finally { setPageRendering(false) }
   }
 
+  // These must be declared BEFORE the useEffect that uses them in its dependency array
+  const selectedField = fields.find(f => f.id === selectedFieldId) || null
+  const activeCheckboxField = selectedField?.type === 'checkbox' ? selectedField : null
+  const isDrawing = !!activeTool || !!placingOption || !!activeCheckboxField
+
   // ── Global mouse events for drawing ───────────────────────────────────────
   useEffect(() => {
     if (!drawing) return
@@ -517,7 +531,7 @@ export default function TemplateEditorPage() {
       const overlay = getOverlay(drawing.pageIdx)
 
       if (placingOption) {
-        // Finalize option position
+        // Finalize option position (legacy: from sidebar "Im Dokument einzeichnen" flow)
         const safeW = Math.max(fw, 1.5)
         const safeH = Math.max(fh, 1)
         const { fieldId, optionId } = placingOption
@@ -539,6 +553,29 @@ export default function TemplateEditorPage() {
           setOptionPopup({ fieldId, optionId, label: currentLabel, x: pos.x, y: pos.y })
         }
         setPlacingOption(null)
+      } else if (activeCheckboxField && !activeTool) {
+        // Drawing on PDF while a checkbox field is selected → add a new option with position
+        const safeW = Math.max(fw, 1.5)
+        const safeH = Math.max(fh, 1)
+        const newOptId = crypto.randomUUID()
+        const fieldId = activeCheckboxField.id
+        setFields(prev => prev.map(f => {
+          if (f.id !== fieldId) return f
+          return {
+            ...f,
+            options: [...(f.options || []), {
+              id: newOptId,
+              label: '',
+              page: drawing.pageIdx + 1,
+              x: fx, y: fy, width: safeW, height: safeH,
+            }],
+          }
+        }))
+        // Show option name popup immediately
+        if (overlay) {
+          const pos = computePopupPos(overlay, fx, fy, safeW, safeH)
+          setOptionPopup({ fieldId, optionId: newOptId, label: '', x: pos.x, y: pos.y })
+        }
       } else if (activeTool) {
         // Default sizes on click (tiny draw)
         let finalX = fx, finalY = fy, finalW = fw, finalH = fh
@@ -575,7 +612,7 @@ export default function TemplateEditorPage() {
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [drawing, activeTool, placingOption, fields])
+  }, [drawing, activeTool, placingOption, activeCheckboxField, fields])
 
   // ── Field ops ─────────────────────────────────────────────────────────────
   const updateField = (updated) => setFields(prev => prev.map(f => f.id === updated.id ? updated : f))
@@ -584,7 +621,6 @@ export default function TemplateEditorPage() {
     if (selectedFieldId === id) setSelectedFieldId(null)
     if (fieldPopup?.fieldId === id) setFieldPopup(null)
   }
-  const selectedField = fields.find(f => f.id === selectedFieldId) || null
 
   const handleSave = async () => {
     setSaving(true)
@@ -605,8 +641,6 @@ export default function TemplateEditorPage() {
     setCurrentPage(page)
     document.querySelector(`[data-po="${page - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-
-  const isDrawing = !!activeTool || !!placingOption
 
   if (loadError) return (
     <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4 text-gray-500">
@@ -672,7 +706,7 @@ export default function TemplateEditorPage() {
                     {/* Interaction overlay */}
                     <div
                       data-po={idx}
-                      style={{ position: 'absolute', inset: 0, cursor: isDrawing ? 'crosshair' : 'default' }}
+                      style={{ position: 'absolute', inset: 0, cursor: (isDrawing || activeCheckboxField) ? 'crosshair' : 'default' }}
                       onMouseDown={e => {
                         if (!isDrawing) return
                         e.preventDefault()
@@ -693,7 +727,7 @@ export default function TemplateEditorPage() {
                           height: `${Math.abs(drawing.cy - drawing.sy)}%`,
                           pointerEvents: 'none',
                         }} className={`border-2 border-dashed rounded ${
-                          placingOption ? 'border-orange-500 bg-orange-500/10' : 'border-[#1a3a5c] bg-[#1a3a5c]/10'
+                          placingOption || activeCheckboxField ? 'border-orange-500 bg-orange-500/10' : 'border-[#1a3a5c] bg-[#1a3a5c]/10'
                         }`} />
                       )}
 
@@ -739,7 +773,20 @@ export default function TemplateEditorPage() {
         <div className="w-[272px] shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
           <div className="overflow-y-auto flex-1 p-4 space-y-4">
 
-            {/* Option placement banner */}
+            {/* Active checkbox draw hint */}
+            {activeCheckboxField && !placingOption && (
+              <div className="bg-orange-50 border-2 border-orange-400 rounded-xl px-3 py-3">
+                <p className="text-sm font-bold text-orange-700 flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4 shrink-0" />
+                  Option einzeichnen
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  Zeichne auf dem PDF um eine neue Option für <strong>{activeCheckboxField.label || 'Checkbox-Gruppe'}</strong> zu platzieren.
+                </p>
+              </div>
+            )}
+
+            {/* Option placement banner (legacy flow) */}
             {placingOption && (
               <div className="bg-orange-50 border-2 border-orange-400 rounded-xl px-3 py-3">
                 <p className="text-sm font-bold text-orange-700 flex items-center gap-2">
@@ -791,10 +838,6 @@ export default function TemplateEditorPage() {
                 field={selectedField}
                 onChange={updateField}
                 onDelete={deleteField}
-                onDrawOption={(fieldId, optionId, label) => {
-                  setPlacingOption({ fieldId, optionId, label })
-                  setActiveTool(null)
-                }}
               />
             </div>
 
