@@ -308,6 +308,7 @@ function SendTemplateDialog({ profileId, profile, session, onClose, onSent }) {
     'profile.nationality': profile?.nationality || '',
     'profile.education': profile?.nursing_education || '',
     'signer.name': `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+    'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
   }
 
   useEffect(() => {
