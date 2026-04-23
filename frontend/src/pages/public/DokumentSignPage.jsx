@@ -241,14 +241,26 @@ function FieldInput({ field, value, onChange }) {
     )
   }
 
-  // Date
+  // Date — German format DD.MM.YYYY
   if (field.type === 'date') {
+    const handleDateInput = (e) => {
+      // Auto-insert dots and limit to DD.MM.YYYY
+      let v = e.target.value.replace(/[^\d.]/g, '')
+      // Auto-add dots after day and month
+      if (v.length === 2 && !v.includes('.')) v = v + '.'
+      else if (v.length === 5 && v.split('.').length === 2) v = v + '.'
+      if (v.length > 10) v = v.slice(0, 10)
+      onChange(v)
+    }
     return (
       <Input
-        type="date"
+        type="text"
+        inputMode="numeric"
+        placeholder="TT.MM.JJJJ"
         value={value || ''}
-        onChange={e => onChange(e.target.value)}
+        onChange={handleDateInput}
         className="h-12 text-base"
+        maxLength={10}
       />
     )
   }
