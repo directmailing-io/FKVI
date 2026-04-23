@@ -118,14 +118,12 @@ function AssignDialog({ template, open, onClose, session }) {
         const { data } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, status, nationality')
-          .in('status', ['active', 'available', 'placed'])
           .order('last_name')
         setEntities(data || [])
       } else {
         const { data } = await supabase
           .from('companies')
           .select('id, company_name, first_name, last_name, email, phone, address, city, postal_code, status')
-          .in('status', ['active', 'approved'])
           .order('company_name')
         setEntities(data || [])
       }

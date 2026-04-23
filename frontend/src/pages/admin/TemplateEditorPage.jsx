@@ -794,120 +794,126 @@ export default function TemplateEditorPage() {
         </div>
 
         {/* ── Sidebar ── */}
-        <div className="w-[272px] shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-          <div className="overflow-y-auto flex-1 p-4 space-y-4">
+        <div className="w-[264px] shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
 
-            {/* Active checkbox draw hint */}
-            {activeCheckboxField && !placingOption && (
-              <div className="bg-orange-50 border-2 border-orange-400 rounded-xl px-3 py-3">
-                <p className="text-sm font-bold text-orange-700 flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4 shrink-0" />
-                  Option einzeichnen
+          {/* Draw hints (shown above everything when active) */}
+          {(activeCheckboxField || placingOption) && (
+            <div className="px-3 pt-3 shrink-0">
+              <div className="bg-orange-50 border border-orange-300 rounded-lg px-3 py-2.5">
+                <p className="text-xs font-bold text-orange-700 flex items-center gap-1.5">
+                  <CheckSquare className="h-3.5 w-3.5 shrink-0" />
+                  {placingOption ? 'Jetzt auf PDF zeichnen' : 'Option einzeichnen'}
                 </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  Zeichne auf dem PDF um eine neue Option für <strong>{activeCheckboxField.label || 'Checkbox-Gruppe'}</strong> zu platzieren.
+                <p className="text-xs text-orange-600 mt-0.5">
+                  {placingOption
+                    ? <>Position für: <strong>{placingOption.label || 'Option'}</strong></>
+                    : <>Neues Kästchen für <strong>{activeCheckboxField?.label || 'Gruppe'}</strong></>
+                  }
                 </p>
+                {placingOption && (
+                  <button onClick={() => setPlacingOption(null)} className="mt-1 text-[10px] text-orange-500 hover:text-orange-700 underline">Abbrechen</button>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Option placement banner (legacy flow) */}
-            {placingOption && (
-              <div className="bg-orange-50 border-2 border-orange-400 rounded-xl px-3 py-3">
-                <p className="text-sm font-bold text-orange-700 flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4 shrink-0" />
-                  Jetzt zeichnen!
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  Zeichne die Position für: <strong>{placingOption.label || 'Option'}</strong>
-                </p>
-                <button onClick={() => setPlacingOption(null)}
-                  className="mt-2 text-[10px] text-orange-500 hover:text-orange-700 underline">Abbrechen</button>
+          {/* Tool picker — always visible, compact */}
+          {!placingOption && (
+            <div className="px-3 pt-3 pb-2 shrink-0">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Werkzeug</p>
+              <div className="grid grid-cols-3 gap-1">
+                {FIELD_TYPES.map(t => {
+                  const Icon = t.icon
+                  const active = activeTool === t.key
+                  return (
+                    <button key={t.key}
+                      onClick={() => setActiveTool(active ? null : t.key)}
+                      title={t.label}
+                      className={`flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-medium border transition-all ${
+                        active ? `${t.bg} ${t.border} ${t.text} ring-1 ring-current` : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                      <span>{t.label}</span>
+                    </button>
+                  )
+                })}
               </div>
-            )}
+              {activeTool && (
+                <p className="text-[11px] text-[#0d9488] mt-1.5 font-medium text-center">
+                  Auf PDF einzeichnen ↓
+                </p>
+              )}
+            </div>
+          )}
 
-            {/* Tool selector */}
-            {!placingOption && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Werkzeug</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {FIELD_TYPES.map(t => {
-                    const Icon = t.icon
-                    const active = activeTool === t.key
-                    return (
-                      <button key={t.key}
-                        onClick={() => setActiveTool(active ? null : t.key)}
-                        className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border transition-all ${
-                          active ? `${t.bg} ${t.border} ${t.text}` : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        <Icon className="h-3.5 w-3.5 shrink-0" />{t.label}
-                      </button>
-                    )
-                  })}
+          <div className="border-t border-gray-100 mx-3 shrink-0" />
+
+          {/* Context panel: field properties OR field list */}
+          <div className="flex-1 overflow-y-auto">
+            {selectedField ? (
+              /* ── Field selected: show properties ── */
+              <div className="p-3 space-y-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <button
+                    onClick={() => setSelectedFieldId(null)}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
+                    title="Zurück zur Feldliste"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Eigenschaften</p>
                 </div>
-                {activeTool && (
-                  <p className="text-xs text-[#0d9488] mt-2 font-medium">
-                    Auf dem PDF einzeichnen
-                  </p>
+                <FieldProperties
+                  field={selectedField}
+                  onChange={updateField}
+                  onDelete={deleteField}
+                />
+              </div>
+            ) : (
+              /* ── No field selected: show field list ── */
+              <div className="p-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+                  Felder ({fields.length})
+                </p>
+                {fields.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <p className="text-xs">Noch keine Felder</p>
+                    <p className="text-[11px] mt-1 text-gray-300">Werkzeug wählen, dann auf PDF zeichnen</p>
+                  </div>
+                ) : (
+                  <ul className="space-y-0.5">
+                    {fields.map((f, i) => {
+                      const c = cfg(f.type)
+                      const Icon = c.icon
+                      return (
+                        <li key={f.id}>
+                          <button
+                            onClick={() => setSelectedFieldId(f.id)}
+                            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs transition-all text-left hover:bg-gray-50 border border-transparent hover:border-gray-100"
+                          >
+                            <span className="text-gray-300 w-4 text-right shrink-0 text-[10px]">{i + 1}</span>
+                            <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${c.bg}`}>
+                              <Icon className={`h-3 w-3 ${c.text}`} />
+                            </div>
+                            <span className="flex-1 truncate text-gray-700">
+                              {f.label || <span className="text-gray-400 italic">{c.label}</span>}
+                            </span>
+                            <span className="text-gray-300 shrink-0 text-[10px]">S.{f.page}</span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 )}
               </div>
             )}
-
-            <Separator />
-
-            {/* Properties */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Eigenschaften</p>
-              <FieldProperties
-                field={selectedField}
-                onChange={updateField}
-                onDelete={deleteField}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Field list */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Felder ({fields.length})
-              </p>
-              {fields.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Noch keine Felder</p>
-              ) : (
-                <ul className="space-y-1">
-                  {fields.map((f, i) => {
-                    const c = cfg(f.type)
-                    const Icon = c.icon
-                    const isSel = selectedFieldId === f.id
-                    return (
-                      <li key={f.id}>
-                        <button
-                          onClick={() => setSelectedFieldId(f.id)}
-                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all text-left ${
-                            isSel ? `${c.bg} ${c.border} border` : 'hover:bg-gray-50 border border-transparent'
-                          }`}
-                        >
-                          <span className="text-gray-400 w-4 text-right shrink-0">{i + 1}</span>
-                          <Icon className={`h-3.5 w-3.5 shrink-0 ${c.text}`} />
-                          <span className="flex-1 truncate text-gray-700">
-                            {f.label || <span className="text-gray-400 italic">{c.label}</span>}
-                          </span>
-                          <span className="text-gray-400 shrink-0">S.{f.page}</span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </div>
           </div>
 
-          <div className="p-4 border-t border-gray-200 shrink-0">
-            <Button onClick={handleSave} disabled={saving || isLoading} className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Speichern</>}
+          <div className="p-3 border-t border-gray-100 shrink-0">
+            <Button onClick={handleSave} disabled={saving || isLoading} className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 h-9 text-sm">
+              {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />Speichern...</> : <><Save className="h-3.5 w-3.5 mr-2" />Speichern</>}
             </Button>
-            <p className="text-xs text-gray-400 text-center mt-2">{fields.length} Feld{fields.length !== 1 ? 'er' : ''}</p>
           </div>
         </div>
       </div>
