@@ -25,6 +25,8 @@ export default withHandler(async (req, res) => {
       open_count,
       first_opened_at,
       template_id,
+      prefill_mode,
+      prefilled_field_ids,
       document_templates (
         name,
         description,
@@ -100,5 +102,7 @@ export default withHandler(async (req, res) => {
     expiresAt: send.expires_at,
     status: isFirstOpen ? 'opened' : send.status,
     alreadySigned,
+    prefillMode: send.prefill_mode || 'blank',
+    prefilledFieldIds: send.prefilled_field_ids || [],
   })
 })
