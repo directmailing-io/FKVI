@@ -57,6 +57,18 @@ export default withHandler(async (req, res) => {
     const storagePath = tpl.storage_path
     const prefillData = send.prefill_data || {}
 
+    // Build resolved prefill map: field.id → actual value
+    // prefillData may be keyed by prefillKey (e.g. 'profile.first_name') OR by field.id
+    const resolvedPrefillMap = {}
+    for (const field of templateFields) {
+      if (field.prefillKey && prefillData[field.prefillKey] !== undefined) {
+        resolvedPrefillMap[field.id] = prefillData[field.prefillKey]
+      }
+      if (prefillData[field.id] !== undefined) {
+        resolvedPrefillMap[field.id] = prefillData[field.id]
+      }
+    }
+
     if (!storagePath) {
       return res.status(500).json({ error: 'Kein Template-PDF gefunden' })
     }
@@ -124,9 +136,10 @@ export default withHandler(async (req, res) => {
       const absY = pageHeight - (field.y / 100) * pageHeight - absH
       const absW = (field.width / 100) * pageWidth
 
+      // Use submitted value if present; fall back to resolved prefill (supports prefillKey-based lookup)
       const value = fieldValues[field.id] !== undefined
         ? fieldValues[field.id]
-        : (prefillData[field.id] !== undefined ? prefillData[field.id] : '')
+        : (resolvedPrefillMap[field.id] !== undefined ? resolvedPrefillMap[field.id] : '')
 
       if (field.type === 'signature') {
         if (sigImage) {
@@ -138,34 +151,76 @@ export default withHandler(async (req, res) => {
           })
         }
       } else if (field.type === 'text' || field.type === 'date') {
-        const fontSize = Math.min(10, absH * 0.65)
+        const maxFontSize = Math.min(10, absH * 0.65)
         const textValue = String(value || '')
         if (textValue) {
+          const availWidth = absW - 4
+          // Auto-shrink font size so text fits within the field width
+          const textWidth = font.widthOfTextAtSize(textValue, maxFontSize)
+          const fontSize = textWidth > availWidth
+            ? Math.max(4, maxFontSize * (availWidth / textWidth))
+            : maxFontSize
           page.drawText(textValue, {
             x: absX + 2,
             y: absY + (absH - fontSize) / 2,
             size: fontSize,
             font,
             color: rgb(0, 0, 0),
-            maxWidth: absW - 4,
+            maxWidth: availWidth,
           })
         }
       } else if (field.type === 'checkbox') {
-        if (value === 'true' || value === true) {
-          const thickness = Math.max(1, absH * 0.12)
-          // Checkmark: two lines forming a tick
-          page.drawLine({
-            start: { x: absX + absW * 0.1, y: absY + absH * 0.4 },
-            end: { x: absX + absW * 0.35, y: absY + absH * 0.15 },
-            thickness,
-            color: rgb(0, 0, 0),
-          })
-          page.drawLine({
-            start: { x: absX + absW * 0.35, y: absY + absH * 0.15 },
-            end: { x: absX + absW * 0.9, y: absY + absH * 0.75 },
-            thickness,
-            color: rgb(0, 0, 0),
-          })
+        if (Array.isArray(field.options) && field.options.length > 0) {
+          // New format: each option has its own position on the PDF
+          const isMultiple = field.multiple === true
+          const selectedIds = isMultiple
+            ? (Array.isArray(value) ? value : [])
+            : (value ? [value] : [])
+
+          for (const opt of field.options) {
+            if (!selectedIds.includes(opt.id)) continue
+            if (opt.x === undefined || opt.page === undefined) continue
+
+            const optPageIndex = opt.page - 1
+            if (optPageIndex < 0 || optPageIndex >= pages.length) continue
+            const optPage = pages[optPageIndex]
+            const { width: optPageW, height: optPageH } = optPage.getSize()
+
+            const ox = (opt.x / 100) * optPageW
+            const oh = (opt.height / 100) * optPageH
+            const ow = (opt.width / 100) * optPageW
+            const oy = optPageH - (opt.y / 100) * optPageH - oh
+
+            const pad = Math.min(ow, oh) * 0.12
+            const thickness = Math.max(0.8, Math.min(ow, oh) * 0.1)
+
+            // Draw X inside the box
+            optPage.drawLine({
+              start: { x: ox + pad, y: oy + oh - pad },
+              end:   { x: ox + ow - pad, y: oy + pad },
+              thickness, color: rgb(0, 0, 0),
+            })
+            optPage.drawLine({
+              start: { x: ox + ow - pad, y: oy + oh - pad },
+              end:   { x: ox + pad, y: oy + pad },
+              thickness, color: rgb(0, 0, 0),
+            })
+          }
+        } else {
+          // Legacy boolean checkbox (no options)
+          if (value === 'true' || value === true) {
+            const thickness = Math.max(1, absH * 0.12)
+            page.drawLine({
+              start: { x: absX + absW * 0.1, y: absY + absH * 0.4 },
+              end: { x: absX + absW * 0.35, y: absY + absH * 0.15 },
+              thickness, color: rgb(0, 0, 0),
+            })
+            page.drawLine({
+              start: { x: absX + absW * 0.35, y: absY + absH * 0.15 },
+              end: { x: absX + absW * 0.9, y: absY + absH * 0.75 },
+              thickness, color: rgb(0, 0, 0),
+            })
+          }
         }
       } else if (field.type === 'initials') {
         const fontSize = Math.min(10, absH * 0.65)

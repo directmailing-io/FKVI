@@ -1,40 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import {
-  Type,
-  CheckSquare,
-  PenLine,
-  Calendar,
-  Fingerprint,
-  Trash2,
-  Save,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  ArrowLeft,
-  AlertCircle,
-  Plus,
+  Type, CheckSquare, PenLine, Calendar, Fingerprint,
+  Trash2, Save, ChevronLeft, ChevronRight, Loader2,
+  ArrowLeft, AlertCircle, Plus, CheckCircle2, X,
 } from 'lucide-react'
 
-// ─── pdf.js worker ───────────────────────────────────────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FIELD_TYPES = [
-  { key: 'text',      label: 'Text',        icon: Type,        color: 'blue',   border: 'border-blue-500',   bg: 'bg-blue-50',   text: 'text-blue-700',   ring: 'ring-blue-400'   },
-  { key: 'checkbox',  label: 'Checkbox',    icon: CheckSquare, color: 'orange', border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400' },
-  { key: 'signature', label: 'Unterschrift', icon: PenLine,    color: 'purple', border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400' },
-  { key: 'date',      label: 'Datum',       icon: Calendar,    color: 'green',  border: 'border-green-500',  bg: 'bg-green-50',  text: 'text-green-700',  ring: 'ring-green-400'  },
-  { key: 'initials',  label: 'Initialen',   icon: Fingerprint, color: 'pink',   border: 'border-pink-500',   bg: 'bg-pink-50',   text: 'text-pink-700',   ring: 'ring-pink-400'   },
+  { key: 'text',      label: 'Text',        icon: Type,        border: 'border-blue-500',   bg: 'bg-blue-50',   text: 'text-blue-700',   ring: 'ring-blue-400'   },
+  { key: 'checkbox',  label: 'Checkbox',    icon: CheckSquare, border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400' },
+  { key: 'signature', label: 'Unterschrift', icon: PenLine,    border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400' },
+  { key: 'date',      label: 'Datum',       icon: Calendar,    border: 'border-green-500',  bg: 'bg-green-50',  text: 'text-green-700',  ring: 'ring-green-400'  },
+  { key: 'initials',  label: 'Initialen',   icon: Fingerprint, border: 'border-pink-500',   bg: 'bg-pink-50',   text: 'text-pink-700',   ring: 'ring-pink-400'   },
 ]
 
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
@@ -49,256 +38,341 @@ const PREFILL_OPTIONS = [
   { value: 'signer.name',         label: 'Unterzeichner Name' },
 ]
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function cfg(type) { return FIELD_TYPE_MAP[type] || FIELD_TYPES[0] }
 
-function authHeaders(token) {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  }
+// ─── Inline naming popup (Portal) ─────────────────────────────────────────────
+// Appears directly on-canvas after field is drawn, pre-focused
+
+function FieldNamePopup({ x, y, label, onChange, onDone, isCheckboxGroup }) {
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 30)
+  }, [])
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', left: x, top: y, zIndex: 9999, pointerEvents: 'all' }}
+      onMouseDown={e => e.stopPropagation()}
+    >
+      <div className="bg-white rounded-xl shadow-2xl border-2 border-[#1a3a5c] p-3 w-64">
+        <p className="text-xs font-semibold text-[#1a3a5c] mb-2">
+          {isCheckboxGroup ? '🗂 Gruppenname (z. B. Geschlecht)' : '✏️ Wie soll das Feld heißen?'}
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={label}
+            onChange={e => onChange(e.target.value)}
+            placeholder={isCheckboxGroup ? 'Gruppenname...' : 'Feldname...'}
+            className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a3a5c]"
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onDone() }}
+          />
+          <button
+            onClick={onDone}
+            className="shrink-0 bg-[#1a3a5c] text-white rounded-lg w-9 h-9 flex items-center justify-center hover:bg-[#1a3a5c]/90 transition-colors font-bold"
+          >
+            ✓
+          </button>
+        </div>
+        <p className="text-[10px] text-gray-400 mt-1.5">Enter oder ✓ zum Bestätigen</p>
+      </div>
+    </div>,
+    document.body
+  )
 }
 
-function getFieldCfg(type) {
-  return FIELD_TYPE_MAP[type] || FIELD_TYPES[0]
+// ─── Option name popup (for checkbox option after drawing) ────────────────────
+
+function OptionNamePopup({ x, y, label, onChange, onDone }) {
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 30)
+  }, [])
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', left: x, top: y, zIndex: 9999, pointerEvents: 'all' }}
+      onMouseDown={e => e.stopPropagation()}
+    >
+      <div className="bg-white rounded-xl shadow-2xl border-2 border-orange-400 p-3 w-56">
+        <p className="text-xs font-semibold text-orange-700 mb-2">☑ Option benennen</p>
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={label}
+            onChange={e => onChange(e.target.value)}
+            placeholder="z. B. männlich..."
+            className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onDone() }}
+          />
+          <button
+            onClick={onDone}
+            className="shrink-0 bg-orange-500 text-white rounded-lg w-9 h-9 flex items-center justify-center hover:bg-orange-600 transition-colors font-bold"
+          >
+            ✓
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
 }
 
-// ─── FieldOverlay ──────────────────────────────────────────────────────────────
+// ─── Field overlay on canvas ──────────────────────────────────────────────────
 
 function FieldOverlay({ field, isSelected, onClick, onDelete }) {
-  const cfg = getFieldCfg(field.type)
-  const Icon = cfg.icon
+  const c = cfg(field.type)
+  const Icon = c.icon
 
   const style = {
-    left:   `${field.x}%`,
-    top:    `${field.y}%`,
-    width:  `${field.width}%`,
-    height: `${field.height}%`,
+    position: 'absolute',
+    left: `${field.x}%`, top: `${field.y}%`,
+    width: `${field.width}%`, height: `${field.height}%`,
+    userSelect: 'none',
   }
 
-  const isCheckbox = field.type === 'checkbox'
+  if (field.type === 'checkbox') {
+    return (
+      <div
+        style={style}
+        onClick={e => { e.stopPropagation(); onClick(field.id) }}
+        className={`cursor-pointer border-2 border-dashed rounded transition-all ${
+          isSelected ? 'border-orange-500 bg-orange-50/50' : 'border-orange-300 bg-orange-50/20 hover:bg-orange-50/40'
+        }`}
+      >
+        <div className="absolute -top-5 left-0 flex items-center gap-1 bg-white/90 rounded px-1.5 py-0.5 border border-orange-200 shadow-sm">
+          <Icon className="h-2.5 w-2.5 text-orange-500 shrink-0" />
+          <span className="text-[9px] font-semibold text-orange-600 whitespace-nowrap truncate max-w-[100px]">
+            {field.label || 'Checkbox-Gruppe'}
+          </span>
+        </div>
+        {isSelected && (
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(field.id) }}
+            className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 z-10 text-[10px] leading-none"
+          >×</button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div
       style={style}
-      onClick={(e) => { e.stopPropagation(); onClick(field.id) }}
-      className={`absolute cursor-pointer border-2 rounded overflow-hidden select-none transition-all ${cfg.border} ${cfg.bg} ${cfg.text} ${isSelected ? `ring-2 ${cfg.ring} ring-offset-1` : 'opacity-80 hover:opacity-100'}`}
+      onClick={e => { e.stopPropagation(); onClick(field.id) }}
+      className={`cursor-pointer border-2 rounded overflow-hidden transition-all ${c.border} ${c.bg} ${c.text} ${
+        isSelected ? `ring-2 ${c.ring} ring-offset-1` : 'opacity-80 hover:opacity-100'
+      }`}
     >
-      {isCheckbox ? (
-        /* Checkbox group: show group name + options list */
-        <div className="w-full h-full flex flex-col p-1">
-          <div className="flex items-center gap-1 shrink-0">
-            <Icon className="h-2.5 w-2.5 shrink-0 opacity-60" />
-            <span className="text-[9px] font-semibold truncate leading-none">
-              {field.label || 'Gruppe'}
-            </span>
-          </div>
-          <div className="flex-1 overflow-hidden mt-0.5 space-y-0.5">
-            {(field.options || []).slice(0, 5).map(opt => (
-              <div key={opt.id} className="flex items-center gap-1">
-                <div className={`w-2 h-2 border rounded-sm shrink-0 ${field.multiple ? '' : 'rounded-full'} ${cfg.border}`} />
-                <span className="text-[8px] truncate leading-none">{opt.label}</span>
-              </div>
-            ))}
-            {(field.options?.length || 0) > 5 && (
-              <span className="text-[7px] opacity-60">+{field.options.length - 5} weitere</span>
-            )}
-            {(!field.options || field.options.length === 0) && (
-              <span className="text-[8px] opacity-50 italic">Keine Optionen</span>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* Normal field: icon + label centered */
-        <div className="w-full h-full flex items-center justify-center gap-1 px-1">
-          <Icon className="h-3 w-3 shrink-0 opacity-60" />
-          {field.label && (
-            <span className="text-[10px] font-medium truncate leading-none max-w-[80%]">{field.label}</span>
-          )}
-        </div>
-      )}
-
+      <div className="w-full h-full flex items-center justify-center gap-1 px-1">
+        <Icon className="h-3 w-3 shrink-0 opacity-60" />
+        {field.label && <span className="text-[10px] font-medium truncate leading-none">{field.label}</span>}
+      </div>
       {isSelected && (
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(field.id) }}
-          className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 z-10"
-          title="Feld löschen"
-        >
-          <span className="text-[10px] font-bold leading-none">×</span>
-        </button>
+          onClick={e => { e.stopPropagation(); onDelete(field.id) }}
+          className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 z-10 text-[10px] leading-none"
+        >×</button>
       )}
     </div>
   )
 }
 
-// ─── FieldProperties ──────────────────────────────────────────────────────────
+// ─── Option marker (positioned checkbox option on canvas) ─────────────────────
 
-function FieldProperties({ field, onChange, onDelete, autoFocusLabel }) {
-  const labelInputRef = useRef(null)
+function OptionMarker({ option, field, isGroupSelected, onClick }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: `${option.x}%`, top: `${option.y}%`,
+        width: `${option.width}%`, height: `${option.height}%`,
+        userSelect: 'none',
+      }}
+      onClick={e => { e.stopPropagation(); onClick(field.id) }}
+      className={`cursor-pointer border-2 rounded flex items-center justify-center transition-all ${
+        isGroupSelected ? 'border-orange-500 bg-orange-100' : 'border-orange-300 bg-orange-50 hover:bg-orange-100'
+      }`}
+      title={option.label}
+    >
+      <div className={`w-3/5 h-3/5 border-2 border-orange-400 bg-white ${field.multiple ? 'rounded-sm' : 'rounded-full'}`} />
+      {option.label && (
+        <span className="absolute -bottom-4 left-0 text-[8px] text-orange-600 whitespace-nowrap bg-white/80 px-0.5 rounded">
+          {option.label}
+        </span>
+      )}
+    </div>
+  )
+}
 
-  useEffect(() => {
-    if (autoFocusLabel && labelInputRef.current) {
-      setTimeout(() => labelInputRef.current?.focus(), 60)
-    }
-  }, [autoFocusLabel, field?.id])
+// ─── Sidebar field properties ──────────────────────────────────────────────────
 
+function FieldProperties({ field, onChange, onDelete, onAddOption, onDrawOption }) {
   if (!field) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
         <p>Kein Feld ausgewählt</p>
-        <p className="text-xs mt-1">Klicke ein Feld an oder platziere ein neues</p>
+        <p className="text-xs mt-1">Feld zeichnen oder anklicken</p>
       </div>
     )
   }
 
-  const cfg = getFieldCfg(field.type)
-  const Icon = cfg.icon
+  const c = cfg(field.type)
+  const Icon = c.icon
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <div className={`w-6 h-6 rounded flex items-center justify-center ${cfg.bg}`}>
-          <Icon className={`h-3.5 w-3.5 ${cfg.text}`} />
+        <div className={`w-6 h-6 rounded flex items-center justify-center ${c.bg}`}>
+          <Icon className={`h-3.5 w-3.5 ${c.text}`} />
         </div>
         <span className="text-sm font-medium text-gray-700">
-          {field.type === 'checkbox' ? 'Checkbox-Gruppe' : `${cfg.label}-Feld`}
+          {field.type === 'checkbox' ? 'Checkbox-Gruppe' : `${c.label}-Feld`}
         </span>
       </div>
 
-      {/* Label / Group name */}
-      <div className="space-y-1.5">
+      {/* Name */}
+      <div className="space-y-1">
         <Label className="text-xs text-gray-500">
           {field.type === 'checkbox' ? 'Gruppenname' : 'Beschriftung'}
         </Label>
-        <Input
-          ref={labelInputRef}
+        <input
           value={field.label || ''}
           onChange={e => onChange({ ...field, label: e.target.value })}
           placeholder={field.type === 'checkbox' ? 'z. B. Geschlecht...' : 'Feldname...'}
-          className="h-8 text-sm"
+          className="w-full h-8 text-sm border border-input rounded-md px-2.5 focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
 
-      {/* Pflichtfeld toggle */}
+      {/* Pflichtfeld */}
       <div className="flex items-center gap-3">
         <Label className="text-xs text-gray-500 flex-1">Pflichtfeld</Label>
         <button
           type="button"
           onClick={() => onChange({ ...field, required: !field.required })}
-          className={`relative inline-flex w-11 h-6 rounded-full transition-colors focus:outline-none ${
-            field.required ? 'bg-[#0d9488]' : 'bg-gray-200'
-          }`}
+          className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${field.required ? 'bg-[#0d9488]' : 'bg-gray-200'}`}
         >
-          <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-              field.required ? 'translate-x-5' : 'translate-x-0'
-            }`}
-          />
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${field.required ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
       </div>
 
-      {/* Checkbox-specific: options + mode */}
+      {/* Checkbox options */}
       {field.type === 'checkbox' && (
         <>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-gray-500">Auswahlmodus</Label>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => onChange({ ...field, multiple: false })}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-all ${
-                  !field.multiple
-                    ? 'bg-orange-50 border-orange-400 text-orange-700'
-                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+          <div className="flex gap-1.5">
+            {[{ val: false, label: 'Einfachauswahl' }, { val: true, label: 'Mehrfachauswahl' }].map(({ val, label }) => (
+              <button key={String(val)} type="button"
+                onClick={() => onChange({ ...field, multiple: val })}
+                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  field.multiple === val ? 'bg-orange-50 border-orange-400 text-orange-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                 }`}
-              >
-                Einfachauswahl
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange({ ...field, multiple: true })}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-all ${
-                  field.multiple
-                    ? 'bg-orange-50 border-orange-400 text-orange-700'
-                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                Mehrfachauswahl
-              </button>
-            </div>
+              >{label}</button>
+            ))}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label className="text-xs text-gray-500">Optionen</Label>
-            <ul className="space-y-1">
+            {(field.options || []).length === 0 && (
+              <p className="text-xs text-gray-400 italic py-1">Noch keine Optionen — füge welche hinzu und zeichne ihre Position</p>
+            )}
+            <ul className="space-y-2">
               {(field.options || []).map((opt) => (
-                <li key={opt.id} className="flex items-center gap-1.5">
-                  <div className={`w-3 h-3 border border-gray-300 shrink-0 ${field.multiple ? 'rounded-sm' : 'rounded-full'}`} />
-                  <Input
-                    value={opt.label}
-                    onChange={e => onChange({
-                      ...field,
-                      options: field.options.map(o =>
-                        o.id === opt.id ? { ...o, label: e.target.value } : o
-                      ),
-                    })}
-                    placeholder="Option..."
-                    className="h-7 text-xs flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onChange({
-                      ...field,
-                      options: field.options.filter(o => o.id !== opt.id),
-                    })}
-                    className="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"
-                  >
-                    ×
-                  </button>
+                <li key={opt.id} className="rounded-lg border border-gray-100 p-2 space-y-1.5 bg-gray-50">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-3 h-3 border border-gray-300 shrink-0 ${field.multiple ? 'rounded-sm' : 'rounded-full'}`} />
+                    <input
+                      value={opt.label || ''}
+                      onChange={e => onChange({
+                        ...field,
+                        options: field.options.map(o => o.id === opt.id ? { ...o, label: e.target.value } : o),
+                      })}
+                      placeholder="Option..."
+                      className="h-6 text-xs flex-1 border border-input rounded px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <button type="button"
+                      onClick={() => onChange({ ...field, options: field.options.filter(o => o.id !== opt.id) })}
+                      className="text-gray-300 hover:text-red-400 transition-colors shrink-0"
+                    ><X className="h-3 w-3" /></button>
+                  </div>
+                  {opt.x !== undefined ? (
+                    <div className="flex items-center gap-1 text-[10px] text-green-600 pl-1">
+                      <CheckCircle2 className="h-3 w-3 shrink-0" />
+                      <span>Seite {opt.page} · positioniert</span>
+                      <button type="button"
+                        onClick={() => {
+                          const { x, y, width, height, page, ...rest } = opt
+                          onChange({ ...field, options: field.options.map(o => o.id === opt.id ? rest : o) })
+                        }}
+                        className="ml-auto text-gray-400 hover:text-red-400"
+                      >entfernen</button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onDrawOption(field.id, opt.id, opt.label)}
+                      className="w-full text-[11px] font-medium text-orange-600 bg-orange-50 border border-orange-300 rounded-lg py-1.5 hover:bg-orange-100 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <CheckSquare className="h-3 w-3" />
+                      Im Dokument einzeichnen
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
             <button
               type="button"
-              onClick={() => onChange({
-                ...field,
-                options: [...(field.options || []), { id: crypto.randomUUID(), label: '' }],
-              })}
+              onClick={() => onChange({ ...field, options: [...(field.options || []), { id: crypto.randomUUID(), label: '' }] })}
               className="w-full text-xs text-[#0d9488] border border-dashed border-[#0d9488]/40 rounded-lg py-1.5 hover:bg-[#0d9488]/5 transition-colors flex items-center justify-center gap-1"
             >
-              <Plus className="h-3 w-3" />
-              Option hinzufügen
+              <Plus className="h-3 w-3" />Option hinzufügen
             </button>
           </div>
         </>
       )}
 
-      {/* Prefill (not for checkbox) */}
-      {field.type !== 'checkbox' && (
-        <div className="space-y-1.5">
+      {/* Prefill */}
+      {field.type !== 'checkbox' && field.type !== 'signature' && (
+        <div className="space-y-1">
           <Label className="text-xs text-gray-500">Vorausfüllen mit</Label>
           <select
             value={field.prefillKey || ''}
             onChange={e => onChange({ ...field, prefillKey: e.target.value })}
             className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            {PREFILL_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+            {PREFILL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
       )}
 
-      <Button
-        size="sm"
-        variant="outline"
-        className="w-full text-red-500 border-red-200 hover:bg-red-50"
+      <button
+        type="button"
         onClick={() => onDelete(field.id)}
+        className="w-full flex items-center justify-center gap-1.5 text-xs text-red-500 border border-red-200 rounded-lg py-1.5 hover:bg-red-50 transition-colors"
       >
-        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-        Feld löschen
-      </Button>
+        <Trash2 className="h-3.5 w-3.5" />Feld löschen
+      </button>
     </div>
   )
+}
+
+// ─── Compute popup position near a drawn field ─────────────────────────────────
+function computePopupPos(overlayEl, xPct, yPct, wPct, hPct) {
+  const rect = overlayEl.getBoundingClientRect()
+  const fieldLeft = rect.left + (xPct / 100) * rect.width
+  const fieldBottom = rect.top + ((yPct + hPct) / 100) * rect.height
+  const fieldTop = rect.top + (yPct / 100) * rect.height
+
+  const popupH = 110
+  const popupW = 270
+  let top = fieldBottom + 8
+  if (top + popupH > window.innerHeight - 16) top = fieldTop - popupH - 8
+  top = Math.max(70, top)
+  const left = Math.min(Math.max(8, fieldLeft), window.innerWidth - popupW - 8)
+  return { x: left, y: top }
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -308,37 +382,40 @@ export default function TemplateEditorPage() {
   const navigate = useNavigate()
   const { session } = useAuthStore()
 
-  // Template & fields
   const [template, setTemplate] = useState(null)
   const [fields, setFields] = useState([])
   const [pdfUrl, setPdfUrl] = useState(null)
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState(null)
 
-  // PDF rendering
+  // PDF
   const [pdfDoc, setPdfDoc] = useState(null)
+  const [pageAspects, setPageAspects] = useState([])
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pageRendering, setPageRendering] = useState(false)
-  const [pageCanvasData, setPageCanvasData] = useState([]) // [{width, height}] per page
 
-  // Canvas & overlay refs
-  const canvasContainerRef = useRef(null)
   const canvasRefs = useRef([])
   const renderTasksRef = useRef([])
 
   // Interaction
   const [activeTool, setActiveTool] = useState(null)
   const [selectedFieldId, setSelectedFieldId] = useState(null)
-  const [newlyPlacedFieldId, setNewlyPlacedFieldId] = useState(null)
   const [drawing, setDrawing] = useState(null)
 
+  // Inline popup after placing a field
+  const [fieldPopup, setFieldPopup] = useState(null)
+  // { fieldId, x, y, isCheckboxGroup }
+
+  // Option placement mode + popup
+  const [placingOption, setPlacingOption] = useState(null)
+  // { fieldId, optionId, label }
+  const [optionPopup, setOptionPopup] = useState(null)
+  // { fieldId, optionId, label, x, y }
+
   // ── Load template ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!templateId || !session) return
-    loadTemplate()
-  }, [templateId, session])
+  useEffect(() => { if (templateId && session) loadTemplate() }, [templateId, session])
 
   const loadTemplate = async () => {
     try {
@@ -350,211 +427,223 @@ export default function TemplateEditorPage() {
       setTemplate(data.template)
       setFields(Array.isArray(data.template?.fields) ? data.template.fields : [])
       setPdfUrl(data.pdfSignedUrl)
-    } catch (err) {
-      setLoadError(err.message)
-      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
-    }
+    } catch (err) { setLoadError(err.message) }
   }
 
   // ── Load PDF ───────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!pdfUrl) return
-    loadPdf()
-  }, [pdfUrl])
+  useEffect(() => { if (pdfUrl) loadPdf() }, [pdfUrl])
 
   const loadPdf = async () => {
     setPdfLoading(true)
     try {
       renderTasksRef.current.forEach(t => t.cancel?.())
       renderTasksRef.current = []
-
       const doc = await pdfjsLib.getDocument(pdfUrl).promise
       setPdfDoc(doc)
       setNumPages(doc.numPages)
       setCurrentPage(1)
-
-      const dims = []
+      const aspects = []
       for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i)
-        const vp = page.getViewport({ scale: 1.5 })
-        dims.push({ width: Math.floor(vp.width), height: Math.floor(vp.height) })
+        const vp = page.getViewport({ scale: 1 })
+        aspects.push({ width: vp.width, height: vp.height })
       }
-      setPageCanvasData(dims)
-    } catch (err) {
-      if (err?.name !== 'RenderingCancelledException') {
-        toast({ title: 'PDF-Fehler', description: 'Das PDF konnte nicht geladen werden.', variant: 'destructive' })
-      }
-    } finally {
-      setPdfLoading(false)
-    }
+      setPageAspects(aspects)
+    } catch { toast({ title: 'PDF-Fehler', variant: 'destructive' }) }
+    finally { setPdfLoading(false) }
   }
 
   // ── Render pages ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!pdfDoc || pageCanvasData.length === 0) return
-    renderAllPages()
-  }, [pdfDoc, pageCanvasData])
+  useEffect(() => { if (pdfDoc && pageAspects.length > 0) renderAllPages() }, [pdfDoc, pageAspects])
 
   const renderAllPages = async () => {
     if (!pdfDoc) return
     setPageRendering(true)
     renderTasksRef.current.forEach(t => t.cancel?.())
     renderTasksRef.current = []
-
     try {
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const canvas = canvasRefs.current[i - 1]
-        if (!canvas) continue
+        if (!canvas || !pageAspects[i - 1]) continue
+        const aspect = pageAspects[i - 1]
+        const displayWidth = canvas.parentElement?.clientWidth || 800
+        const dpr = window.devicePixelRatio || 1
+        canvas.width = Math.round(displayWidth * dpr)
+        canvas.height = Math.round(displayWidth * (aspect.height / aspect.width) * dpr)
         const page = await pdfDoc.getPage(i)
-        const viewport = page.getViewport({ scale: 1.5 })
-        canvas.width = Math.floor(viewport.width)
-        canvas.height = Math.floor(viewport.height)
-        const ctx = canvas.getContext('2d')
-        const task = page.render({ canvasContext: ctx, viewport })
+        const scale = (displayWidth / aspect.width) * dpr
+        const viewport = page.getViewport({ scale })
+        const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
         renderTasksRef.current.push(task)
-        try {
-          await task.promise
-        } catch (e) {
-          if (e?.name !== 'RenderingCancelledException') throw e
-        }
+        try { await task.promise } catch (e) { if (e?.name !== 'RenderingCancelledException') throw e }
       }
     } catch (err) {
-      if (err?.name !== 'RenderingCancelledException') {
-        toast({ title: 'Render-Fehler', description: 'Seiten konnten nicht gerendert werden.', variant: 'destructive' })
+      if (err?.name !== 'RenderingCancelledException')
+        toast({ title: 'Render-Fehler', variant: 'destructive' })
+    } finally { setPageRendering(false) }
+  }
+
+  // ── Global mouse events for drawing ───────────────────────────────────────
+  useEffect(() => {
+    if (!drawing) return
+
+    const getOverlay = (pageIdx) => document.querySelector(`[data-po="${pageIdx}"]`)
+
+    const pct = (clientX, clientY, pageIdx) => {
+      const rect = getOverlay(pageIdx)?.getBoundingClientRect()
+      if (!rect) return null
+      return {
+        x: Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100)),
+        y: Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100)),
       }
-    } finally {
-      setPageRendering(false)
     }
-  }
 
-  // ── Field placement helper ─────────────────────────────────────────────────
-  const placeField = useCallback((type, page, x, y, width, height) => {
-    const newField = {
-      id: crypto.randomUUID(),
-      type,
-      page,
-      x, y, width, height,
-      label: '',
-      required: false,
-      prefillKey: '',
-      // checkbox-specific
-      options: type === 'checkbox' ? [] : undefined,
-      multiple: type === 'checkbox' ? false : undefined,
+    const onMove = (e) => {
+      const c = pct(e.clientX, e.clientY, drawing.pageIdx)
+      if (c) setDrawing(prev => prev ? { ...prev, cx: c.x, cy: c.y } : null)
     }
-    setFields(prev => [...prev, newField])
-    setSelectedFieldId(newField.id)
-    setNewlyPlacedFieldId(newField.id)
-    setActiveTool(null)
-    return newField
-  }, [])
 
-  // ── Field operations ───────────────────────────────────────────────────────
-  const updateField = (updated) => {
-    setFields(prev => prev.map(f => f.id === updated.id ? updated : f))
-  }
+    const onUp = (e) => {
+      if (!drawing) return
+      const c = pct(e.clientX, e.clientY, drawing.pageIdx)
+      const ex = c?.x ?? drawing.cx
+      const ey = c?.y ?? drawing.cy
 
+      const fx = Math.min(drawing.sx, ex)
+      const fy = Math.min(drawing.sy, ey)
+      const fw = Math.abs(ex - drawing.sx)
+      const fh = Math.abs(ey - drawing.sy)
+
+      const overlay = getOverlay(drawing.pageIdx)
+
+      if (placingOption) {
+        // Finalize option position
+        const safeW = Math.max(fw, 1.5)
+        const safeH = Math.max(fh, 1)
+        const { fieldId, optionId } = placingOption
+        setFields(prev => prev.map(f => {
+          if (f.id !== fieldId) return f
+          return {
+            ...f,
+            options: (f.options || []).map(opt =>
+              opt.id === optionId
+                ? { ...opt, page: drawing.pageIdx + 1, x: fx, y: fy, width: safeW, height: safeH }
+                : opt
+            ),
+          }
+        }))
+        // Show option name popup
+        if (overlay) {
+          const pos = computePopupPos(overlay, fx, fy, safeW, safeH)
+          const currentLabel = fields.find(f => f.id === fieldId)?.options?.find(o => o.id === optionId)?.label || ''
+          setOptionPopup({ fieldId, optionId, label: currentLabel, x: pos.x, y: pos.y })
+        }
+        setPlacingOption(null)
+      } else if (activeTool) {
+        // Default sizes on click (tiny draw)
+        let finalX = fx, finalY = fy, finalW = fw, finalH = fh
+        if (fw < 1 || fh < 0.5) {
+          const dw = activeTool === 'signature' ? 35 : activeTool === 'checkbox' ? 30 : 22
+          const dh = activeTool === 'signature' ? 9 : activeTool === 'checkbox' ? 20 : 4.5
+          finalX = Math.min(drawing.sx, 100 - dw)
+          finalY = Math.min(drawing.sy, 100 - dh)
+          finalW = dw; finalH = dh
+        }
+
+        const id = crypto.randomUUID()
+        const newField = {
+          id, type: activeTool,
+          page: drawing.pageIdx + 1,
+          x: finalX, y: finalY, width: finalW, height: finalH,
+          label: '', required: false, prefillKey: '',
+          ...(activeTool === 'checkbox' ? { options: [], multiple: false } : {}),
+        }
+        setFields(prev => [...prev, newField])
+        setSelectedFieldId(id)
+        setActiveTool(null)
+
+        // Show field name popup
+        if (overlay) {
+          const pos = computePopupPos(overlay, finalX, finalY, finalW, finalH)
+          setFieldPopup({ fieldId: id, x: pos.x, y: pos.y, isCheckboxGroup: activeTool === 'checkbox' })
+        }
+      }
+
+      setDrawing(null)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [drawing, activeTool, placingOption, fields])
+
+  // ── Field ops ─────────────────────────────────────────────────────────────
+  const updateField = (updated) => setFields(prev => prev.map(f => f.id === updated.id ? updated : f))
   const deleteField = (id) => {
     setFields(prev => prev.filter(f => f.id !== id))
     if (selectedFieldId === id) setSelectedFieldId(null)
+    if (fieldPopup?.fieldId === id) setFieldPopup(null)
   }
-
   const selectedField = fields.find(f => f.id === selectedFieldId) || null
 
-  // Clear newlyPlacedFieldId once label is focused/user has had a chance to enter it
-  const handleLabelInteracted = () => setNewlyPlacedFieldId(null)
-
-  // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setSaving(true)
     try {
       const res = await fetch('/api/admin/dokumente/save-fields', {
         method: 'POST',
-        headers: authHeaders(session?.access_token),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ templateId, fields }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Speichern fehlgeschlagen')
-      toast({ title: 'Gespeichert', description: 'Felder wurden erfolgreich gespeichert.', variant: 'success' })
-    } catch (err) {
-      toast({ title: 'Fehler beim Speichern', description: err.message, variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
+      if (!res.ok) throw new Error(data.error || 'Fehler')
+      toast({ title: 'Gespeichert', variant: 'success' })
+    } catch (err) { toast({ title: 'Fehler', description: err.message, variant: 'destructive' }) }
+    finally { setSaving(false) }
   }
 
-  // ── Page navigation ────────────────────────────────────────────────────────
   const scrollToPage = (page) => {
     setCurrentPage(page)
-    canvasRefs.current[page - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    document.querySelector(`[data-po="${page - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const isDrawing = !!activeTool || !!placingOption
 
-  if (loadError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4 text-gray-500">
-        <AlertCircle className="h-10 w-10 text-red-400" />
-        <p className="text-sm font-medium">{loadError}</p>
-        <Button variant="outline" onClick={() => navigate('/admin/mediathek')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Zurück zur Mediathek
-        </Button>
-      </div>
-    )
-  }
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4 text-gray-500">
+      <AlertCircle className="h-10 w-10 text-red-400" />
+      <p className="text-sm">{loadError}</p>
+      <Button variant="outline" onClick={() => navigate('/admin/mediathek')}><ArrowLeft className="h-4 w-4 mr-2" />Zurück</Button>
+    </div>
+  )
 
   const isLoading = !template || pdfLoading
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
+
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={() => navigate('/admin/mediathek')}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
+          <button onClick={() => navigate('/admin/mediathek')} className="text-gray-400 hover:text-gray-600">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="font-semibold text-gray-900 text-sm truncate">
-              {template?.name || 'Lade...'}
-            </h1>
+            <h1 className="font-semibold text-gray-900 text-sm truncate">{template?.name || 'Lade...'}</h1>
             <p className="text-xs text-gray-400 truncate">{template?.file_name || ''}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {numPages > 1 && (
-            <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden text-sm">
-              <button
-                onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage <= 1}
-                className="px-2 py-1.5 hover:bg-gray-50 disabled:opacity-40 transition-colors"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <span className="px-2 text-xs text-gray-600 whitespace-nowrap">
-                {currentPage} / {numPages}
-              </span>
-              <button
-                onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))}
-                disabled={currentPage >= numPages}
-                className="px-2 py-1.5 hover:bg-gray-50 disabled:opacity-40 transition-colors"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+            <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
+              <button onClick={() => scrollToPage(Math.max(1, currentPage - 1))} disabled={currentPage <= 1}
+                className="px-2 py-1.5 hover:bg-gray-50 disabled:opacity-40"><ChevronLeft className="h-3.5 w-3.5" /></button>
+              <span className="px-2 text-xs text-gray-600">{currentPage} / {numPages}</span>
+              <button onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))} disabled={currentPage >= numPages}
+                className="px-2 py-1.5 hover:bg-gray-50 disabled:opacity-40"><ChevronRight className="h-3.5 w-3.5" /></button>
             </div>
           )}
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving || isLoading}
-            className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
-          >
-            {saving
-              ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Speichern...</>
-              : <><Save className="h-3.5 w-3.5 mr-1.5" />Speichern</>
-            }
+          <Button size="sm" onClick={handleSave} disabled={saving || isLoading} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
+            {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Speichern...</> : <><Save className="h-3.5 w-3.5 mr-1.5" />Speichern</>}
           </Button>
         </div>
       </div>
@@ -562,112 +651,83 @@ export default function TemplateEditorPage() {
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── PDF + overlay ── */}
-        <div className="flex-1 overflow-y-auto bg-gray-200 relative" id="pdf-scroll-container">
+        {/* ── PDF area ── */}
+        <div className="flex-1 overflow-y-auto bg-gray-200 relative">
           {isLoading ? (
             <div className="flex items-center justify-center h-full gap-3 text-gray-500">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="text-sm">PDF wird geladen...</span>
+              <Loader2 className="h-6 w-6 animate-spin" /><span className="text-sm">PDF wird geladen...</span>
             </div>
           ) : (
-            <div className="relative inline-block min-w-full" ref={canvasContainerRef}>
-              <div className="flex flex-col items-center gap-8 py-4 px-4">
-                {pageCanvasData.map((dim, idx) => (
-                  <div key={idx} className="relative shadow-lg mb-6" style={{ width: dim.width, height: dim.height }}>
+            <div className="flex flex-col gap-8 py-4 px-4">
+              {pageAspects.map((aspect, idx) => (
+                <div key={idx} className="flex flex-col items-stretch">
+                  <div
+                    className="relative shadow-lg w-full bg-white"
+                    style={{ paddingBottom: `${(aspect.height / aspect.width) * 100}%` }}
+                  >
                     <canvas
                       ref={el => { canvasRefs.current[idx] = el }}
-                      style={{ display: 'block', width: dim.width, height: dim.height }}
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
                     />
-                    {/* Page label */}
-                    <div className="absolute -bottom-6 left-0 right-0 text-center text-xs text-gray-400">
-                      Seite {idx + 1}
-                    </div>
-                    {/* Per-page overlay */}
+                    {/* Interaction overlay */}
                     <div
-                      style={{ position: 'absolute', inset: 0, cursor: activeTool ? 'crosshair' : 'default' }}
+                      data-po={idx}
+                      style={{ position: 'absolute', inset: 0, cursor: isDrawing ? 'crosshair' : 'default' }}
                       onMouseDown={e => {
-                        if (!activeTool) return
+                        if (!isDrawing) return
                         e.preventDefault()
                         const rect = e.currentTarget.getBoundingClientRect()
-                        const x = ((e.clientX - rect.left) / rect.width) * 100
-                        const y = ((e.clientY - rect.top) / rect.height) * 100
-                        setDrawing({ startX: x, startY: y, currentX: x, currentY: y, page: idx + 1 })
+                        const x = (e.clientX - rect.left) / rect.width * 100
+                        const y = (e.clientY - rect.top) / rect.height * 100
+                        setDrawing({ sx: x, sy: y, cx: x, cy: y, pageIdx: idx })
                       }}
-                      onMouseMove={e => {
-                        if (!drawing || drawing.page !== idx + 1) return
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        const x = ((e.clientX - rect.left) / rect.width) * 100
-                        const y = ((e.clientY - rect.top) / rect.height) * 100
-                        setDrawing(prev => ({ ...prev, currentX: x, currentY: y }))
-                      }}
-                      onMouseUp={e => {
-                        if (!drawing || drawing.page !== idx + 1 || !activeTool) return
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        const posX = ((e.clientX - rect.left) / rect.width) * 100
-                        const posY = ((e.clientY - rect.top) / rect.height) * 100
-
-                        const fx = Math.min(drawing.startX, posX)
-                        const fy = Math.min(drawing.startY, posY)
-                        const fw = Math.abs(posX - drawing.startX)
-                        const fh = Math.abs(posY - drawing.startY)
-
-                        if (fw < 2 || fh < 2) {
-                          // Click → default sizes
-                          const dw = activeTool === 'checkbox' ? 20 : activeTool === 'signature' ? 25 : 18
-                          const dh = activeTool === 'checkbox' ? 12 : activeTool === 'signature' ? 7 : 3.5
-                          placeField(
-                            activeTool, idx + 1,
-                            Math.min(drawing.startX, 100 - dw),
-                            Math.min(drawing.startY, 100 - dh),
-                            dw, dh
-                          )
-                        } else {
-                          placeField(activeTool, idx + 1, fx, fy, fw, fh)
-                        }
-
-                        setDrawing(null)
-                        setCurrentPage(idx + 1)
-                      }}
-                      onClick={e => {
-                        if (activeTool) return
-                        if (e.target === e.currentTarget) setSelectedFieldId(null)
-                      }}
+                      onClick={e => { if (!isDrawing && e.target === e.currentTarget) setSelectedFieldId(null) }}
                     >
                       {/* Rubber band */}
-                      {drawing && drawing.page === idx + 1 && drawing.currentX !== undefined && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: `${Math.min(drawing.startX, drawing.currentX)}%`,
-                            top: `${Math.min(drawing.startY, drawing.currentY)}%`,
-                            width: `${Math.abs(drawing.currentX - drawing.startX)}%`,
-                            height: `${Math.abs(drawing.currentY - drawing.startY)}%`,
-                            pointerEvents: 'none',
-                          }}
-                          className="border-2 border-dashed border-[#1a3a5c] bg-[#1a3a5c]/10 rounded"
-                        />
+                      {drawing?.pageIdx === idx && (
+                        <div style={{
+                          position: 'absolute',
+                          left: `${Math.min(drawing.sx, drawing.cx)}%`,
+                          top: `${Math.min(drawing.sy, drawing.cy)}%`,
+                          width: `${Math.abs(drawing.cx - drawing.sx)}%`,
+                          height: `${Math.abs(drawing.cy - drawing.sy)}%`,
+                          pointerEvents: 'none',
+                        }} className={`border-2 border-dashed rounded ${
+                          placingOption ? 'border-orange-500 bg-orange-500/10' : 'border-[#1a3a5c] bg-[#1a3a5c]/10'
+                        }`} />
                       )}
 
-                      {/* Fields on this page */}
-                      {fields
-                        .filter(f => f.page === idx + 1)
-                        .map(field => (
-                          <FieldOverlay
-                            key={field.id}
-                            field={field}
-                            isSelected={selectedFieldId === field.id}
-                            onClick={setSelectedFieldId}
-                            onDelete={deleteField}
-                          />
-                        ))
-                      }
+                      {/* Regular fields */}
+                      {fields.filter(f => f.page === idx + 1 && f.type !== 'checkbox').map(field => (
+                        <FieldOverlay key={field.id} field={field}
+                          isSelected={selectedFieldId === field.id}
+                          onClick={setSelectedFieldId} onDelete={deleteField} />
+                      ))}
+
+                      {/* Checkbox group boxes */}
+                      {fields.filter(f => f.page === idx + 1 && f.type === 'checkbox').map(field => (
+                        <FieldOverlay key={field.id} field={field}
+                          isSelected={selectedFieldId === field.id}
+                          onClick={setSelectedFieldId} onDelete={deleteField} />
+                      ))}
+
+                      {/* Checkbox option markers */}
+                      {fields.filter(f => f.type === 'checkbox').flatMap(field =>
+                        (field.options || [])
+                          .filter(opt => opt.page === idx + 1 && opt.x !== undefined)
+                          .map(opt => (
+                            <OptionMarker key={opt.id} option={opt} field={field}
+                              isGroupSelected={selectedFieldId === field.id}
+                              onClick={setSelectedFieldId} />
+                          ))
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-
+                  <p className="text-center text-xs text-gray-400 mt-2">Seite {idx + 1}</p>
+                </div>
+              ))}
               {pageRendering && (
-                <div className="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
+                <div className="absolute inset-0 bg-white/30 flex items-center justify-center pointer-events-none">
                   <Loader2 className="h-6 w-6 animate-spin text-[#1a3a5c]" />
                 </div>
               )}
@@ -675,51 +735,66 @@ export default function TemplateEditorPage() {
           )}
         </div>
 
-        {/* ── Right sidebar ── */}
-        <div className="w-[280px] shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-          <div className="overflow-y-auto flex-1 p-4 space-y-5">
+        {/* ── Sidebar ── */}
+        <div className="w-[272px] shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+          <div className="overflow-y-auto flex-1 p-4 space-y-4">
+
+            {/* Option placement banner */}
+            {placingOption && (
+              <div className="bg-orange-50 border-2 border-orange-400 rounded-xl px-3 py-3">
+                <p className="text-sm font-bold text-orange-700 flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4 shrink-0" />
+                  Jetzt zeichnen!
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  Zeichne die Position für: <strong>{placingOption.label || 'Option'}</strong>
+                </p>
+                <button onClick={() => setPlacingOption(null)}
+                  className="mt-2 text-[10px] text-orange-500 hover:text-orange-700 underline">Abbrechen</button>
+              </div>
+            )}
 
             {/* Tool selector */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Werkzeug</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {FIELD_TYPES.map(t => {
-                  const Icon = t.icon
-                  const isActive = activeTool === t.key
-                  return (
-                    <button
-                      key={t.key}
-                      onClick={() => setActiveTool(isActive ? null : t.key)}
-                      title={t.label}
-                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border transition-all ${
-                        isActive
-                          ? `${t.bg} ${t.border} ${t.text}`
-                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0" />
-                      {t.label}
-                    </button>
-                  )
-                })}
+            {!placingOption && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Werkzeug</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {FIELD_TYPES.map(t => {
+                    const Icon = t.icon
+                    const active = activeTool === t.key
+                    return (
+                      <button key={t.key}
+                        onClick={() => setActiveTool(active ? null : t.key)}
+                        className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border transition-all ${
+                          active ? `${t.bg} ${t.border} ${t.text}` : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" />{t.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {activeTool && (
+                  <p className="text-xs text-[#0d9488] mt-2 font-medium">
+                    Auf dem PDF einzeichnen
+                  </p>
+                )}
               </div>
-              {activeTool && (
-                <p className="text-xs text-[#0d9488] mt-2 font-medium">
-                  Klicke oder ziehe auf dem PDF, um ein Feld zu platzieren
-                </p>
-              )}
-            </div>
+            )}
 
             <Separator />
 
-            {/* Field properties */}
+            {/* Properties */}
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Eigenschaften</p>
               <FieldProperties
                 field={selectedField}
                 onChange={updateField}
                 onDelete={deleteField}
-                autoFocusLabel={newlyPlacedFieldId === selectedFieldId && !!newlyPlacedFieldId}
+                onDrawOption={(fieldId, optionId, label) => {
+                  setPlacingOption({ fieldId, optionId, label })
+                  setActiveTool(null)
+                }}
               />
             </div>
 
@@ -731,29 +806,27 @@ export default function TemplateEditorPage() {
                 Felder ({fields.length})
               </p>
               {fields.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Noch keine Felder platziert</p>
+                <p className="text-xs text-gray-400 text-center py-4">Noch keine Felder</p>
               ) : (
                 <ul className="space-y-1">
-                  {fields.map((f, idx) => {
-                    const cfg = getFieldCfg(f.type)
-                    const Icon = cfg.icon
-                    const isSelected = selectedFieldId === f.id
+                  {fields.map((f, i) => {
+                    const c = cfg(f.type)
+                    const Icon = c.icon
+                    const isSel = selectedFieldId === f.id
                     return (
                       <li key={f.id}>
                         <button
                           onClick={() => setSelectedFieldId(f.id)}
-                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition-all text-left ${
-                            isSelected
-                              ? `${cfg.bg} ${cfg.border} border`
-                              : 'hover:bg-gray-50 border border-transparent'
+                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all text-left ${
+                            isSel ? `${c.bg} ${c.border} border` : 'hover:bg-gray-50 border border-transparent'
                           }`}
                         >
-                          <span className="text-xs text-gray-400 w-4 shrink-0 text-right">{idx + 1}</span>
-                          <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg.text}`} />
-                          <span className="flex-1 truncate text-gray-700 text-xs">
-                            {f.label || <span className="text-gray-400 italic">{cfg.label}</span>}
+                          <span className="text-gray-400 w-4 text-right shrink-0">{i + 1}</span>
+                          <Icon className={`h-3.5 w-3.5 shrink-0 ${c.text}`} />
+                          <span className="flex-1 truncate text-gray-700">
+                            {f.label || <span className="text-gray-400 italic">{c.label}</span>}
                           </span>
-                          <span className="text-[10px] text-gray-400 shrink-0">S.{f.page}</span>
+                          <span className="text-gray-400 shrink-0">S.{f.page}</span>
                         </button>
                       </li>
                     )
@@ -763,24 +836,43 @@ export default function TemplateEditorPage() {
             </div>
           </div>
 
-          {/* Save button */}
           <div className="p-4 border-t border-gray-200 shrink-0">
-            <Button
-              onClick={handleSave}
-              disabled={saving || isLoading}
-              className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
-            >
-              {saving
-                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Speichern...</>
-                : <><Save className="h-4 w-4 mr-2" />Speichern</>
-              }
+            <Button onClick={handleSave} disabled={saving || isLoading} className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
+              {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Speichern</>}
             </Button>
-            <p className="text-xs text-gray-400 text-center mt-2">
-              {fields.length} Feld{fields.length !== 1 ? 'er' : ''} definiert
-            </p>
+            <p className="text-xs text-gray-400 text-center mt-2">{fields.length} Feld{fields.length !== 1 ? 'er' : ''}</p>
           </div>
         </div>
       </div>
+
+      {/* ── Inline field name popup (Portal) ── */}
+      {fieldPopup && (
+        <FieldNamePopup
+          x={fieldPopup.x}
+          y={fieldPopup.y}
+          isCheckboxGroup={fieldPopup.isCheckboxGroup}
+          label={fields.find(f => f.id === fieldPopup.fieldId)?.label || ''}
+          onChange={val => updateField({ ...fields.find(f => f.id === fieldPopup.fieldId), label: val })}
+          onDone={() => setFieldPopup(null)}
+        />
+      )}
+
+      {/* ── Option name popup (Portal) ── */}
+      {optionPopup && (
+        <OptionNamePopup
+          x={optionPopup.x}
+          y={optionPopup.y}
+          label={optionPopup.label}
+          onChange={val => {
+            setOptionPopup(prev => ({ ...prev, label: val }))
+            setFields(prev => prev.map(f => {
+              if (f.id !== optionPopup.fieldId) return f
+              return { ...f, options: (f.options || []).map(o => o.id === optionPopup.optionId ? { ...o, label: val } : o) }
+            }))
+          }}
+          onDone={() => setOptionPopup(null)}
+        />
+      )}
     </div>
   )
 }

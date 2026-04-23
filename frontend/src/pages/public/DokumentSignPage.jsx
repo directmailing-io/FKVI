@@ -2,82 +2,196 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 
-import { CheckCircle2, AlertCircle, FileText, Loader2, PenLine } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { CheckCircle2, AlertCircle, Loader2, PenLine } from 'lucide-react'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import SignatureCanvas from '@/components/SignatureCanvas'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+// ─── PDF viewer with interactive checkbox overlays ──────────────────────────
 
-// ─── PDF viewer ───────────────────────────────────────────────────────────────
+function PdfViewer({ pdfUrl, fields, fieldValues, onToggle }) {
+  const renderTasksRef = useRef([])
+  const canvasRefs = useRef([])
 
-function PdfViewer({ pdfUrl }) {
-  const containerRef = useRef(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [pdfDoc, setPdfDoc] = useState(null)
+  const [pageAspects, setPageAspects] = useState([])
 
+  // ── Load PDF and extract page aspect ratios ──────────────────────────────
   useEffect(() => {
-    if (!pdfUrl) return
-    let cancelled = false
+    if (!pdfUrl) { setLoading(false); setError('Kein Dokument verfügbar.'); return }
+    renderTasksRef.current.forEach(t => t.cancel?.())
+    renderTasksRef.current = []
+    let active = true
     setLoading(true)
     setError(null)
+    setPdfDoc(null)
+    setPageAspects([])
 
-    pdfjsLib.getDocument({ url: pdfUrl }).promise
-      .then(async (pdf) => {
-        if (cancelled) return
-        const canvases = []
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i)
-          const viewport = page.getViewport({ scale: 1.5 })
-          const canvas = document.createElement('canvas')
-          canvas.width = viewport.width
-          canvas.height = viewport.height
-          canvas.style.width = '100%'
-          canvas.style.height = 'auto'
-          canvas.style.display = 'block'
-          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
-          if (cancelled) return
-          canvases.push(canvas)
+    pdfjsLib.getDocument(pdfUrl).promise
+      .then(async (doc) => {
+        if (!active) return
+        const aspects = []
+        for (let i = 1; i <= doc.numPages; i++) {
+          const page = await doc.getPage(i)
+          const vp = page.getViewport({ scale: 1 })
+          aspects.push({ width: vp.width, height: vp.height })
         }
-        if (containerRef.current && !cancelled) {
-          containerRef.current.innerHTML = ''
-          canvases.forEach((canvas, i) => {
-            const wrap = document.createElement('div')
-            wrap.style.marginBottom = i < canvases.length - 1 ? '12px' : '0'
-            wrap.style.borderRadius = '8px'
-            wrap.style.overflow = 'hidden'
-            wrap.style.boxShadow = '0 1px 4px rgba(0,0,0,0.1)'
-            wrap.appendChild(canvas)
-            containerRef.current.appendChild(wrap)
-          })
+        if (active) {
+          setPdfDoc(doc)
+          setPageAspects(aspects)
+          setLoading(false)
         }
-        setLoading(false)
       })
-      .catch(() => { if (!cancelled) { setError(true); setLoading(false) } })
+      .catch(err => {
+        if (active) {
+          console.error('PdfViewer:', err)
+          setError('PDF konnte nicht geladen werden.')
+          setLoading(false)
+        }
+      })
 
-    return () => { cancelled = true }
+    return () => {
+      active = false
+      renderTasksRef.current.forEach(t => t.cancel?.())
+      renderTasksRef.current = []
+    }
   }, [pdfUrl])
 
+  // ── Render canvases after page containers are mounted ────────────────────
+  useEffect(() => {
+    if (!pdfDoc || pageAspects.length === 0) return
+    let active = true
+    renderTasksRef.current.forEach(t => t.cancel?.())
+    renderTasksRef.current = []
+
+    ;(async () => {
+      for (let i = 0; i < pdfDoc.numPages; i++) {
+        if (!active) return
+        const canvas = canvasRefs.current[i]
+        if (!canvas || !pageAspects[i]) continue
+        const aspect = pageAspects[i]
+        const displayWidth = canvas.parentElement?.clientWidth || 800
+        const dpr = window.devicePixelRatio || 1
+        canvas.width = Math.round(displayWidth * dpr)
+        canvas.height = Math.round(displayWidth * (aspect.height / aspect.width) * dpr)
+        const page = await pdfDoc.getPage(i + 1)
+        const scale = (displayWidth / aspect.width) * dpr
+        const viewport = page.getViewport({ scale })
+        const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
+        renderTasksRef.current.push(task)
+        try { await task.promise } catch (e) {
+          if (e?.name === 'RenderingCancelledException') return
+          throw e
+        }
+      }
+    })().catch(err => {
+      if (err?.name !== 'RenderingCancelledException') console.error('PDF render error:', err)
+    })
+
+    return () => {
+      active = false
+      renderTasksRef.current.forEach(t => t.cancel?.())
+      renderTasksRef.current = []
+    }
+  }, [pdfDoc, pageAspects])
+
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-48 gap-3 text-gray-400">
+    <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
       <Loader2 className="h-7 w-7 animate-spin" />
       <span className="text-sm">Dokument wird geladen…</span>
     </div>
   )
+
   if (error) return (
-    <div className="flex items-center justify-center h-32 gap-2 text-red-400 text-sm">
-      <AlertCircle className="h-5 w-5 shrink-0" />
-      PDF konnte nicht geladen werden.
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl bg-red-50 border border-red-200 p-8 text-center">
+      <AlertCircle className="h-8 w-8 text-red-400" />
+      <div>
+        <p className="font-semibold text-red-700">PDF nicht verfügbar</p>
+        <p className="text-red-500 text-sm mt-1">{error}</p>
+      </div>
     </div>
   )
-  return <div ref={containerRef} className="w-full" />
+
+  const checkboxFields = (fields || []).filter(f => f.type === 'checkbox' && Array.isArray(f.options))
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      {pageAspects.map((aspect, idx) => {
+        const pageNum = idx + 1
+        // Collect all positioned options on this page
+        const pageOptions = checkboxFields.flatMap(field =>
+          (field.options || [])
+            .filter(opt => opt.page === pageNum && opt.x !== undefined)
+            .map(opt => ({ ...opt, field }))
+        )
+
+        return (
+          <div
+            key={idx}
+            className="relative w-full bg-white shadow-md rounded-lg overflow-hidden"
+            style={{ paddingBottom: `${(aspect.height / aspect.width) * 100}%` }}
+          >
+            <canvas
+              ref={el => { canvasRefs.current[idx] = el }}
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+            />
+
+            {/* Interactive checkbox boxes overlaid on PDF */}
+            {pageOptions.map(opt => {
+              const field = opt.field
+              const isMultiple = field.multiple === true
+              const val = fieldValues?.[field.id]
+              const selected = isMultiple
+                ? (Array.isArray(val) ? val : []).includes(opt.id)
+                : val === opt.id
+
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onToggle(field, opt.id)}
+                  style={{
+                    position: 'absolute',
+                    left: `${opt.x}%`,
+                    top: `${opt.y}%`,
+                    width: `${opt.width}%`,
+                    height: `${opt.height}%`,
+                  }}
+                  className={`border-2 transition-colors flex items-center justify-center bg-white/80 hover:bg-white
+                    ${selected ? 'border-[#1a3a5c]' : 'border-gray-500 hover:border-[#1a3a5c]/60'}`}
+                  title={opt.label || ''}
+                >
+                  {selected && (
+                    <svg
+                      viewBox="0 0 10 10"
+                      style={{ position: 'absolute', inset: '10%' }}
+                      fill="none"
+                      stroke="#1a3a5c"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <line x1="1" y1="1" x2="9" y2="9" />
+                      <line x1="9" y1="1" x2="1" y2="9" />
+                    </svg>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
-// ─── Field renderer ───────────────────────────────────────────────────────────
+// ─── Field renderer (for non-positioned fields in sidebar) ───────────────────
 
 function FieldInput({ field, value, onChange }) {
-  // New checkbox group format: field has options array
+  // Checkbox group with options (no positions — fallback sidebar)
   if (field.type === 'checkbox' && Array.isArray(field.options) && field.options.length > 0) {
     const isMultiple = field.multiple === true
     const selected = isMultiple
@@ -188,11 +302,12 @@ export default function DokumentSignPage() {
       .then(([pageData, pdfData]) => {
         if (pageData.error) { setError(pageData.error); return }
         setData(pageData)
-        // Initialize field values — use prefillKey to map profile data
         const initial = {}
         ;(pageData.fields || []).forEach(f => {
           if (f.prefillKey && pageData.prefillData?.[f.prefillKey] !== undefined) {
             initial[f.id] = pageData.prefillData[f.prefillKey]
+          } else if (pageData.prefillData?.[f.id] !== undefined) {
+            initial[f.id] = pageData.prefillData[f.id]
           } else {
             initial[f.id] = f.type === 'checkbox' && f.multiple ? [] : ''
           }
@@ -203,6 +318,17 @@ export default function DokumentSignPage() {
       .catch(() => setError('Dokument konnte nicht geladen werden.'))
       .finally(() => setLoading(false))
   }, [token])
+
+  // ── Toggle checkbox option (called from PDF overlay) ──────────────────────
+  const handlePdfToggle = (field, optId) => {
+    const isMultiple = field.multiple === true
+    if (isMultiple) {
+      const arr = Array.isArray(fieldValues[field.id]) ? fieldValues[field.id] : []
+      setFieldValue(field.id, arr.includes(optId) ? arr.filter(x => x !== optId) : [...arr, optId])
+    } else {
+      setFieldValue(field.id, fieldValues[field.id] === optId ? '' : optId)
+    }
+  }
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -235,8 +361,13 @@ export default function DokumentSignPage() {
 
   const setFieldValue = (id, val) => setFieldValues(prev => ({ ...prev, [id]: val }))
 
-  // Fields that need input (not signature)
-  const inputFields = (data?.fields || []).filter(f => f.type !== 'signature')
+  const prefilledFieldIds = data?.prefilledFieldIds || []
+  const isPrefillMode = data?.prefillMode === 'prefilled' && prefilledFieldIds.length > 0
+
+  // Sidebar: all non-signature fields, minus those already baked into the PDF
+  const inputFields = (data?.fields || []).filter(
+    f => f.type !== 'signature' && !prefilledFieldIds.includes(f.id)
+  )
   const hasInputFields = inputFields.length > 0
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -325,15 +456,14 @@ export default function DokumentSignPage() {
       {/* Two-column layout */}
       <div className="flex-1 flex flex-col lg:flex-row max-w-screen-xl mx-auto w-full">
 
-        {/* ── LEFT: PDF ── */}
+        {/* ── LEFT: PDF with interactive checkboxes ── */}
         <div className="lg:flex-1 lg:min-w-0 lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:overflow-y-auto bg-gray-100 p-4 lg:p-6">
-          {pdfUrl ? (
-            <PdfViewer pdfUrl={pdfUrl} />
-          ) : (
-            <div className="flex items-center justify-center h-48 text-gray-300">
-              <FileText className="h-12 w-12" />
-            </div>
-          )}
+          <PdfViewer
+            pdfUrl={pdfUrl}
+            fields={data?.fields}
+            fieldValues={fieldValues}
+            onToggle={handlePdfToggle}
+          />
         </div>
 
         {/* ── RIGHT: Form + Signature + Submit ── */}
@@ -357,6 +487,19 @@ export default function DokumentSignPage() {
               </div>
             )}
 
+            {/* Prefill info banner */}
+            {isPrefillMode && (
+              <div className="rounded-xl bg-blue-50 border border-blue-100 p-3.5 flex items-start gap-2.5">
+                <svg className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-blue-700 leading-snug">
+                  <span className="font-semibold">{prefilledFieldIds.length} {prefilledFieldIds.length === 1 ? 'Feld wurde' : 'Felder wurden'} bereits ausgefüllt</span>
+                  {' '}und sind direkt im Dokument eingetragen. Bitte prüfen Sie das Dokument und unterschreiben Sie unten.
+                </p>
+              </div>
+            )}
+
             {/* Non-fatal error */}
             {error && (
               <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-2">
@@ -365,7 +508,7 @@ export default function DokumentSignPage() {
               </div>
             )}
 
-            {/* Input fields */}
+            {/* Input fields (text, date, initials, unpositioned checkboxes) */}
             {hasInputFields && (
               <div className="space-y-5">
                 {inputFields.map(field => (

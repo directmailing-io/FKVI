@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { withHandler } from '../../_lib/withHandler.js'
 
 const supabaseAdmin = createClient(
@@ -99,6 +100,59 @@ async function sendEmail({ signerName, signerEmail, signerUrl, message }) {
   }
 }
 
+// Draw pre-fill values into a PDF document (text/date/initials only, no signatures)
+async function applyPrefillToPdf(pdfDoc, templateFields, prefillFieldIds, resolvedValues) {
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const pages = pdfDoc.getPages()
+
+  for (const field of templateFields) {
+    if (!prefillFieldIds.includes(field.id)) continue
+    if (field.type === 'signature' || field.type === 'checkbox') continue
+
+    const pageIndex = (field.page || 1) - 1
+    if (pageIndex < 0 || pageIndex >= pages.length) continue
+
+    const page = pages[pageIndex]
+    const { width: pageWidth, height: pageHeight } = page.getSize()
+
+    // pdf-lib origin is bottom-left; convert percent coords (top-left origin) to absolute
+    const absX = (field.x / 100) * pageWidth
+    const absH = (field.height / 100) * pageHeight
+    const absY = pageHeight - (field.y / 100) * pageHeight - absH
+    const absW = (field.width / 100) * pageWidth
+
+    const value = String(resolvedValues[field.id] || '')
+    if (!value) continue
+
+    if (field.type === 'text' || field.type === 'date') {
+      const maxFontSize = Math.min(10, absH * 0.65)
+      const availWidth = absW - 4
+      const textWidth = font.widthOfTextAtSize(value, maxFontSize)
+      const fontSize = textWidth > availWidth
+        ? Math.max(4, maxFontSize * (availWidth / textWidth))
+        : maxFontSize
+      page.drawText(value, {
+        x: absX + 2,
+        y: absY + (absH - fontSize) / 2,
+        size: fontSize,
+        font,
+        color: rgb(0, 0, 0),
+        maxWidth: availWidth,
+      })
+    } else if (field.type === 'initials') {
+      const fontSize = Math.min(10, absH * 0.65)
+      page.drawText(value, {
+        x: absX + 2,
+        y: absY + (absH - fontSize) / 2,
+        size: fontSize,
+        font,
+        color: rgb(0, 0, 0),
+        maxWidth: absW - 4,
+      })
+    }
+  }
+}
+
 export default withHandler(async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
@@ -118,6 +172,8 @@ export default withHandler(async (req, res) => {
     message,
     prefillData,
     expiresInDays = 30,
+    prefillMode = 'blank',
+    prefillFieldIds: requestedPrefillFieldIds,
   } = req.body || {}
 
   if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
@@ -125,6 +181,83 @@ export default withHandler(async (req, res) => {
 
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + expiresInDays)
+
+  // --- Prefilled PDF generation ---
+  let prefilledStoragePath = null
+  let finalPrefillFieldIds = []
+
+  if (prefillMode === 'prefilled') {
+    try {
+      // Load template to get storage_path and fields
+      const { data: template, error: tplError } = await supabaseAdmin
+        .from('document_templates')
+        .select('storage_path, fields')
+        .eq('id', templateId)
+        .single()
+
+      if (tplError || !template) {
+        return res.status(404).json({ error: 'Vorlage nicht gefunden' })
+      }
+
+      const templateFields = template.fields || []
+      const mergedPrefillData = prefillData || {}
+
+      // Resolve which fields to prefill
+      // Build a resolved values map: field.id → actual string value
+      const resolvedValues = {}
+      for (const field of templateFields) {
+        if (field.type === 'signature' || field.type === 'checkbox') continue
+        let value = null
+        if (field.prefillKey && mergedPrefillData[field.prefillKey] !== undefined) {
+          value = mergedPrefillData[field.prefillKey]
+        } else if (mergedPrefillData[field.id] !== undefined) {
+          value = mergedPrefillData[field.id]
+        }
+        if (value !== null && value !== '') {
+          resolvedValues[field.id] = String(value)
+        }
+      }
+
+      // Determine which field IDs to actually prefill
+      if (requestedPrefillFieldIds && Array.isArray(requestedPrefillFieldIds)) {
+        // Admin explicitly selected a subset — only use those that have values
+        finalPrefillFieldIds = requestedPrefillFieldIds.filter(id => resolvedValues[id] !== undefined)
+      } else {
+        // Default: all fields that have resolvable values
+        finalPrefillFieldIds = Object.keys(resolvedValues)
+      }
+
+      if (finalPrefillFieldIds.length > 0) {
+        // Download template PDF
+        const { data: pdfBlob, error: pdfError } = await supabaseAdmin.storage
+          .from('document-templates')
+          .download(template.storage_path)
+
+        if (pdfError || !pdfBlob) {
+          console.error('dokumente/send prefill PDF download error:', pdfError)
+          return res.status(500).json({ error: 'Vorlage-PDF konnte nicht geladen werden' })
+        }
+
+        const templateBytes = await pdfBlob.arrayBuffer()
+        const pdfDoc = await PDFDocument.load(templateBytes)
+
+        await applyPrefillToPdf(pdfDoc, templateFields, finalPrefillFieldIds, resolvedValues)
+
+        const prefilledBytes = await pdfDoc.save()
+
+        // We need the sendId first — insert the record, then upload and update
+        // So we'll do a two-step: insert without path, then upload + update
+        // (handled below after insert)
+
+        // Temporary: store bytes for upload after insert
+        req._prefilledBytes = prefilledBytes
+      }
+    } catch (prefillErr) {
+      console.error('dokumente/send prefill generation error:', prefillErr)
+      // Non-fatal: fall back to blank mode
+      finalPrefillFieldIds = []
+    }
+  }
 
   const { data: send, error: insertError } = await supabaseAdmin
     .from('document_sends')
@@ -138,6 +271,8 @@ export default withHandler(async (req, res) => {
       expires_at: expiresAt.toISOString(),
       sent_by: user.id,
       status: 'pending',
+      prefill_mode: prefillMode === 'prefilled' && finalPrefillFieldIds.length > 0 ? 'prefilled' : 'blank',
+      prefilled_field_ids: finalPrefillFieldIds.length > 0 ? finalPrefillFieldIds : [],
     })
     .select('id, token')
     .single()
@@ -145,6 +280,34 @@ export default withHandler(async (req, res) => {
   if (insertError || !send) {
     console.error('dokumente/send insert error:', insertError)
     return res.status(500).json({ error: 'Versendung konnte nicht erstellt werden' })
+  }
+
+  // Upload prefilled PDF now that we have the sendId
+  if (req._prefilledBytes && finalPrefillFieldIds.length > 0) {
+    try {
+      prefilledStoragePath = `prefilled/${send.id}/prefilled.pdf`
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from('signed-documents')
+        .upload(prefilledStoragePath, req._prefilledBytes, {
+          contentType: 'application/pdf',
+          upsert: false,
+        })
+
+      if (uploadError) {
+        console.error('dokumente/send prefilled upload error:', uploadError)
+        prefilledStoragePath = null
+      } else {
+        // Update the record with the storage path
+        await supabaseAdmin
+          .from('document_sends')
+          .update({ prefilled_storage_path: prefilledStoragePath })
+          .eq('id', send.id)
+      }
+    } catch (uploadErr) {
+      console.error('dokumente/send prefilled upload exception:', uploadErr)
+      prefilledStoragePath = null
+    }
   }
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || null

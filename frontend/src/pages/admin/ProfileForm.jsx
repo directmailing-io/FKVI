@@ -20,7 +20,7 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff, Link2, Copy, Check, ClipboardCopy
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff, Link2, Copy, Check, ClipboardCopy, Download, Send
 } from 'lucide-react'
 import VimeoPlayer from '@/components/VimeoPlayer'
 import { toast } from '@/hooks/use-toast'
@@ -287,6 +287,19 @@ function SendTemplateDialog({ profileId, profile, session, onClose, onSent }) {
   const [sending, setSending] = useState(false)
   const [signerUrl, setSignerUrl] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [checkboxPrefills, setCheckboxPrefills] = useState({})
+
+  // Prefill mode state
+  const [prefillMode, setPrefillMode] = useState('prefilled')
+  const [fieldPickerOpen, setFieldPickerOpen] = useState(false)
+  const [disabledPrefillIds, setDisabledPrefillIds] = useState(new Set())
+
+  // Reset when template changes
+  useEffect(() => {
+    setCheckboxPrefills({})
+    setDisabledPrefillIds(new Set())
+    setFieldPickerOpen(false)
+  }, [selectedId])
 
   // Profile → prefill data map
   const prefillData = {
@@ -317,24 +330,61 @@ function SendTemplateDialog({ profileId, profile, session, onClose, onSent }) {
       .catch(() => setTemplateLoading(false))
   }, [selectedId])
 
-  const prefilledFields = (selectedTemplate?.fields || []).filter(
-    f => f.prefillKey && prefillData[f.prefillKey]
+  // Fields that can be auto-prefilled from profile (text/date/initials with prefillKey + value)
+  const prefillableFields = (selectedTemplate?.fields || []).filter(
+    f => !['signature', 'checkbox'].includes(f.type) && f.prefillKey && prefillData[f.prefillKey]
   )
+
+  const checkboxFields = (selectedTemplate?.fields || []).filter(
+    f => f.type === 'checkbox' && Array.isArray(f.options) && f.options.length > 0
+  )
+
+  // Active prefill field IDs (all prefillable minus those the admin disabled)
+  const activePrefillFieldIds = prefillableFields
+    .filter(f => !disabledPrefillIds.has(f.id))
+    .map(f => f.id)
+
+  const toggleDisabled = (fieldId) => {
+    setDisabledPrefillIds(prev => {
+      const next = new Set(prev)
+      if (next.has(fieldId)) next.delete(fieldId)
+      else next.add(fieldId)
+      return next
+    })
+  }
+
+  const toggleCheckboxPrefill = (field, optId) => {
+    const isMultiple = field.multiple === true
+    setCheckboxPrefills(prev => {
+      const cur = prev[field.id]
+      if (isMultiple) {
+        const arr = Array.isArray(cur) ? cur : []
+        return { ...prev, [field.id]: arr.includes(optId) ? arr.filter(x => x !== optId) : [...arr, optId] }
+      } else {
+        return { ...prev, [field.id]: cur === optId ? '' : optId }
+      }
+    })
+  }
 
   const handleCreate = async () => {
     if (!selectedId || !signerName.trim()) return
     setSending(true)
     try {
+      const body = {
+        templateId: selectedId,
+        profileId,
+        signerName: signerName.trim(),
+        signerEmail: null,
+        prefillData: { ...prefillData, ...checkboxPrefills },
+        prefillMode,
+      }
+      if (prefillMode === 'prefilled') {
+        body.prefillFieldIds = activePrefillFieldIds
+      }
       const res = await fetch('/api/admin/dokumente/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({
-          templateId: selectedId,
-          profileId,
-          signerName: signerName.trim(),
-          signerEmail: null,
-          prefillData,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Fehler beim Erstellen')
@@ -353,6 +403,10 @@ function SendTemplateDialog({ profileId, profile, session, onClose, onSent }) {
       setTimeout(() => setCopied(false), 2000)
     })
   }
+
+  const hasPrefillableFields = prefillableFields.length > 0
+  const activeCount = activePrefillFieldIds.length
+  const totalCount = prefillableFields.length
 
   return (
     <Dialog open onOpenChange={open => !open && onClose()}>
@@ -390,7 +444,7 @@ function SendTemplateDialog({ profileId, profile, session, onClose, onSent }) {
           </div>
         ) : (
           /* ── Form state ── */
-          <div className="space-y-4 py-1">
+          <div className="space-y-4 py-1 max-h-[70vh] overflow-y-auto pr-1">
             {/* Template picker */}
             <div className="space-y-1.5">
               <Label>Vorlage <span className="text-red-500">*</span></Label>
@@ -419,25 +473,154 @@ function SendTemplateDialog({ profileId, profile, session, onClose, onSent }) {
               />
             </Field>
 
-            {/* Pre-fill preview */}
+            {/* Loading skeleton */}
             {selectedId && templateLoading && (
-              <div className="h-8 animate-pulse bg-gray-100 rounded" />
+              <div className="h-20 animate-pulse bg-gray-100 rounded-lg" />
             )}
-            {selectedId && !templateLoading && prefilledFields.length > 0 && (
-              <div className="rounded-lg bg-[#1a3a5c]/5 border border-[#1a3a5c]/15 p-3 space-y-1.5">
-                <p className="text-xs font-medium text-[#1a3a5c]">Vorausgefüllte Felder aus Profil:</p>
-                {prefilledFields.map(f => (
-                  <div key={f.id} className="flex items-center gap-2 text-xs">
-                    <span className="text-gray-400 shrink-0 w-28 truncate">{f.label}:</span>
-                    <span className="text-gray-700 font-medium truncate">{prefillData[f.prefillKey]}</span>
+
+            {/* ── Dokument-Modus ── */}
+            {selectedId && !templateLoading && (
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Dokument-Modus</Label>
+                <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+
+                  {/* Option: Blank */}
+                  <button
+                    type="button"
+                    onClick={() => setPrefillMode('blank')}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${
+                      prefillMode === 'blank'
+                        ? 'bg-gray-50'
+                        : 'bg-white hover:bg-gray-50/60'
+                    }`}
+                  >
+                    <div className={`mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                      prefillMode === 'blank' ? 'border-[#1a3a5c]' : 'border-gray-300'
+                    }`}>
+                      {prefillMode === 'blank' && <div className="h-2 w-2 rounded-full bg-[#1a3a5c]" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Blankes Dokument</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Die Fachkraft füllt alle Felder selbst aus</p>
+                    </div>
+                  </button>
+
+                  {/* Option: Prefilled */}
+                  <button
+                    type="button"
+                    onClick={() => setPrefillMode('prefilled')}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${
+                      prefillMode === 'prefilled'
+                        ? 'bg-[#1a3a5c]/[0.03]'
+                        : 'bg-white hover:bg-gray-50/60'
+                    }`}
+                  >
+                    <div className={`mt-0.5 h-4 w-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                      prefillMode === 'prefilled' ? 'border-[#1a3a5c]' : 'border-gray-300'
+                    }`}>
+                      {prefillMode === 'prefilled' && <div className="h-2 w-2 rounded-full bg-[#1a3a5c]" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800">Vorausgefüllt</p>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide bg-[#0d9488]/10 text-[#0d9488] px-1.5 py-0.5 rounded">
+                          Empfohlen
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Profil-Daten werden direkt ins PDF eingetragen.
+                        {hasPrefillableFields
+                          ? ' Die Fachkraft sieht nur noch offene Felder.'
+                          : ' Keine vorausfüllbaren Felder in dieser Vorlage.'}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Field picker — only when prefilled + has fields */}
+                {prefillMode === 'prefilled' && hasPrefillableFields && (
+                  <div className="rounded-xl border border-[#1a3a5c]/15 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setFieldPickerOpen(v => !v)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-[#1a3a5c]/[0.04] hover:bg-[#1a3a5c]/[0.07] transition-colors"
+                    >
+                      <span className="text-xs font-medium text-[#1a3a5c]">
+                        {activeCount === totalCount
+                          ? `Alle ${totalCount} Felder vorausgefüllt`
+                          : `${activeCount} von ${totalCount} Feldern vorausgefüllt`}
+                      </span>
+                      <svg
+                        className={`h-3.5 w-3.5 text-[#1a3a5c]/60 transition-transform ${fieldPickerOpen ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {fieldPickerOpen && (
+                      <div className="divide-y divide-gray-100">
+                        {prefillableFields.map(f => {
+                          const isActive = !disabledPrefillIds.has(f.id)
+                          return (
+                            <label
+                              key={f.id}
+                              className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50/60 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isActive}
+                                onChange={() => toggleDisabled(f.id)}
+                                className="h-3.5 w-3.5 rounded border-gray-300 accent-[#1a3a5c]"
+                              />
+                              <span className="flex-1 text-xs text-gray-700 truncate">{f.label || f.id}</span>
+                              <span className={`text-xs font-medium truncate max-w-[140px] ${isActive ? 'text-gray-600' : 'text-gray-300 line-through'}`}>
+                                {prefillData[f.prefillKey]}
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                ))}
+                )}
               </div>
             )}
-            {selectedId && !templateLoading && prefilledFields.length === 0 && (
-              <p className="text-xs text-gray-400 italic">
-                Keine automatisch vorausfüllbaren Felder in dieser Vorlage.
-              </p>
+
+            {/* Checkbox prefill */}
+            {selectedId && !templateLoading && checkboxFields.length > 0 && (
+              <div className="rounded-lg border border-gray-200 p-3 space-y-4">
+                <p className="text-xs font-medium text-gray-600">Checkboxen vorausfüllen (optional):</p>
+                {checkboxFields.map(field => {
+                  const isMultiple = field.multiple === true
+                  const cur = checkboxPrefills[field.id]
+                  return (
+                    <div key={field.id} className="space-y-1.5">
+                      <p className="text-xs text-gray-500 font-medium">{field.label || 'Checkbox'}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {field.options.map(opt => {
+                          const active = isMultiple
+                            ? (Array.isArray(cur) ? cur : []).includes(opt.id)
+                            : cur === opt.id
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => toggleCheckboxPrefill(field, opt.id)}
+                              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                                active
+                                  ? 'bg-[#0d9488]/10 border-[#0d9488] text-[#0d9488] font-medium'
+                                  : 'border-gray-200 text-gray-600 hover:border-gray-300 bg-white'
+                              }`}
+                            >
+                              {opt.label || opt.id}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
 
             <DialogFooter>
@@ -474,6 +657,222 @@ const EMPTY_PROFILE = {
   total_experience_years: '', germany_experience_years: '',
   experience_areas: [], language_skills: [],
   fkvi_competency_proof: '', internal_notes: '',
+}
+
+// ─── ZusageDialog (Step 4) ────────────────────────────────────────────────────
+function ZusageDialogPF({ open, onClose, reservation, session, onConfirm, onGoToDocuments }) {
+  const [profileDocs, setProfileDocs] = useState([])
+  const [selectedKeys, setSelectedKeys] = useState([])
+  const [expiresInDays, setExpiresInDays] = useState('30')
+  const [loadingDocs, setLoadingDocs] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    if (!open || !reservation?.profile_id) return
+    setLoadingDocs(true)
+    setSelectedKeys([])
+    supabase
+      .from('profile_documents')
+      .select('*')
+      .eq('profile_id', reservation.profile_id)
+      .eq('is_internal', false)
+      .order('sort_order', { ascending: true })
+      .then(({ data }) => { setProfileDocs(data || []); setLoadingDocs(false) })
+  }, [open, reservation?.profile_id])
+
+  const toggleDoc = (key) =>
+    setSelectedKeys(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key])
+
+  const sendEmail = async (docs) => {
+    const c = reservation.companies
+    const res = await fetch('/api/admin/company-docs/create-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({
+        reservationId: reservation.id,
+        profileId: reservation.profile_id,
+        companyEmail: c?.email,
+        companyName: c?.company_name,
+        documents: docs,
+        expiresInDays: parseInt(expiresInDays, 10),
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Fehler beim Senden')
+    return data
+  }
+
+  const handleSendWithDocs = async () => {
+    setSending(true)
+    try {
+      const docs = profileDocs
+        .filter(d => selectedKeys.includes(d.link || d.title))
+        .map(d => ({ title: d.title, doc_type: d.doc_type || '', link: d.link || '' }))
+      await sendEmail(docs)
+      toast({ title: 'E-Mail gesendet', description: `Dokumente an ${reservation.companies?.email} versendet.`, variant: 'success' })
+      onClose(); onConfirm()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally { setSending(false) }
+  }
+
+  const handleSendWithoutDocs = async () => {
+    setSending(true)
+    try {
+      await sendEmail([])
+      toast({ title: 'Zusage-E-Mail gesendet', description: `E-Mail an ${reservation.companies?.email} versendet.`, variant: 'success' })
+      onClose(); onConfirm()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally { setSending(false) }
+  }
+
+  const c = reservation?.companies
+  const hasDocs = !loadingDocs && profileDocs.length > 0
+  const noDocs = !loadingDocs && profileDocs.length === 0
+  const canSendWithDocs = hasDocs && selectedKeys.length > 0
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+              <Send className="h-4 w-4 text-green-600" />
+            </div>
+            <DialogTitle className="text-base font-semibold text-gray-900">
+              Zusage erteilen – Schritt 4
+            </DialogTitle>
+          </div>
+          <p className="text-sm text-gray-500 pl-11">
+            Möchtest du <strong className="text-gray-700">{c?.company_name}</strong> eine E-Mail mit Unterlagen der Fachkraft senden?
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-4">
+          {loadingDocs ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+            </div>
+          ) : noDocs ? (
+            /* ── No-docs state: 3 clear options ── */
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Keine Dokumente hinterlegt – wähle eine Option:</p>
+
+              {/* Option 1: Go upload */}
+              <button
+                type="button"
+                onClick={() => { onClose(); onGoToDocuments?.() }}
+                disabled={sending}
+                className="w-full flex items-start gap-3 p-3.5 rounded-xl border-2 border-dashed border-gray-200 hover:border-green-400 hover:bg-green-50 transition-colors text-left group"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-100 group-hover:bg-green-100 flex items-center justify-center shrink-0 mt-0.5 transition-colors">
+                  <FileText className="h-3.5 w-3.5 text-gray-400 group-hover:text-green-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm text-gray-700 group-hover:text-green-700">Dokumente hochladen</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Zuerst Unterlagen im Profil hinterlegen, dann E-Mail versenden</p>
+                </div>
+              </button>
+
+              {/* Option 2: Send without docs */}
+              <button
+                type="button"
+                onClick={handleSendWithoutDocs}
+                disabled={sending}
+                className="w-full flex items-start gap-3 p-3.5 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 hover:border-green-400 transition-colors text-left group"
+              >
+                <div className="w-7 h-7 rounded-full bg-green-200 flex items-center justify-center shrink-0 mt-0.5">
+                  {sending ? <Loader2 className="h-3.5 w-3.5 text-green-700 animate-spin" /> : <Send className="h-3.5 w-3.5 text-green-700" />}
+                </div>
+                <div>
+                  <p className="font-medium text-sm text-green-800">Ohne Dokumente versenden</p>
+                  <p className="text-xs text-green-600 mt-0.5">Zusage-E-Mail an {c?.email} senden, ohne Dateianhang</p>
+                </div>
+              </button>
+
+              {/* Option 3: No email */}
+              <button
+                type="button"
+                onClick={() => { onClose(); onConfirm() }}
+                disabled={sending}
+                className="w-full flex items-start gap-3 p-3.5 rounded-xl border-2 border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors text-left group"
+              >
+                <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <X className="h-3.5 w-3.5 text-gray-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm text-gray-600">Keine E-Mail versenden</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Schritt 4 aktivieren ohne E-Mail</p>
+                </div>
+              </button>
+            </div>
+          ) : (
+            /* ── Has docs: document selection ── */
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Dokumente auswählen</p>
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                {profileDocs.map(doc => {
+                  const key = doc.link || doc.title
+                  const isOn = selectedKeys.includes(key)
+                  return (
+                    <label key={key} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      isOn ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input type="checkbox" checked={isOn} onChange={() => toggleDoc(key)}
+                        className="h-4 w-4 rounded border-gray-300 accent-green-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-900 truncate">{doc.title}</p>
+                        {doc.doc_type && <p className="text-xs text-gray-400">{doc.doc_type}</p>}
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+              <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+                <label className="text-xs text-gray-500 shrink-0">Gültig für</label>
+                <select value={expiresInDays} onChange={e => setExpiresInDays(e.target.value)}
+                  className="flex-1 h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+                  {[7, 14, 30, 90].map(d => <option key={d} value={d}>{d} Tage</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer – only shown when docs are available */}
+        {hasDocs && (
+          <div className="px-6 pb-6 flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={sending} className="text-gray-400">
+              Abbrechen
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => { onClose(); onConfirm() }} disabled={sending}>
+                Ohne E-Mail weiter
+              </Button>
+              <Button size="sm" onClick={handleSendWithDocs} disabled={sending || !canSendWithDocs}
+                className="bg-green-600 hover:bg-green-700 text-white">
+                {sending
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Senden...</>
+                  : <><Send className="h-3.5 w-3.5 mr-1.5" />E-Mail senden & weiter</>}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel link for no-docs state */}
+        {noDocs && (
+          <div className="px-6 pb-5 text-center">
+            <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+              Abbrechen
+            </button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -513,6 +912,9 @@ export default function ProfileForm() {
   const [docSends, setDocSends] = useState([])
   const [docSendsLoading, setDocSendsLoading] = useState(false)
   const [sendTemplateDialog, setSendTemplateDialog] = useState(false)
+  const [deletingSendId, setDeletingSendId] = useState(null) // id being confirmed for deletion
+  const [deletingSendBusy, setDeletingSendBusy] = useState(false)
+  const [downloadingSendId, setDownloadingSendId] = useState(null)
   const [reservationHistory, setReservationHistory] = useState([])
   const [advancing, setAdvancing] = useState(false)
   const [decoupling, setDecoupling] = useState(false)
@@ -521,8 +923,10 @@ export default function ProfileForm() {
   const [stepDate, setStepDate] = useState('')
   const [resendEmail, setResendEmail] = useState(false)
 
-  const EMAIL_TRIGGER_STEPS = new Set([2, 8, 9])
+  const EMAIL_TRIGGER_STEPS = new Set([2, 4, 8, 9])
   const DATE_STEPS = new Set([2, 7, 9, 10, 11])
+  const [zusageDialog, setZusageDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState('personal')
   const imageRef = useRef()
   const videoRef = useRef()
 
@@ -824,13 +1228,19 @@ export default function ProfileForm() {
       : Math.max(reservation.process_status - 1, 1)
     if (newStatus === reservation.process_status) return
 
+    // Step 4 (Zusage) opens the document-selection dialog
+    if (newStatus === 4 && direction === 'forward') {
+      setZusageDialog(true)
+      return
+    }
+
     const needsDate = direction === 'forward' && DATE_STEPS.has(newStatus)
     const emailAlreadySent = EMAIL_TRIGGER_STEPS.has(newStatus) &&
       reservationHistory.some(h => h.new_status === newStatus)
 
     if (needsDate || emailAlreadySent) {
       setStepDate('')
-      setResendEmail(false) // default: don't resend if already sent
+      setResendEmail(false)
       setPendingAdvance({ newStatus, needsDate, emailAlreadySent })
     } else {
       doAdvanceStatus(newStatus, null, false)
@@ -929,6 +1339,44 @@ export default function ProfileForm() {
     }
   }
 
+  const handleDeleteSend = async (sendId) => {
+    setDeletingSendBusy(true)
+    try {
+      const res = await fetch('/api/admin/dokumente/delete-send', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ sendId }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Fehler')
+      setDocSends(prev => prev.filter(s => s.id !== sendId))
+      toast({ title: 'Signierlink gelöscht', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Fehler beim Löschen', description: err.message, variant: 'destructive' })
+    } finally {
+      setDeletingSendId(null)
+      setDeletingSendBusy(false)
+    }
+  }
+
+  const handleDownloadSend = async (sendId) => {
+    setDownloadingSendId(sendId)
+    try {
+      const res = await fetch(`/api/admin/dokumente/sends-detail?sendId=${sendId}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const data = await res.json()
+      if (data.signedPdfUrl) {
+        window.open(data.signedPdfUrl, '_blank')
+      } else {
+        toast({ title: 'Download nicht verfügbar', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Download fehlgeschlagen', variant: 'destructive' })
+    } finally {
+      setDownloadingSendId(null)
+    }
+  }
+
   const saveDocumentsToApi = async (docs) => {
     if (!id) return // only for edit mode
     setDocSaving(true)
@@ -985,6 +1433,18 @@ export default function ProfileForm() {
           src={cropSrc}
           onDone={handleCropDone}
           onCancel={() => setCropSrc(null)}
+        />
+      )}
+
+      {/* Zusage dialog (step 4) */}
+      {zusageDialog && (
+        <ZusageDialogPF
+          open={zusageDialog}
+          onClose={() => setZusageDialog(false)}
+          reservation={reservation}
+          session={session}
+          onConfirm={() => doAdvanceStatus(4, null, true)}
+          onGoToDocuments={() => { setZusageDialog(false); setActiveTab('documents') }}
         />
       )}
 
@@ -1267,7 +1727,9 @@ export default function ProfileForm() {
                       {advancing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
                       {reservation.process_status === 10
                         ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Vermittlung abschließen</>
-                        : `Weiter zu Schritt ${reservation.process_status + 1} →`}
+                        : reservation.process_status === 3
+                          ? <><Send className="h-3.5 w-3.5 mr-1" />Zusage senden & weiter →</>
+                          : `Weiter zu Schritt ${reservation.process_status + 1} →`}
                     </Button>
                   </div>
                 )}
@@ -1318,7 +1780,7 @@ export default function ProfileForm() {
           </Alert>
         )}
 
-        <Tabs defaultValue="personal">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="personal">Person</TabsTrigger>
             <TabsTrigger value="education">Ausbildung</TabsTrigger>
@@ -1882,20 +2344,20 @@ export default function ProfileForm() {
               </p>
             )}
 
-            {/* ── Signierungsanfragen aus Mediathek ── */}
+            {/* ── Signierlinks ── */}
             {isEdit && (
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                   <div>
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                       <FileText className="h-4 w-4 text-gray-400" />
-                      Signierungsanfragen
+                      Signierlinks
                       {docSends.length > 0 && (
                         <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
                       )}
                       {docSendsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
                     </h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Vorlagen aus der Mediathek zum Unterzeichnen senden</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Vorlage auswählen → Link generieren → teilen</p>
                   </div>
                   <Button size="sm" onClick={() => setSendTemplateDialog(true)} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
                     <Plus className="h-3.5 w-3.5 mr-1.5" />Vorlage senden
@@ -1904,7 +2366,7 @@ export default function ProfileForm() {
                 {docSends.length === 0 && !docSendsLoading ? (
                   <div className="text-center py-10 text-gray-400">
                     <FileText className="h-7 w-7 mx-auto mb-2 text-gray-200" />
-                    <p className="text-sm font-medium text-gray-500">Noch keine Signierungsanfragen</p>
+                    <p className="text-sm font-medium text-gray-500">Noch keine Signierlinks erstellt</p>
                     <p className="text-xs mt-1">Wähle eine Vorlage aus der Mediathek und sende sie an die Fachkraft.</p>
                   </div>
                 ) : (
@@ -1912,51 +2374,112 @@ export default function ProfileForm() {
                     <thead>
                       <tr className="border-b border-gray-100 bg-gray-50/50">
                         <th className="text-left px-6 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Vorlage</th>
-                        <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Unterzeichner</th>
                         <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</th>
-                        <th className="px-3 py-2.5 w-16"></th>
+                        <th className="px-3 py-2.5 w-24"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {docSends.map(send => (
-                        <tr key={send.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-6 py-3">
-                            <p className="font-medium text-gray-900 text-sm">{send.template_name || '–'}</p>
-                            <p className="text-xs text-gray-400">{new Date(send.created_at).toLocaleDateString('de-DE')}</p>
-                          </td>
-                          <td className="px-3 py-3 text-sm text-gray-600">{send.signer_name}</td>
-                          <td className="px-3 py-3">
-                            {send.status === 'signed' ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">
-                                <CheckCircle2 className="h-3 w-3" />Unterschrieben
-                              </span>
-                            ) : send.status === 'opened' ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full font-medium">
-                                Geöffnet
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
-                                Ausstehend
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">
-                            {send.signer_url && (
-                              <a
-                                href={send.signer_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors inline-flex"
-                                title="Signierlink öffnen"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {docSends.map(send => {
+                        const isSigned = send.status === 'submitted' || send.status === 'signed'
+                        const isConfirmingDelete = deletingSendId === send.id
+                        return (
+                          <tr key={send.id} className={`transition-colors ${isSigned ? 'bg-green-50/40' : 'hover:bg-gray-50/50'}`}>
+                            <td className="px-6 py-3">
+                              <p className="font-medium text-gray-900 text-sm">{send.template_name || '–'}</p>
+                              <p className="text-xs text-gray-400">
+                                {send.signer_name}
+                                {isSigned && send.signed_at && (
+                                  <> · Unterzeichnet {new Date(send.signed_at).toLocaleDateString('de-DE')}</>
+                                )}
+                                {!isSigned && (
+                                  <> · {new Date(send.created_at).toLocaleDateString('de-DE')}</>
+                                )}
+                              </p>
+                            </td>
+                            <td className="px-3 py-3">
+                              {isSigned ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full font-medium">
+                                  <CheckCircle2 className="h-3 w-3" />Unterzeichnet
+                                </span>
+                              ) : send.status === 'opened' ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
+                                  Geöffnet
+                                </span>
+                              ) : send.status === 'revoked' ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                                  Widerrufen
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
+                                  Ausstehend
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              {isConfirmingDelete ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleDeleteSend(send.id)}
+                                    disabled={deletingSendBusy}
+                                    className="text-xs text-red-600 font-semibold hover:text-red-700 disabled:opacity-50"
+                                  >
+                                    {deletingSendBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Löschen'}
+                                  </button>
+                                  <span className="text-gray-300">|</span>
+                                  <button
+                                    onClick={() => setDeletingSendId(null)}
+                                    className="text-xs text-gray-500 hover:text-gray-700"
+                                  >
+                                    Abbruch
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-0.5 justify-end">
+                                  {isSigned && (
+                                    <button
+                                      onClick={() => handleDownloadSend(send.id)}
+                                      disabled={downloadingSendId === send.id}
+                                      className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex"
+                                      title="Signiertes PDF herunterladen"
+                                    >
+                                      {downloadingSendId === send.id
+                                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        : <Download className="h-3.5 w-3.5" />}
+                                    </button>
+                                  )}
+                                  {!isSigned && send.signer_url && (
+                                    <a
+                                      href={send.signer_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
+                                      title="Signierlink öffnen"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() => setDeletingSendId(send.id)}
+                                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
+                                    title={isSigned ? 'Signierlink + Dokument löschen' : 'Signierlink löschen'}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
+                )}
+                {/* Hint for signed documents */}
+                {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
+                  <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+                    <Download className="h-3.5 w-3.5 shrink-0" />
+                    Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
+                  </div>
                 )}
               </div>
             )}
