@@ -27,8 +27,11 @@ export default withHandler(async (req, res) => {
     return res.status(e.status || 401).json({ error: e.message })
   }
 
-  const { fileName, name, description } = req.body || {}
+  const { fileName, name, description, label } = req.body || {}
   if (!fileName || !name) return res.status(400).json({ error: 'fileName und name sind erforderlich' })
+
+  const validLabels = ['fachkraft', 'unternehmen', 'beide']
+  const safeLabel = validLabels.includes(label) ? label : 'beide'
 
   // Pre-create document_templates row
   const { data: template, error: insertError } = await supabaseAdmin
@@ -36,6 +39,7 @@ export default withHandler(async (req, res) => {
     .insert({
       name,
       description: description || null,
+      label: safeLabel,
       storage_path: 'placeholder',
       file_name: fileName,
       is_active: false,

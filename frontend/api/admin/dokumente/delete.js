@@ -26,15 +26,15 @@ export default withHandler(async (req, res) => {
     return res.status(e.status || 401).json({ error: e.message })
   }
 
-  const { templateId } = req.body || {}
+  const { templateId, force } = req.body || {}
   if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
 
   // Check for active sends (not revoked or expired)
-  const { count, error: countError } = await supabaseAdmin
+  const { data: activeSends, count, error: countError } = await supabaseAdmin
     .from('document_sends')
-    .select('id', { count: 'exact', head: true })
+    .select('id', { count: 'exact' })
     .eq('template_id', templateId)
-    .not('status', 'in', '("revoked","expired")')
+    .not('status', 'in', '("revoked","expired","signed","submitted")')
 
   if (countError) {
     console.error('dokumente/delete count error:', countError)
@@ -42,11 +42,32 @@ export default withHandler(async (req, res) => {
   }
 
   if (count && count > 0) {
-    return res.status(400).json({
-      error: `Dieses Template hat ${count} aktive Versendung(en). Bitte zuerst alle aktiven Versendungen widerrufen.`,
-    })
+    if (!force) {
+      // Return count so frontend can show confirmation
+      return res.status(400).json({
+        error: `Dieses Template hat ${count} aktive Versendung(en).`,
+        activeSendCount: count,
+        requiresForce: true,
+      })
+    }
+    // force=true: revoke all active sends first
+    const ids = (activeSends || []).map(s => s.id)
+    if (ids.length > 0) {
+      await supabaseAdmin
+        .from('document_sends')
+        .update({ status: 'revoked', updated_at: new Date().toISOString() })
+        .in('id', ids)
+    }
   }
 
+  // Also soft-delete all sends for this template (mark revoked)
+  await supabaseAdmin
+    .from('document_sends')
+    .update({ status: 'revoked', updated_at: new Date().toISOString() })
+    .eq('template_id', templateId)
+    .not('status', 'in', '("revoked","signed","submitted")')
+
+  // Soft-delete the template
   const { error: updateError } = await supabaseAdmin
     .from('document_templates')
     .update({ is_active: false, updated_at: new Date().toISOString() })

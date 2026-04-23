@@ -28,27 +28,45 @@ const FIELD_TYPES = [
 
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
 
-const PREFILL_OPTIONS = [
-  { value: '',                           label: 'Kein Vorausfüllen' },
-  // Fachkraft
-  { value: 'profile.first_name',         label: 'Vorname (Fachkraft)' },
-  { value: 'profile.last_name',          label: 'Nachname (Fachkraft)' },
-  { value: 'profile.nationality',        label: 'Nationalität (Fachkraft)' },
-  { value: 'profile.education',          label: 'Ausbildung (Fachkraft)' },
-  // Unternehmen
-  { value: 'company.company_name',       label: 'Unternehmensname' },
-  { value: 'company.contact_name',       label: 'Ansprechpartner Name' },
-  { value: 'company.contact_first_name', label: 'Ansprechpartner Vorname' },
-  { value: 'company.contact_last_name',  label: 'Ansprechpartner Nachname' },
-  { value: 'company.email',              label: 'E-Mail (Unternehmen)' },
-  { value: 'company.phone',              label: 'Telefon (Unternehmen)' },
-  { value: 'company.address',            label: 'Adresse' },
-  { value: 'company.city',               label: 'Stadt' },
-  { value: 'company.postal_code',        label: 'PLZ' },
-  // Allgemein
-  { value: 'today',                      label: 'Heutiges Datum' },
-  { value: 'signer.name',                label: 'Unterzeichner Name' },
+const PREFILL_GROUPS = [
+  {
+    group: null,
+    options: [{ value: '', label: 'Kein Vorausfüllen' }],
+  },
+  {
+    group: '👤 Fachkraft',
+    options: [
+      { value: 'profile.first_name',  label: 'Vorname' },
+      { value: 'profile.last_name',   label: 'Nachname' },
+      { value: 'profile.nationality', label: 'Nationalität' },
+      { value: 'profile.education',   label: 'Ausbildung' },
+    ],
+  },
+  {
+    group: '🏢 Unternehmen',
+    options: [
+      { value: 'company.company_name',       label: 'Unternehmensname' },
+      { value: 'company.contact_name',       label: 'Ansprechpartner (vollständig)' },
+      { value: 'company.contact_first_name', label: 'Ansprechpartner Vorname' },
+      { value: 'company.contact_last_name',  label: 'Ansprechpartner Nachname' },
+      { value: 'company.email',              label: 'E-Mail' },
+      { value: 'company.phone',              label: 'Telefon' },
+      { value: 'company.address',            label: 'Adresse' },
+      { value: 'company.city',               label: 'Stadt' },
+      { value: 'company.postal_code',        label: 'PLZ' },
+    ],
+  },
+  {
+    group: '📅 Allgemein',
+    options: [
+      { value: 'today',        label: 'Heutiges Datum' },
+      { value: 'signer.name', label: 'Unterzeichner Name' },
+    ],
+  },
 ]
+
+// Flat list for backward-compat (e.g. display of selected value)
+const PREFILL_OPTIONS = PREFILL_GROUPS.flatMap(g => g.options)
 
 function cfg(type) { return FIELD_TYPE_MAP[type] || FIELD_TYPES[0] }
 
@@ -352,7 +370,13 @@ function FieldProperties({ field, onChange, onDelete }) {
             onChange={e => onChange({ ...field, prefillKey: e.target.value })}
             className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            {PREFILL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {PREFILL_GROUPS.map((g, gi) =>
+            g.group
+              ? <optgroup key={gi} label={g.group}>
+                  {g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </optgroup>
+              : g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)
+          )}
           </select>
         </div>
       )}

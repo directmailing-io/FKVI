@@ -1,9 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity, BookOpen, Library, Inbox } from 'lucide-react'
+
+// ── localStorage helpers ────────────────────────────────────────────────────
+
+const LS_KEYS = {
+  postfach:      'fkvi_postfach_last_seen',
+  vermittlungen: 'fkvi_vermittlungen_last_seen',
+  leads:         'fkvi_leads_last_seen',
+}
+
+function getLastSeen(key) {
+  return localStorage.getItem(LS_KEYS[key]) || new Date(0).toISOString()
+}
+
+function markSeen(key) {
+  localStorage.setItem(LS_KEYS[key], new Date().toISOString())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -14,25 +32,61 @@ export default function AdminLayout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
 
+  // ── Clear badge + mark seen when navigating to a page ───────────────────
+  useEffect(() => {
+    const path = location.pathname
+    if (path.startsWith('/admin/postfach')) {
+      markSeen('postfach')
+      setPostfachCount(0)
+    }
+    if (path.startsWith('/admin/vermittlungen')) {
+      markSeen('vermittlungen')
+      setActiveVermittlungen(0)
+    }
+    if (path.startsWith('/admin/leads')) {
+      markSeen('leads')
+      setPendingCount(0)
+    }
+  }, [location.pathname])
+
+  // ── Fetch counts (only new-since-last-seen items) ────────────────────────
+  const fetchCounts = useCallback(async () => {
+    const path = location.pathname
+
+    const [pendingRes, vermittlungRes, postfachRes] = await Promise.all([
+      // Freigabezentrale: companies pending since last visit
+      supabase
+        .from('companies')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending')
+        .gte('created_at', getLastSeen('leads')),
+
+      // Vermittlungen: new reservations (active) since last visit
+      supabase
+        .from('reservations')
+        .select('id', { count: 'exact', head: true })
+        .lt('process_status', 11)
+        .gte('created_at', getLastSeen('vermittlungen')),
+
+      // Postfach: documents signed since last visit
+      supabase
+        .from('document_sends')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['signed', 'submitted'])
+        .gte('signed_at', getLastSeen('postfach')),
+    ])
+
+    // Only update counts for pages the user isn't currently viewing
+    if (!path.startsWith('/admin/leads'))         setPendingCount(pendingRes.count || 0)
+    if (!path.startsWith('/admin/vermittlungen')) setActiveVermittlungen(vermittlungRes.count || 0)
+    if (!path.startsWith('/admin/postfach'))      setPostfachCount(postfachRes.count || 0)
+  }, [location.pathname])
+
   useEffect(() => {
     fetchCounts()
     const interval = setInterval(fetchCounts, 60_000)
     return () => clearInterval(interval)
-  }, [])
-
-  const fetchCounts = async () => {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    const [pendingRes, vermittlungRes, postfachRes] = await Promise.all([
-      supabase.from('companies').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('reservations').select('id', { count: 'exact', head: true }).lt('process_status', 11),
-      supabase.from('document_sends').select('id', { count: 'exact', head: true })
-        .in('status', ['signed', 'submitted'])
-        .gte('signed_at', sevenDaysAgo),
-    ])
-    setPendingCount(pendingRes.count || 0)
-    setActiveVermittlungen(vermittlungRes.count || 0)
-    setPostfachCount(postfachRes.count || 0)
-  }
+  }, [fetchCounts])
 
   const handleSignOut = async () => {
     await signOut()
@@ -40,14 +94,14 @@ export default function AdminLayout({ children }) {
   }
 
   const navItems = [
-    { label: 'Dashboard',        icon: LayoutDashboard, href: '/admin' },
-    { label: 'Fachkräfte',       icon: Users,            href: '/admin/fachkraefte' },
-    { label: 'CRM / Firmen',     icon: Briefcase,        href: '/admin/crm' },
-    { label: 'Vermittlungen',    icon: Activity,         href: '/admin/vermittlungen', badge: activeVermittlungen },
-    { label: 'Freigabezentrale', icon: Building2,        href: '/admin/leads', badge: pendingCount },
-    { label: 'Broschüre',        icon: BookOpen,         href: '/admin/broschuere' },
-    { label: 'Dokumentenmediathek', icon: Library,        href: '/admin/mediathek' },
-    { label: 'Postfach',         icon: Inbox,            href: '/admin/postfach', badge: postfachCount },
+    { label: 'Dashboard',           icon: LayoutDashboard, href: '/admin' },
+    { label: 'Fachkräfte',          icon: Users,           href: '/admin/fachkraefte' },
+    { label: 'CRM / Firmen',        icon: Briefcase,       href: '/admin/crm' },
+    { label: 'Vermittlungen',       icon: Activity,        href: '/admin/vermittlungen', badge: activeVermittlungen },
+    { label: 'Freigabezentrale',    icon: Building2,       href: '/admin/leads',         badge: pendingCount },
+    { label: 'Broschüre',           icon: BookOpen,        href: '/admin/broschuere' },
+    { label: 'Dokumentenvorlagen',   icon: Library,         href: '/admin/mediathek' },
+    { label: 'Postfach',            icon: Inbox,           href: '/admin/postfach',      badge: postfachCount },
   ]
 
   return (

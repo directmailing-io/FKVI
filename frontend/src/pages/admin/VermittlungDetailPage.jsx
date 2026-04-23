@@ -15,7 +15,7 @@ import {
 import { toast } from '@/hooks/use-toast'
 
 // Steps that trigger an automatic email to the company
-const EMAIL_TRIGGER_STEPS = new Set([2, 8, 9])
+const EMAIL_TRIGGER_STEPS = new Set([2, 4, 8, 9])
 
 // ─── Step dot ─────────────────────────────────────────────────────────────────
 function StepDot({ step, current }) {
@@ -89,6 +89,161 @@ function HistoryEntry({ entry }) {
   )
 }
 
+// ─── Zusage Dialog (Step 4) ───────────────────────────────────────────────────
+function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
+  const [profileDocs, setProfileDocs] = useState([])
+  const [selectedKeys, setSelectedKeys] = useState([])
+  const [expiresInDays, setExpiresInDays] = useState('30')
+  const [loadingDocs, setLoadingDocs] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    if (!open || !reservation?.profile_id) return
+    setLoadingDocs(true)
+    setSelectedKeys([])
+    supabase
+      .from('profile_documents')
+      .select('*')
+      .eq('profile_id', reservation.profile_id)
+      .eq('is_internal', false)
+      .order('sort_order', { ascending: true })
+      .then(({ data }) => {
+        setProfileDocs(data || [])
+        setLoadingDocs(false)
+      })
+  }, [open, reservation?.profile_id])
+
+  const toggleDoc = (key) => {
+    setSelectedKeys(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key])
+  }
+
+  const handleConfirm = async () => {
+    if (selectedKeys.length === 0) {
+      toast({ title: 'Keine Dokumente ausgewählt', description: 'Wähle mindestens ein Dokument aus.', variant: 'destructive' })
+      return
+    }
+    setSending(true)
+    try {
+      const docs = profileDocs
+        .filter(d => selectedKeys.includes(d.link || d.title))
+        .map(d => ({ title: d.title, doc_type: d.doc_type || '', link: d.link || '' }))
+      const c = reservation.companies
+      const res = await fetch('/api/admin/company-docs/create-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          reservationId: reservation.id,
+          profileId: reservation.profile_id,
+          companyEmail: c?.email,
+          companyName: c?.company_name,
+          documents: docs,
+          expiresInDays: parseInt(expiresInDays, 10),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Erstellen des Links')
+      toast({ title: 'E-Mail wurde gesendet', description: `Dokumente-Link an ${c?.email} versendet.`, variant: 'success' })
+      onClose()
+      onConfirm()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const c = reservation?.companies
+  const hasDocs = !loadingDocs && profileDocs.length > 0
+  const canSend = hasDocs && selectedKeys.length > 0
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Zusage – Schritt 4</DialogTitle>
+          <DialogDescription>
+            Wähle Dokumente aus, die <strong>{c?.company_name || 'das Unternehmen'}</strong> per E-Mail erhalten soll, oder fahre ohne E-Mail fort.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[55vh] overflow-y-auto space-y-4 pr-1">
+          {loadingDocs ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            </div>
+          ) : profileDocs.length === 0 ? (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+              Keine öffentlichen Dokumente für diese Fachkraft hinterlegt. Du kannst trotzdem zu Schritt 4 weiterschalten.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {profileDocs.map(doc => {
+                const key = doc.link || doc.title
+                const isOn = selectedKeys.includes(key)
+                return (
+                  <label key={key} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    isOn ? 'border-[#1a3a5c] bg-[#1a3a5c]/5' : 'border-gray-200 hover:border-gray-300'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={isOn}
+                      onChange={() => toggleDoc(key)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#1a3a5c]"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-gray-900">{doc.title}</p>
+                      {doc.doc_type && <p className="text-xs text-gray-400 mt-0.5">{doc.doc_type}</p>}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          {hasDocs && (
+            <div className="space-y-1.5 pt-2 border-t border-gray-100">
+              <label className="text-xs font-medium text-gray-700">Link gültig für</label>
+              <select
+                value={expiresInDays}
+                onChange={e => setExpiresInDays(e.target.value)}
+                className="w-full h-9 text-sm border border-input rounded-md px-3 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {[7, 14, 30, 90].map(d => (
+                  <option key={d} value={d}>{d} Tage</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onClose} disabled={sending} className="sm:mr-auto">
+            Abbrechen
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => { onClose(); onConfirm() }}
+            disabled={sending}
+            className="text-gray-500 text-sm"
+          >
+            Ohne E-Mail weiter →
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={sending || !canSend}
+            className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
+          >
+            {sending
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird gesendet...</>
+              : <><Send className="h-4 w-4 mr-2" />E-Mail senden & weiter</>
+            }
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function VermittlungDetailPage() {
   const { id } = useParams()
@@ -102,6 +257,7 @@ export default function VermittlungDetailPage() {
   const [note, setNote] = useState('')
   const [stopDialog, setStopDialog] = useState(false)
   const [stopping, setStopping] = useState(false)
+  const [zusageDialog, setZusageDialog] = useState(false)
 
   useEffect(() => { fetchData() }, [id])
 
@@ -419,22 +575,29 @@ export default function VermittlungDetailPage() {
                   </div>
 
                   {/* Email hint */}
-                  {nextEmailTrigger && (
+                  {nextStep === 4 ? (
+                    <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                      <Send className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>Bei Schritt 4 wählst du Dokumente aus, die per E-Mail mit einem sicheren Link an {c?.email || 'das Unternehmen'} gesendet werden.</span>
+                    </div>
+                  ) : nextEmailTrigger ? (
                     <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
                       <Send className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                       <span>Bei Schritt {nextStep} wird automatisch eine E-Mail an {c?.email || 'das Unternehmen'} gesendet.</span>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Advance button */}
                   <Button
-                    onClick={handleAdvance}
+                    onClick={nextStep === 4 ? () => setZusageDialog(true) : handleAdvance}
                     disabled={advancing}
                     className="w-full"
                   >
                     {advancing
                       ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird gespeichert...</>
-                      : <>Weiter zu Schritt {nextStep} →</>}
+                      : nextStep === 4
+                        ? <><Send className="h-4 w-4 mr-2" />Zusage senden & weiter →</>
+                        : <>Weiter zu Schritt {nextStep} →</>}
                   </Button>
 
                   {/* Back button */}
@@ -463,6 +626,15 @@ export default function VermittlungDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Zusage dialog (step 4) */}
+      <ZusageDialog
+        open={zusageDialog}
+        onClose={() => setZusageDialog(false)}
+        reservation={reservation}
+        session={session}
+        onConfirm={handleAdvance}
+      />
 
       {/* Stop confirmation */}
       <Dialog open={stopDialog} onOpenChange={setStopDialog}>
