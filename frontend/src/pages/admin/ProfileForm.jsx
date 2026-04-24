@@ -20,10 +20,11 @@ import {
 } from '@/lib/utils'
 import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff, Link2, Copy, Check, ClipboardCopy, Download, Send
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff, Link2, Copy, Check, ClipboardCopy, Download, Send, Package
 } from 'lucide-react'
 import VimeoPlayer from '@/components/VimeoPlayer'
 import SendDocumentDialog from '@/components/SendDocumentDialog'
+import BundleDialog from '@/components/BundleDialog'
 import { toast } from '@/hooks/use-toast'
 
 // ─── Field helper — defined OUTSIDE component to avoid focus-jumping bug ──────
@@ -289,6 +290,10 @@ const EMPTY_PROFILE = {
   total_experience_years: '', germany_experience_years: '',
   experience_areas: [], language_skills: [],
   fkvi_competency_proof: '', internal_notes: '',
+  // CV fields
+  birth_date: '', phone: '', contact_email: '',
+  street: '', city: '', postal_code: '', country: 'Deutschland',
+  work_experience: [], education_history: [], personal_skills: [],
 }
 
 // ─── ZusageDialog (Step 4) ────────────────────────────────────────────────────
@@ -544,6 +549,7 @@ export default function ProfileForm() {
   const [docSends, setDocSends] = useState([])
   const [docSendsLoading, setDocSendsLoading] = useState(false)
   const [sendTemplateDialog, setSendTemplateDialog] = useState(false)
+  const [bundleDialog, setBundleDialog] = useState(false)
   const [deletingSendId, setDeletingSendId] = useState(null) // id being confirmed for deletion
   const [deletingSendBusy, setDeletingSendBusy] = useState(false)
   const [downloadingSendId, setDownloadingSendId] = useState(null)
@@ -605,6 +611,22 @@ export default function ProfileForm() {
   }
 
   const set = (field, value) => setProfile(prev => ({ ...prev, [field]: value }))
+
+  // CV helpers — work experience
+  const newWorkEntry = () => ({ id: Date.now().toString(), company: '', position: '', department: '', employment_type: 'Vollzeit', start_date: '', end_date: '', is_current: false, description: '' })
+  const addWork    = () => set('work_experience', [...(profile.work_experience || []), newWorkEntry()])
+  const setWork    = (id, f, v) => set('work_experience', (profile.work_experience || []).map(e => e.id === id ? { ...e, [f]: v } : e))
+  const removeWork = (id)        => set('work_experience', (profile.work_experience || []).filter(e => e.id !== id))
+
+  // CV helpers — education history
+  const newEduEntry = () => ({ id: Date.now().toString(), institution: '', degree: '', field: '', start_date: '', end_date: '', notes: '' })
+  const addEdu    = () => set('education_history', [...(profile.education_history || []), newEduEntry()])
+  const setEdu    = (id, f, v) => set('education_history', (profile.education_history || []).map(e => e.id === id ? { ...e, [f]: v } : e))
+  const removeEdu = (id)        => set('education_history', (profile.education_history || []).filter(e => e.id !== id))
+
+  // CV helpers — personal skills tag input
+  const addSkill    = (skill) => { const s = skill.trim(); if (s && !(profile.personal_skills || []).includes(s)) set('personal_skills', [...(profile.personal_skills || []), s]) }
+  const removeSkill = (skill) => set('personal_skills', (profile.personal_skills || []).filter(s => s !== skill))
 
   // Raw file selected → open crop dialog
   const handleImageChange = (e) => {
@@ -1415,7 +1437,7 @@ export default function ProfileForm() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="personal">Person</TabsTrigger>
-            <TabsTrigger value="education">Ausbildung</TabsTrigger>
+            <TabsTrigger value="lebenslauf">Lebenslauf</TabsTrigger>
             <TabsTrigger value="experience">Erfahrung</TabsTrigger>
             <TabsTrigger value="media">Medien</TabsTrigger>
             <TabsTrigger value="documents">Dokumente</TabsTrigger>
@@ -1496,6 +1518,38 @@ export default function ProfileForm() {
                 <Switch checked={profile.has_drivers_license} onCheckedChange={v => set('has_drivers_license', v)} />
                 <Label>Führerschein Klasse B</Label>
               </div>
+            </div>
+
+            {/* Kontakt & Adresse */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Kontaktdaten & Adresse</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Field label="Geburtsdatum">
+                  <Input type="date" value={profile.birth_date || ''} onChange={e => set('birth_date', e.target.value)} />
+                </Field>
+                <Field label="Telefon">
+                  <Input type="tel" value={profile.phone || ''} onChange={e => set('phone', e.target.value)} placeholder="+49 170 123 4567" />
+                </Field>
+                <Field label="E-Mail (Kontakt)">
+                  <Input type="email" value={profile.contact_email || ''} onChange={e => set('contact_email', e.target.value)} placeholder="name@example.com" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Straße & Hausnummer">
+                  <Input value={profile.street || ''} onChange={e => set('street', e.target.value)} placeholder="Musterstraße 12" />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="PLZ">
+                    <Input value={profile.postal_code || ''} onChange={e => set('postal_code', e.target.value)} placeholder="10115" maxLength={10} />
+                  </Field>
+                  <Field label="Ort">
+                    <Input value={profile.city || ''} onChange={e => set('city', e.target.value)} placeholder="Berlin" />
+                  </Field>
+                </div>
+              </div>
+              <Field label="Land">
+                <Input value={profile.country || ''} onChange={e => set('country', e.target.value)} placeholder="Deutschland" />
+              </Field>
             </div>
 
             {/* Preferences */}
@@ -1585,11 +1639,76 @@ export default function ProfileForm() {
             </div>
           </TabsContent>
 
-          {/* ── TAB: Ausbildung ─────────────────────────────────────────── */}
-          <TabsContent value="education" className="space-y-6 mt-6">
+          {/* ── TAB: Lebenslauf ─────────────────────────────────────────── */}
+          <TabsContent value="lebenslauf" className="space-y-6 mt-6">
+
+            {/* Berufserfahrung */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-              <h3 className="font-semibold text-gray-900">Schulbildung & Ausbildung</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">Berufserfahrung</h3>
+                <Button size="sm" variant="outline" onClick={addWork}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />Hinzufügen
+                </Button>
+              </div>
+              {(profile.work_experience || []).length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">Noch keine Einträge. Klicke auf „Hinzufügen".</p>
+              )}
+              <div className="space-y-4">
+                {(profile.work_experience || []).map((e, idx) => (
+                  <div key={e.id} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Stelle {idx + 1}</span>
+                      <button type="button" onClick={() => removeWork(e.id)} className="text-gray-300 hover:text-red-400 transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="Unternehmen / Einrichtung">
+                        <Input value={e.company} onChange={ev => setWork(e.id, 'company', ev.target.value)} placeholder="Klinikum Berlin GmbH" />
+                      </Field>
+                      <Field label="Position / Berufsbezeichnung">
+                        <Input value={e.position} onChange={ev => setWork(e.id, 'position', ev.target.value)} placeholder="Pflegefachkraft" />
+                      </Field>
+                      <Field label="Abteilung (optional)">
+                        <Input value={e.department} onChange={ev => setWork(e.id, 'department', ev.target.value)} placeholder="Intensivstation" />
+                      </Field>
+                      <Field label="Beschäftigungsart">
+                        <Select value={e.employment_type} onValueChange={v => setWork(e.id, 'employment_type', v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['Vollzeit', 'Teilzeit', 'Minijob', 'Praktikum', 'Ausbildung', 'Freiberuflich', 'Sonstiges'].map(t => (
+                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Von (Monat/Jahr)">
+                        <Input type="month" value={e.start_date} onChange={ev => setWork(e.id, 'start_date', ev.target.value)} />
+                      </Field>
+                      <div className="space-y-1.5">
+                        <Field label="Bis (Monat/Jahr)">
+                          <Input type="month" value={e.end_date} onChange={ev => setWork(e.id, 'end_date', ev.target.value)} disabled={e.is_current} />
+                        </Field>
+                        <label className="flex items-center gap-2 cursor-pointer mt-1">
+                          <input type="checkbox" checked={!!e.is_current} onChange={ev => { setWork(e.id, 'is_current', ev.target.checked); if (ev.target.checked) setWork(e.id, 'end_date', '') }} className="rounded" />
+                          <span className="text-xs text-gray-500">Aktuelle Stelle</span>
+                        </label>
+                      </div>
+                    </div>
+                    <Field label="Tätigkeitsbeschreibung (optional)">
+                      <Textarea value={e.description} onChange={ev => setWork(e.id, 'description', ev.target.value)} placeholder="Kurze Beschreibung der Aufgaben und Verantwortlichkeiten..." rows={2} />
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Ausbildung & Weiterbildung */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Ausbildung & Weiterbildung</h3>
+
+              {/* Hauptausbildung — statische Zusammenfassung */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-gray-100">
                 <Field label="Schulbildung">
                   <Input value={profile.school_education} onChange={e => set('school_education', e.target.value)} placeholder="z.B. Abitur" />
                 </Field>
@@ -1615,24 +1734,111 @@ export default function ProfileForm() {
                 </Field>
               </div>
               <Field label="Bemerkungen zur Ausbildung">
-                <Textarea
-                  value={profile.education_notes}
-                  onChange={e => set('education_notes', e.target.value)}
-                  placeholder="Weitere Details zur Ausbildung..."
-                  rows={3}
+                <Textarea value={profile.education_notes} onChange={e => set('education_notes', e.target.value)} placeholder="Weitere Details zur Ausbildung..." rows={2} />
+              </Field>
+
+              {/* Weitere Einträge (dynamisch) */}
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-sm font-medium text-gray-700">Weitere Einträge</p>
+                <Button size="sm" variant="outline" onClick={addEdu}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />Hinzufügen
+                </Button>
+              </div>
+              {(profile.education_history || []).length === 0 && (
+                <p className="text-sm text-gray-400">Noch keine weiteren Einträge.</p>
+              )}
+              <div className="space-y-4">
+                {(profile.education_history || []).map((e, idx) => (
+                  <div key={e.id} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50/50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Eintrag {idx + 1}</span>
+                      <button type="button" onClick={() => removeEdu(e.id)} className="text-gray-300 hover:text-red-400 transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="Schule / Hochschule / Institution">
+                        <Input value={e.institution} onChange={ev => setEdu(e.id, 'institution', ev.target.value)} placeholder="Pflegeschule Berlin" />
+                      </Field>
+                      <Field label="Abschluss / Qualifikation">
+                        <Input value={e.degree} onChange={ev => setEdu(e.id, 'degree', ev.target.value)} placeholder="Gesundheits- und Krankenpfleger/in" />
+                      </Field>
+                      <Field label="Fachbereich (optional)">
+                        <Input value={e.field} onChange={ev => setEdu(e.id, 'field', ev.target.value)} placeholder="Gesundheit & Pflege" />
+                      </Field>
+                      <div className="hidden sm:block" />
+                      <Field label="Von (Monat/Jahr)">
+                        <Input type="month" value={e.start_date} onChange={ev => setEdu(e.id, 'start_date', ev.target.value)} />
+                      </Field>
+                      <Field label="Bis (Monat/Jahr)">
+                        <Input type="month" value={e.end_date} onChange={ev => setEdu(e.id, 'end_date', ev.target.value)} />
+                      </Field>
+                    </div>
+                    <Field label="Anmerkungen (optional)">
+                      <Textarea value={e.notes} onChange={ev => setEdu(e.id, 'notes', ev.target.value)} placeholder="z.B. Schwerpunkte, Auszeichnungen..." rows={2} />
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Persönliche Fähigkeiten */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Persönliche Fähigkeiten & Kompetenzen</h3>
+              <p className="text-xs text-gray-500">Gib eine Fähigkeit ein und drücke Enter oder Komma zum Hinzufügen.</p>
+              <div className="flex flex-wrap gap-2 min-h-[40px] p-3 border border-gray-200 rounded-lg bg-gray-50">
+                {(profile.personal_skills || []).map(skill => (
+                  <span key={skill} className="inline-flex items-center gap-1.5 bg-[#1a3a5c]/10 text-[#1a3a5c] text-sm font-medium px-3 py-1 rounded-full">
+                    {skill}
+                    <button type="button" onClick={() => removeSkill(skill)} className="text-[#1a3a5c]/50 hover:text-[#1a3a5c] transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  className="flex-1 min-w-[140px] bg-transparent text-sm outline-none placeholder:text-gray-400"
+                  placeholder="z.B. Wundversorgung, Palliativpflege..."
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault()
+                      addSkill(e.currentTarget.value)
+                      e.currentTarget.value = ''
+                    }
+                  }}
+                  onBlur={e => {
+                    if (e.target.value.trim()) {
+                      addSkill(e.target.value)
+                      e.target.value = ''
+                    }
+                  }}
                 />
+              </div>
+            </div>
+
+          </TabsContent>
+
+          {/* ── TAB: Erfahrung ──────────────────────────────────────────── */}
+          <TabsContent value="experience" className="space-y-6 mt-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Berufserfahrung</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Berufserfahrung gesamt (Jahre)">
+                  <Input type="number" value={profile.total_experience_years} onChange={e => set('total_experience_years', e.target.value)} placeholder="z.B. 5" min="0" step="0.5" />
+                </Field>
+                <Field label="Davon in Deutschland (Jahre)">
+                  <Input type="number" value={profile.germany_experience_years} onChange={e => set('germany_experience_years', e.target.value)} placeholder="z.B. 2" min="0" step="0.5" />
+                </Field>
+              </div>
+              <Field label="Erfahrung in Bereichen">
+                <MultiSelect options={EXPERIENCE_AREAS} value={profile.experience_areas} onChange={v => set('experience_areas', v)} placeholder="Erfahrungsbereiche auswählen..." />
               </Field>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <h3 className="font-semibold text-gray-900">Qualifikationen</h3>
               <Field label="Spezialisierungen">
-                <MultiSelect
-                  options={SPECIALIZATIONS}
-                  value={profile.specializations}
-                  onChange={v => set('specializations', v)}
-                  placeholder="Spezialisierungen auswählen..."
-                />
+                <MultiSelect options={SPECIALIZATIONS} value={profile.specializations} onChange={v => set('specializations', v)} placeholder="Spezialisierungen auswählen..." />
               </Field>
               <Field label="Zusatzqualifikationen">
                 <MultiSelect
@@ -1643,48 +1849,7 @@ export default function ProfileForm() {
                 />
               </Field>
               <Field label="Pflegekompetenznachweis FKVI">
-                <Input
-                  value={profile.fkvi_competency_proof}
-                  onChange={e => set('fkvi_competency_proof', e.target.value)}
-                  placeholder="z.B. Bestanden am 01.01.2024"
-                />
-              </Field>
-            </div>
-          </TabsContent>
-
-          {/* ── TAB: Erfahrung ──────────────────────────────────────────── */}
-          <TabsContent value="experience" className="space-y-6 mt-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-              <h3 className="font-semibold text-gray-900">Berufserfahrung</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Berufserfahrung gesamt (Jahre)">
-                  <Input
-                    type="number"
-                    value={profile.total_experience_years}
-                    onChange={e => set('total_experience_years', e.target.value)}
-                    placeholder="z.B. 5"
-                    min="0"
-                    step="0.5"
-                  />
-                </Field>
-                <Field label="Davon in Deutschland (Jahre)">
-                  <Input
-                    type="number"
-                    value={profile.germany_experience_years}
-                    onChange={e => set('germany_experience_years', e.target.value)}
-                    placeholder="z.B. 2"
-                    min="0"
-                    step="0.5"
-                  />
-                </Field>
-              </div>
-              <Field label="Erfahrung in Bereichen">
-                <MultiSelect
-                  options={EXPERIENCE_AREAS}
-                  value={profile.experience_areas}
-                  onChange={v => set('experience_areas', v)}
-                  placeholder="Erfahrungsbereiche auswählen..."
-                />
+                <Input value={profile.fkvi_competency_proof} onChange={e => set('fkvi_competency_proof', e.target.value)} placeholder="z.B. Bestanden am 01.01.2024" />
               </Field>
             </div>
           </TabsContent>
@@ -1991,9 +2156,14 @@ export default function ProfileForm() {
                     </h3>
                     <p className="text-xs text-gray-400 mt-0.5">Vorlage auswählen → Link generieren → teilen</p>
                   </div>
-                  <Button size="sm" onClick={() => setSendTemplateDialog(true)} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
-                    <Plus className="h-3.5 w-3.5 mr-1.5" />Vorlage senden
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setBundleDialog(true)}>
+                      <Package className="h-3.5 w-3.5 mr-1.5" />Paket
+                    </Button>
+                    <Button size="sm" onClick={() => setSendTemplateDialog(true)} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />Einzeln
+                    </Button>
+                  </div>
                 </div>
                 {docSends.length === 0 && !docSendsLoading ? (
                   <div className="text-center py-10 text-gray-400">
@@ -2122,16 +2292,36 @@ export default function ProfileForm() {
                 entityType="profile"
                 entityId={id}
                 prefillData={{
-                  'profile.first_name': profile?.first_name || form?.first_name || '',
-                  'profile.last_name': profile?.last_name || form?.last_name || '',
-                  'profile.nationality': profile?.nationality || form?.nationality || '',
-                  'profile.education': profile?.nursing_education || form?.nursing_education || '',
-                  'signer.name': `${profile?.first_name || form?.first_name || ''} ${profile?.last_name || form?.last_name || ''}`.trim(),
+                  'profile.first_name': profile?.first_name || '',
+                  'profile.last_name': profile?.last_name || '',
+                  'profile.nationality': profile?.nationality || '',
+                  'profile.education': profile?.nursing_education || '',
+                  'signer.name': `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
                   'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
                 }}
-                defaultSignerName={`${profile?.first_name || form?.first_name || ''} ${profile?.last_name || form?.last_name || ''}`.trim()}
+                defaultSignerName={`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()}
+                defaultEmail={profile?.contact_email || ''}
                 session={session}
                 onClose={() => setSendTemplateDialog(false)}
+                onSent={loadDocSends}
+              />
+            )}
+
+            {bundleDialog && (
+              <BundleDialog
+                entityType="profile"
+                entityId={id}
+                prefillData={{
+                  'profile.first_name': profile?.first_name || '',
+                  'profile.last_name': profile?.last_name || '',
+                  'profile.nationality': profile?.nationality || '',
+                  'signer.name': `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+                  'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                }}
+                defaultSignerName={`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()}
+                defaultEmail={profile?.contact_email || ''}
+                session={session}
+                onClose={() => setBundleDialog(false)}
                 onSent={loadDocSends}
               />
             )}

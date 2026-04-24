@@ -30,6 +30,7 @@ import DownloadsPage from '@/pages/public/DownloadsPage'
 import BrochureAccessPage from '@/pages/public/BrochureAccessPage'
 import BeratungPage from '@/pages/public/BeratungPage'
 import DokumentSignPage from '@/pages/public/DokumentSignPage'
+import BundlePage from '@/pages/public/BundlePage'
 import UnterlagenPage from '@/pages/public/UnterlagenPage'
 
 // Matching pages
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/downloads/zugang/:token" element={<BrochureAccessPage />} />
         <Route path="/beratung" element={<BeratungPage />} />
         <Route path="/dokument/:token" element={<DokumentSignPage />} />
+        <Route path="/bundle/:token" element={<BundlePage />} />
         <Route path="/unterlagen/:token" element={<UnterlagenPage />} />
 
         {/* Admin */}

@@ -771,7 +771,7 @@ function UeberUnsSection() {
           {/* Right: Text content */}
           <div className="lg:pt-16">
             <p className="text-gray-600 leading-relaxed mb-5">
-              Fachkraft Vermittlung ist entstanden, weil wir selbst erlebt haben, wie schwer
+              Fachkraft Vermittlung International ist entstanden, weil wir selbst erlebt haben, wie schwer
               es ist, gute Pflegekräfte nach Deutschland zu holen. Heute setzen wir genau das um.
             </p>
             <p className="text-gray-600 leading-relaxed mb-5">
@@ -957,7 +957,7 @@ function Footer({ funnelRef, prozessRef }) {
           </div>
         </div>
         <div className="border-t border-white/10 pt-6 flex items-center justify-between text-xs text-white/30">
-          <span>© 2025 FKVI – Fachkraft Vermittlung International</span>
+          <span>© 2025 Fachkraft Vermittlung International GmbH &amp; Co. KG</span>
           <Link to="/admin/login" className="hover:text-white/60 transition-colors">Admin</Link>
         </div>
       </div>

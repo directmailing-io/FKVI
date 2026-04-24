@@ -410,7 +410,7 @@ export default function CvDocument({ profile, expiresAt, showRealName = false, d
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontWeight: 700, color: ACCENT, fontSize: 13 }}>FKVI</span>
             <span style={{ color: '#d1d5db', fontSize: 11 }}>·</span>
-            <span style={{ color: GRAY_MID, fontSize: 11 }}>Fachkraft Vermittlung International</span>
+            <span style={{ color: GRAY_MID, fontSize: 11 }}>Fachkraft Vermittlung International GmbH &amp; Co. KG</span>
             {!showRealName && (
               <>
                 <span style={{ color: '#d1d5db', fontSize: 11 }}>·</span>

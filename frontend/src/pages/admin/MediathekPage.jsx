@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/hooks/use-toast'
 import { formatDateTime } from '@/lib/utils'
@@ -21,7 +20,7 @@ import {
 import {
   Upload, FileText, Pencil, Send, Trash2, Copy, Check, Eye,
   CheckCircle2, XCircle, Loader2, ClipboardCopy, ExternalLink,
-  ChevronDown, Search, Tag, Users, Building2, UserCheck,
+  ChevronDown, Search, Tag, Users, Building2, UserCheck, Mail, AlertCircle,
 } from 'lucide-react'
 import { PDFDocument } from 'pdf-lib'
 
@@ -99,6 +98,12 @@ function AssignDialog({ template, open, onClose, session }) {
   const [expiresInDays, setExpiresInDays] = useState('30')
   const [sending, setSending]             = useState(false)
   const [signerUrl, setSignerUrl]         = useState(null)
+  const [sendId, setSendId]               = useState(null)
+  const [emailAddress, setEmailAddress]   = useState('')
+  const [useCustomMessage, setUseCustomMessage] = useState(false)
+  const [customMessage, setCustomMessage] = useState('')
+  const [emailSending, setEmailSending]   = useState(false)
+  const [emailSent, setEmailSent]         = useState(false)
   const { copied, copy }                  = useCopyText()
 
   // Prefill state (mirrors SendDocumentDialog)
@@ -127,6 +132,7 @@ function AssignDialog({ template, open, onClose, session }) {
   useEffect(() => {
     if (!open) return
     setSelected(null); setSearch(''); setSignerUrl(null); setSignerName('')
+    setSendId(null); setEmailAddress(''); setUseCustomMessage(false); setCustomMessage(''); setEmailSending(false); setEmailSent(false)
     setDisabledPrefillIds(new Set()); setCheckboxPrefills({}); setFieldPickerOpen(false)
     fetchEntities(entityType)
   }, [open, entityType])
@@ -135,20 +141,22 @@ function AssignDialog({ template, open, onClose, session }) {
     setLoadingEntities(true)
     try {
       if (type === 'fachkraft') {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, status, nationality, education')
-          .order('last_name')
-        setEntities(data || [])
+        const res = await fetch('/api/admin/entities/profiles', {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Fehler beim Laden')
+        setEntities(json.profiles || [])
       } else {
-        const { data } = await supabase
-          .from('companies')
-          .select('id, company_name, first_name, last_name, email, phone, address, city, postal_code, status')
-          .order('company_name')
-        setEntities(data || [])
+        const res = await fetch('/api/admin/entities/companies', {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Fehler beim Laden')
+        setEntities(json.companies || [])
       }
-    } catch {
-      toast({ title: 'Fehler', description: 'Einträge konnten nicht geladen werden.', variant: 'destructive' })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message || 'Einträge konnten nicht geladen werden.', variant: 'destructive' })
     } finally {
       setLoadingEntities(false)
     }
@@ -161,7 +169,7 @@ function AssignDialog({ template, open, onClose, session }) {
         'profile.first_name':  entity.first_name  || '',
         'profile.last_name':   entity.last_name   || '',
         'profile.nationality': entity.nationality  || '',
-        'profile.education':   entity.education    || '',
+        'profile.education':   entity.nursing_education || '',
         'today':               today,
         'signer.name':         `${entity.first_name || ''} ${entity.last_name || ''}`.trim(),
       }
@@ -174,9 +182,6 @@ function AssignDialog({ template, open, onClose, session }) {
       'company.contact_last_name':  entity.last_name   || '',
       'company.email':              entity.email        || '',
       'company.phone':              entity.phone        || '',
-      'company.address':            entity.address      || '',
-      'company.city':               entity.city         || '',
-      'company.postal_code':        entity.postal_code  || '',
       'today':                      today,
       'signer.name':                contactName || entity.company_name || '',
     }
@@ -252,6 +257,10 @@ function AssignDialog({ template, open, onClose, session }) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Unbekannter Fehler')
       setSignerUrl(data.signerUrl)
+      setSendId(data.sendId || null)
+      // Pre-fill email from selected entity
+      const email = entityType === 'fachkraft' ? (selected.contact_email || '') : (selected.email || '')
+      setEmailAddress(email)
     } catch (err) {
       toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {
@@ -259,8 +268,33 @@ function AssignDialog({ template, open, onClose, session }) {
     }
   }
 
+  const handleSendEmail = async () => {
+    if (!emailAddress.trim() || !sendId) return
+    setEmailSending(true)
+    try {
+      const res = await fetch('/api/admin/dokumente/send-email', {
+        method: 'POST',
+        headers: authHeaders(session?.access_token),
+        body: JSON.stringify({
+          sendId,
+          recipientEmail: emailAddress.trim(),
+          recipientName: signerName,
+          customMessage: useCustomMessage ? customMessage : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Senden')
+      setEmailSent(true)
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
   const handleClose = () => {
     setSelected(null); setSearch(''); setSignerUrl(null); setSignerName('')
+    setSendId(null); setEmailAddress(''); setUseCustomMessage(false); setCustomMessage(''); setEmailSending(false); setEmailSent(false)
     setDisabledPrefillIds(new Set()); setCheckboxPrefills({}); setFieldPickerOpen(false)
     onClose()
   }
@@ -277,12 +311,13 @@ function AssignDialog({ template, open, onClose, session }) {
 
         {signerUrl ? (
           <div className="space-y-4">
+            {/* Link */}
             <div className="rounded-lg bg-green-50 border border-green-200 p-4 space-y-3">
               <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 Signierlink erfolgreich erstellt
               </div>
-              <p className="text-xs text-gray-500">Sende diesen Link manuell an den Unterzeichner:</p>
+              <p className="text-xs text-gray-500">Teile diesen Link per E-Mail, WhatsApp oder direkt:</p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-xs bg-white border border-green-200 rounded px-3 py-2 break-all text-gray-700 select-all">{signerUrl}</code>
                 <Button size="sm" variant="outline" className="shrink-0" onClick={() => copy(signerUrl)}>
@@ -290,6 +325,73 @@ function AssignDialog({ template, open, onClose, session }) {
                 </Button>
               </div>
             </div>
+
+            {/* Email */}
+            <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-gray-700 font-semibold text-sm">
+                <Mail className="h-4 w-4 shrink-0 text-[#1a3a5c]" />
+                Per E-Mail senden
+              </div>
+
+              {emailSent ? (
+                <div className="flex items-center gap-2 text-green-700 bg-green-50 rounded-lg px-3 py-2.5 text-sm font-medium">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  E-Mail wurde gesendet!
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">E-Mail-Adresse</Label>
+                    <input
+                      type="email"
+                      value={emailAddress}
+                      onChange={e => setEmailAddress(e.target.value)}
+                      placeholder="empfaenger@beispiel.de"
+                      className="w-full h-9 px-3 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    {!emailAddress && (
+                      <p className="flex items-center gap-1 text-xs text-amber-600">
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        Keine E-Mail-Adresse im Profil hinterlegt
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUseCustomMessage(v => !v)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${useCustomMessage ? 'bg-[#1a3a5c]' : 'bg-gray-200'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${useCustomMessage ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                    <span className="text-xs text-gray-600">Eigenen Text verfassen</span>
+                  </div>
+
+                  {useCustomMessage && (
+                    <textarea
+                      value={customMessage}
+                      onChange={e => setCustomMessage(e.target.value)}
+                      placeholder="ich sende dir ein Dokument zum Ausfüllen und Unterschreiben."
+                      rows={3}
+                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-[#1a3a5c]"
+                    />
+                  )}
+
+                  <Button
+                    onClick={handleSendEmail}
+                    disabled={!emailAddress.trim() || emailSending}
+                    className="w-full bg-[#0ea5a0] hover:bg-[#0ea5a0]/90 text-white"
+                  >
+                    {emailSending
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Wird gesendet...</>
+                      : <><Mail className="h-3.5 w-3.5 mr-1.5" />E-Mail senden</>
+                    }
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <DialogFooter>
               <Button className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90" onClick={handleClose}>Fertig</Button>
             </DialogFooter>

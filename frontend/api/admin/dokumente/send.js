@@ -32,7 +32,7 @@ async function sendEmail({ signerName, signerEmail, signerUrl, message }) {
           <!-- Header -->
           <tr>
             <td style="background:#1a3a5c;padding:32px 40px;">
-              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:0.5px;">FKVI Plattform</h1>
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:0.5px;">Fachkraft Vermittlung International</h1>
               <p style="margin:8px 0 0;color:#a8c4e0;font-size:14px;">Dokument unterzeichnen</p>
             </td>
           </tr>
@@ -69,7 +69,7 @@ async function sendEmail({ signerName, signerEmail, signerUrl, message }) {
           <tr>
             <td style="background:#f0f4f8;padding:20px 40px;border-top:1px solid #e2e8f0;">
               <p style="margin:0;color:#999;font-size:12px;text-align:center;">
-                Diese E-Mail wurde automatisch von der FKVI Plattform gesendet. Bitte antworten Sie nicht auf diese E-Mail.
+                Diese E-Mail wurde automatisch von Fachkraft Vermittlung International GmbH &amp; Co. KG gesendet. Bitte nicht auf diese E-Mail antworten.
               </p>
             </td>
           </tr>
@@ -87,9 +87,9 @@ async function sendEmail({ signerName, signerEmail, signerUrl, message }) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'FKVI Plattform <noreply@fkvi-plattform.de>',
+      from: 'Fachkraft Vermittlung International <noreply@fkvi-plattform.de>',
       to: [signerEmail],
-      subject: 'Dokument unterzeichnen – FKVI Plattform',
+      subject: 'Dokument unterzeichnen – Fachkraft Vermittlung International',
       html: htmlBody,
     }),
   })

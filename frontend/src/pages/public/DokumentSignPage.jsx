@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 
-import { CheckCircle2, AlertCircle, Loader2, PenLine } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, PenLine, FileText, ClipboardList } from 'lucide-react'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 import { Input } from '@/components/ui/input'
@@ -294,6 +294,9 @@ function FieldInput({ field, value, onChange }) {
 
 export default function DokumentSignPage() {
   const { token } = useParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const bundleToken = searchParams.get('bundle')
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -303,6 +306,8 @@ export default function DokumentSignPage() {
   const [signatureDataUrl, setSignatureDataUrl] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [mobileTab, setMobileTab] = useState('form') // 'form' | 'pdf'
+  const [missingFields, setMissingFields] = useState([])
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -345,6 +350,22 @@ export default function DokumentSignPage() {
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!signatureDataUrl || submitting) return
+
+    // Validate required fields
+    const missing = inputFields.filter(f => {
+      if (f.required === false) return false
+      const val = fieldValues[f.id]
+      if (f.type === 'checkbox') {
+        return f.multiple ? (!Array.isArray(val) || val.length === 0) : !val
+      }
+      return !val || String(val).trim() === ''
+    })
+    if (missing.length > 0) {
+      setMissingFields(missing.map(f => f.id))
+      return
+    }
+    setMissingFields([])
+
     setSubmitting(true)
     try {
       const blob = await fetch(signatureDataUrl).then(r => r.blob())
@@ -365,6 +386,10 @@ export default function DokumentSignPage() {
       const submitData = await submitRes.json()
       if (!submitRes.ok) throw new Error(submitData.error || 'Einreichung fehlgeschlagen.')
       setSubmitted(true)
+      // If part of a bundle, redirect back to bundle overview after short delay
+      if (bundleToken) {
+        setTimeout(() => navigate(`/bundle/${bundleToken}`), 2200)
+      }
     } catch (err) {
       setError(err.message)
       setSubmitting(false)
@@ -439,12 +464,171 @@ export default function DokumentSignPage() {
         </div>
         <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 text-sm text-gray-500 text-left space-y-1">
           <p className="font-semibold text-gray-700">Ihre Ansprechperson bei FKVI:</p>
-          <p>Fachkraft Vermittlung International GmbH</p>
+          <p>Fachkraft Vermittlung International GmbH &amp; Co. KG</p>
           <a href="mailto:info@fkvi.de" className="text-[#0d9488] underline underline-offset-2">
             info@fkvi.de
           </a>
         </div>
       </div>
+    </div>
+  )
+
+  // Compute whether all required fields + signature are filled
+  const allRequiredFilled = signatureDataUrl && inputFields.every(f => {
+    if (f.required === false) return true
+    const val = fieldValues[f.id]
+    if (f.type === 'checkbox') return f.multiple ? (Array.isArray(val) && val.length > 0) : !!val
+    return val && String(val).trim() !== ''
+  })
+
+  const handleBottomButton = () => {
+    if (submitting) return
+    if (allRequiredFilled) {
+      handleSubmit()
+    } else {
+      // Switch to form tab and highlight missing fields
+      setMobileTab('form')
+      const missing = inputFields.filter(f => {
+        if (f.required === false) return false
+        const val = fieldValues[f.id]
+        if (f.type === 'checkbox') return f.multiple ? (!Array.isArray(val) || val.length === 0) : !val
+        return !val || String(val).trim() === ''
+      })
+      if (missing.length > 0) setMissingFields(missing.map(f => f.id))
+    }
+  }
+
+  // ── Shared form content ────────────────────────────────────────────────────
+  const formContent = (
+    <div className="px-5 py-6 space-y-7">
+      {/* Doc info */}
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">{data?.templateName}</h1>
+        {data?.signerName && (
+          <p className="text-sm text-gray-400 mt-1">für: <span className="font-medium text-gray-600">{data.signerName}</span></p>
+        )}
+      </div>
+
+      {/* Admin message */}
+      {data?.message && (
+        <div className="rounded-xl bg-[#1a3a5c]/5 border border-[#1a3a5c]/15 p-4">
+          <p className="text-gray-700 text-sm leading-relaxed">{data.message}</p>
+        </div>
+      )}
+
+      {/* Prefill info banner */}
+      {isPrefillMode && (
+        <div className="rounded-xl bg-blue-50 border border-blue-100 p-3.5 flex items-start gap-2.5">
+          <svg className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm text-blue-700 leading-snug">
+            <span className="font-semibold">{prefilledFieldIds.length} {prefilledFieldIds.length === 1 ? 'Feld wurde' : 'Felder wurden'} bereits ausgefüllt</span>
+            {' '}und sind direkt im Dokument eingetragen.
+          </p>
+        </div>
+      )}
+
+      {/* Errors */}
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-red-700 text-sm">{error}</p>
+        </div>
+      )}
+      {missingFields.length > 0 && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-amber-700 text-sm">Bitte füllen Sie alle Pflichtfelder aus.</p>
+        </div>
+      )}
+
+      {/* Input fields */}
+      {hasInputFields && (
+        <div className="space-y-5">
+          {inputFields.map(field => (
+            <div key={field.id} className="space-y-2">
+              <Label className={`text-sm font-semibold ${missingFields.includes(field.id) ? 'text-red-600' : 'text-gray-700'}`}>
+                {field.label || field.type}
+                {field.required !== false && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+              <div className={missingFields.includes(field.id) ? 'ring-2 ring-red-300 rounded-xl' : ''}>
+                <FieldInput
+                  field={field}
+                  value={fieldValues[field.id]}
+                  onChange={val => {
+                    setFieldValue(field.id, val)
+                    if (missingFields.includes(field.id)) {
+                      setMissingFields(prev => prev.filter(id => id !== field.id))
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Signature */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <PenLine className="h-5 w-5 text-[#0d9488]" />
+          <span className="text-base font-bold text-gray-800">Ihre Unterschrift</span>
+        </div>
+        <p className="text-sm text-gray-400">
+          Unterschreiben Sie mit dem Finger oder der Maus im Feld unten.
+        </p>
+        <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden">
+          <SignatureCanvas onSignatureChange={setSignatureDataUrl} disabled={submitting} />
+        </div>
+        {!signatureDataUrl && (
+          <p className="text-xs text-center text-gray-400">
+            Noch keine Unterschrift — bitte im Feld oben unterzeichnen
+          </p>
+        )}
+      </div>
+    </div>
+  )
+
+  // ── Shared bottom action button ────────────────────────────────────────────
+  const bottomButton = (
+    <div className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+      <button
+        onClick={allRequiredFilled ? handleSubmit : handleBottomButton}
+        disabled={submitting}
+        className={`
+          w-full h-16 rounded-2xl text-xl font-bold transition-all
+          flex items-center justify-center gap-3
+          ${allRequiredFilled && !submitting
+            ? 'bg-[#0d9488] hover:bg-[#0d9488]/90 text-white shadow-lg shadow-[#0d9488]/25 active:scale-100'
+            : submitting
+              ? 'bg-[#0d9488] text-white cursor-not-allowed'
+              : 'bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white active:scale-100'
+          }
+        `}
+      >
+        {submitting ? (
+          <>
+            <Loader2 className="h-6 w-6 animate-spin" />
+            Wird eingereicht…
+          </>
+        ) : allRequiredFilled ? (
+          <>
+            <CheckCircle2 className="h-6 w-6" />
+            ABSENDEN
+          </>
+        ) : (
+          <>
+            <ClipboardList className="h-6 w-6" />
+            AUSFÜLLEN
+          </>
+        )}
+      </button>
+      {allRequiredFilled && !submitting && (
+        <p className="text-xs text-center text-gray-400 mt-2">
+          Mit dem Absenden bestätigen Sie Ihre Unterschrift und stimmen dem Dokument zu.
+        </p>
+      )}
     </div>
   )
 
@@ -465,11 +649,56 @@ export default function DokumentSignPage() {
         </div>
       </header>
 
-      {/* Two-column layout */}
-      <div className="flex-1 flex flex-col lg:flex-row max-w-screen-xl mx-auto w-full">
+      {/* ══ MOBILE: Tab layout ══════════════════════════════════════════════ */}
+      <div className="lg:hidden flex flex-col flex-1 bg-white" style={{ height: 'calc(100vh - 56px)' }}>
 
-        {/* ── LEFT: PDF with interactive checkboxes ── */}
-        <div className="lg:flex-1 lg:min-w-0 lg:sticky lg:top-14 lg:h-[calc(100vh-56px)] lg:overflow-y-auto bg-gray-100 p-4 lg:p-6">
+        {/* Tab bar */}
+        <div className="shrink-0 flex border-b border-gray-200 bg-white z-10">
+          {[
+            { id: 'form', label: 'Formular', icon: ClipboardList },
+            { id: 'pdf',  label: 'Dokument', icon: FileText },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMobileTab(id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-semibold border-b-2 transition-colors ${
+                mobileTab === id
+                  ? 'border-[#1a3a5c] text-[#1a3a5c]'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-y-auto">
+          {mobileTab === 'form' ? (
+            formContent
+          ) : (
+            <div className="p-4 bg-gray-100 min-h-full">
+              <PdfViewer
+                pdfUrl={pdfUrl}
+                fields={data?.fields}
+                fieldValues={fieldValues}
+                onToggle={handlePdfToggle}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Sticky bottom button — always visible */}
+        {bottomButton}
+      </div>
+
+      {/* ══ DESKTOP: Two-column layout ══════════════════════════════════════ */}
+      <div className="hidden lg:flex flex-1 flex-row max-w-screen-xl mx-auto w-full">
+
+        {/* PDF — left */}
+        <div className="flex-1 min-w-0 sticky top-14 h-[calc(100vh-56px)] overflow-y-auto bg-gray-100 p-6">
           <PdfViewer
             pdfUrl={pdfUrl}
             fields={data?.fields}
@@ -478,123 +707,12 @@ export default function DokumentSignPage() {
           />
         </div>
 
-        {/* ── RIGHT: Form + Signature + Submit ── */}
-        <div className="lg:w-[460px] lg:shrink-0 bg-white lg:border-l lg:border-gray-200 flex flex-col lg:h-[calc(100vh-56px)] lg:sticky lg:top-14">
-
-          {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto px-5 py-6 space-y-7">
-
-            {/* Doc info */}
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{data?.templateName}</h1>
-              {data?.signerName && (
-                <p className="text-sm text-gray-400 mt-1">für: <span className="font-medium text-gray-600">{data.signerName}</span></p>
-              )}
-            </div>
-
-            {/* Admin message */}
-            {data?.message && (
-              <div className="rounded-xl bg-[#1a3a5c]/5 border border-[#1a3a5c]/15 p-4">
-                <p className="text-gray-700 text-sm leading-relaxed">{data.message}</p>
-              </div>
-            )}
-
-            {/* Prefill info banner */}
-            {isPrefillMode && (
-              <div className="rounded-xl bg-blue-50 border border-blue-100 p-3.5 flex items-start gap-2.5">
-                <svg className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm text-blue-700 leading-snug">
-                  <span className="font-semibold">{prefilledFieldIds.length} {prefilledFieldIds.length === 1 ? 'Feld wurde' : 'Felder wurden'} bereits ausgefüllt</span>
-                  {' '}und sind direkt im Dokument eingetragen. Bitte prüfen Sie das Dokument und unterschreiben Sie unten.
-                </p>
-              </div>
-            )}
-
-            {/* Non-fatal error */}
-            {error && (
-              <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-red-700 text-sm">{error}</p>
-              </div>
-            )}
-
-            {/* Input fields (text, date, initials, unpositioned checkboxes) */}
-            {hasInputFields && (
-              <div className="space-y-5">
-                {inputFields.map(field => (
-                  <div key={field.id} className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700">
-                      {field.label || field.type}
-                      {field.required !== false && <span className="text-red-500 ml-1">*</span>}
-                    </Label>
-                    <FieldInput
-                      field={field}
-                      value={fieldValues[field.id]}
-                      onChange={val => setFieldValue(field.id, val)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Signature section */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <PenLine className="h-5 w-5 text-[#0d9488]" />
-                <span className="text-base font-bold text-gray-800">Ihre Unterschrift</span>
-              </div>
-              <p className="text-sm text-gray-400">
-                Unterschreiben Sie mit dem Finger oder der Maus im Feld unten.
-              </p>
-              <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden">
-                <SignatureCanvas
-                  onSignatureChange={setSignatureDataUrl}
-                  disabled={submitting}
-                />
-              </div>
-              {!signatureDataUrl && (
-                <p className="text-xs text-center text-gray-400">
-                  Noch keine Unterschrift — bitte im Feld oben unterzeichnen
-                </p>
-              )}
-            </div>
-
-            {/* Bottom padding for mobile */}
-            <div className="h-2 lg:hidden" />
+        {/* Form — right */}
+        <div className="w-[460px] shrink-0 bg-white border-l border-gray-200 flex flex-col h-[calc(100vh-56px)] sticky top-14">
+          <div className="flex-1 overflow-y-auto">
+            {formContent}
           </div>
-
-          {/* ── Sticky submit button ── */}
-          <div className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-            <button
-              onClick={handleSubmit}
-              disabled={!signatureDataUrl || submitting}
-              className={`
-                w-full h-16 rounded-2xl text-xl font-bold transition-all
-                flex items-center justify-center gap-3
-                ${signatureDataUrl && !submitting
-                  ? 'bg-[#0d9488] hover:bg-[#0d9488]/90 text-white shadow-lg shadow-[#0d9488]/25 scale-[1.01] active:scale-100'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }
-              `}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  Wird eingereicht…
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className={`h-6 w-6 ${signatureDataUrl ? 'text-white' : 'text-gray-300'}`} />
-                  Absenden
-                </>
-              )}
-            </button>
-            <p className="text-xs text-center text-gray-400 mt-2">
-              Mit dem Absenden bestätigen Sie Ihre Unterschrift und stimmen dem Dokument zu.
-            </p>
-          </div>
+          {bottomButton}
         </div>
       </div>
     </div>
