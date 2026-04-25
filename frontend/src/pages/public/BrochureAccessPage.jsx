@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Loader2, AlertCircle, CheckCircle2, FileDown, ChevronDown } from 'lucide-react'
 
@@ -98,6 +98,19 @@ export default function BrochureAccessPage() {
   const [confirmed, setConfirmed] = useState(false)
 
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown on outside click (avoids z-index overlay issues)
+  useEffect(() => {
+    if (!langDropdownOpen) return
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setLangDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [langDropdownOpen])
 
   // Load page metadata
   useEffect(() => {
@@ -191,7 +204,7 @@ export default function BrochureAccessPage() {
           <div className="flex items-center gap-3">
             {/* Language switcher */}
             {available_languages && available_languages.length > 1 && (
-              <div className="relative">
+              <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setLangDropdownOpen(o => !o)}
                   className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -254,10 +267,6 @@ export default function BrochureAccessPage() {
           />
         )}
 
-        {/* Click-away close for lang dropdown */}
-        {langDropdownOpen && (
-          <div className="fixed inset-0 z-10" onClick={() => setLangDropdownOpen(false)} />
-        )}
       </div>
 
       {/* Sticky bottom bar — always visible */}
