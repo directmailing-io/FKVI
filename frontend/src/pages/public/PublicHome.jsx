@@ -1528,10 +1528,6 @@ export default function PublicHome() {
           <KundenstimmenSection />
         </div>
         <ProzessSection prozessRef={prozessRef} />
-      </div>
-
-      {/* ── Dark zone 2: floating white island + Motivation ── */}
-      <div style={{ background: '#0f172a' }}>
         <div style={{ background: '#fff', borderRadius: 32, margin: '40px 0', overflow: 'hidden' }}>
           <UeberUnsSection />
         </div>
