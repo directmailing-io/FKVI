@@ -102,7 +102,7 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
           <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1.5 whitespace-nowrap">
             Broschüre<span className="relative -top-1.5 -ml-0.5 text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
           </Link>
-          <Link to="/matching/login" className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching</Link>
+          <Link to="/matching/login" className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching-Plattform</Link>
         </nav>
 
         {/* Right */}
@@ -135,7 +135,7 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
             <Link to="/downloads" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
               Broschüre<span className="relative -top-1.5 -ml-0.5 text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
             </Link>
-            <Link to="/matching/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching</Link>
+            <Link to="/matching/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</Link>
             <div className="border-t border-gray-100 my-1" />
             <a href="tel:+491605562142" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
               <Phone className="h-4 w-4 text-fkvi-teal" /><span>+49 160 5562142</span>
@@ -998,7 +998,7 @@ function AccessRequestModal({ open, onClose }) {
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
                   <MapPin className="h-3 w-3" />
-                  Straße &amp; Hausnummer
+                  Straße &amp; Hausnummer <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -1013,7 +1013,7 @@ function AccessRequestModal({ open, onClose }) {
               {/* PLZ + Ort */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">PLZ</label>
+                  <label className="text-xs font-medium text-gray-600">PLZ <span className="text-red-400">*</span></label>
                   <input
                     type="text"
                     required
@@ -1024,7 +1024,7 @@ function AccessRequestModal({ open, onClose }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Ort</label>
+                  <label className="text-xs font-medium text-gray-600">Ort <span className="text-red-400">*</span></label>
                   <input
                     type="text"
                     required
