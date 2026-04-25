@@ -824,14 +824,14 @@ function KundenstimmenSection() {
 }
 
 function AccessRequestModal({ open, onClose }) {
-  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', company_name: '' })
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', company_name: '', address: '', postal_code: '', city: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
 
   const handleClose = () => {
     if (loading) return
-    setForm({ first_name: '', last_name: '', email: '', phone: '', company_name: '' })
+    setForm({ first_name: '', last_name: '', email: '', phone: '', company_name: '', address: '', postal_code: '', city: '' })
     setError('')
     setDone(false)
     onClose()
@@ -877,7 +877,7 @@ function AccessRequestModal({ open, onClose }) {
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="bg-gradient-to-br from-fkvi-blue to-fkvi-blue/90 px-6 pt-7 pb-6 text-white">
@@ -994,6 +994,50 @@ function AccessRequestModal({ open, onClose }) {
                 />
               </div>
 
+              {/* Address */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+                  <MapPin className="h-3 w-3" />
+                  Straße &amp; Hausnummer
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.address}
+                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                  placeholder="Musterstraße 12"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                />
+              </div>
+
+              {/* PLZ + Ort */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">
+                    PLZ <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.postal_code}
+                    onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))}
+                    placeholder="12345"
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">
+                    Ort <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.city}
+                    onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                    placeholder="Frankfurt am Main"
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-fkvi-blue/30 focus:border-fkvi-blue transition"
+                  />
+                </div>
+              </div>
+
               {error && (
                 <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 leading-relaxed">
                   {error}
@@ -1040,11 +1084,20 @@ function ProfileCard({ profile, onRequestAccess }) {
       {/* Top gradient band — same as matching platform */}
       <div className="h-16 bg-gradient-to-br from-fkvi-blue/10 via-fkvi-teal/5 to-transparent shrink-0" />
 
-      {/* Avatar — always anonymized, no real photo shown */}
+      {/* Avatar — real photo blurred to show presence but hide identity */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2">
         <div className="w-24 h-24 rounded-full p-[3px] shadow-md" style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}>
           <div className="w-full h-full rounded-full overflow-hidden bg-fkvi-blue/10 flex items-center justify-center">
-            <User className="h-9 w-9 text-fkvi-blue/30" />
+            {profile.profile_image_url ? (
+              <img
+                src={profile.profile_image_url}
+                alt="Fachkraft"
+                className="w-full h-full object-cover object-top"
+                style={{ filter: 'blur(7px)', transform: 'scale(1.15)' }}
+              />
+            ) : (
+              <User className="h-9 w-9 text-fkvi-blue/30" />
+            )}
           </div>
         </div>
         {/* "Anonymisiert" pill — identical to matching platform */}
@@ -1061,7 +1114,7 @@ function ProfileCard({ profile, onRequestAccess }) {
         <div className="text-center">
           <p className="font-bold text-gray-900 text-sm leading-tight">{profile.nursing_education || 'Pflegefachkraft'}</p>
           <div className="flex justify-center my-1">
-            <div className="h-3 w-24 rounded bg-gray-200 select-none" style={{ filter: 'blur(5px)' }} />
+            <div className="h-3 w-24 rounded bg-gray-300 select-none" style={{ filter: 'blur(3px)' }} />
           </div>
           <p className="text-xs text-gray-500">
             {[profile.gender, profile.age ? `${profile.age} J.` : null, profile.nationality].filter(Boolean).join(' · ')}
@@ -1102,7 +1155,7 @@ function ProfileCard({ profile, onRequestAccess }) {
           className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gray-50 border border-gray-200 text-xs font-medium text-gray-500 hover:bg-fkvi-blue hover:text-white hover:border-fkvi-blue group-hover:bg-fkvi-blue group-hover:text-white group-hover:border-fkvi-blue transition-all duration-200"
         >
           <Lock className="h-3.5 w-3.5" />
-          Vollprofil freischalten
+          Zugang beantragen
         </button>
       </div>
 
