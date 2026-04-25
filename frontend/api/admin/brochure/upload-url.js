@@ -19,14 +19,17 @@ export default async function handler(req, res) {
     .from('admin_users').select('id').eq('user_id', user.id).single()
   if (!admin) return res.status(403).json({ error: 'Forbidden' })
 
-  const { fileName, notes } = req.body || {}
+  const { fileName, notes, language = 'de' } = req.body || {}
 
+  const VALID_LANGS = ['de', 'en', 'fr', 'ar', 'vi']
   if (!fileName) return res.status(400).json({ error: 'fileName fehlt' })
+  if (!VALID_LANGS.includes(language)) return res.status(400).json({ error: 'Ungültige Sprache' })
 
-  // Get next version number
+  // Get next version number per language
   const { data: maxRow } = await supabaseAdmin
     .from('brochure_versions')
     .select('version_number')
+    .eq('language', language)
     .order('version_number', { ascending: false })
     .limit(1)
     .single()
@@ -35,7 +38,7 @@ export default async function handler(req, res) {
 
   // Sanitize fileName for storage path
   const sanitized = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const storagePath = `v${nextVersion}/${Date.now()}-${sanitized}`
+  const storagePath = `${language}/v${nextVersion}/${Date.now()}-${sanitized}`
 
   // Create signed upload URL
   const { data, error: uploadError } = await supabaseAdmin.storage
@@ -52,5 +55,6 @@ export default async function handler(req, res) {
     token: data.token,
     storagePath,
     versionNumber: nextVersion,
+    language,
   })
 }

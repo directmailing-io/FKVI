@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     .from('admin_users').select('id').eq('user_id', user.id).single()
   if (!admin) return res.status(403).json({ error: 'Forbidden' })
 
-  const { fileName, storagePath, versionNumber, notes } = req.body || {}
+  const { fileName, storagePath, versionNumber, notes, language = 'de' } = req.body || {}
 
   if (!fileName || !storagePath || !versionNumber) {
     return res.status(400).json({ error: 'fileName, storagePath und versionNumber sind erforderlich' })
@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       storage_path: storagePath,
       notes: notes || null,
       uploaded_by: user.email,
+      language,
     })
     .select()
     .single()

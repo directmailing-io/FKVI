@@ -7,66 +7,95 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import {
-  FileText, Upload, CheckCircle2, Clock, AlertCircle, Download, ExternalLink,
-  Loader2, ChevronUp, ChevronDown, Search, RefreshCw, Building2, Mail, Phone,
-  History, Eye, Send, FileDown, User, SortAsc, Trash2,
+  FileText, Upload, CheckCircle2, Clock, AlertCircle, Eye, Send, Loader2,
+  ChevronUp, ChevronDown, Search, RefreshCw, Mail, Phone,
+  Trash2, SortAsc, History, ExternalLink, Settings, FileSignature,
+  PenLine, ArrowRight, Info,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const LANGS = [
+  { code: 'de', label: 'Deutsch',       flag: '🇩🇪' },
+  { code: 'en', label: 'English',       flag: '🇬🇧' },
+  { code: 'fr', label: 'Français',      flag: '🇫🇷' },
+  { code: 'ar', label: 'عربي',          flag: '🇸🇦' },
+  { code: 'vi', label: 'Tiếng Việt',   flag: '🇻🇳' },
+]
+
+const LEAD_FIELDS = [
+  { key: 'first_name', label: 'Vorname' },
+  { key: 'last_name',  label: 'Nachname' },
+  { key: 'full_name',  label: 'Vollständiger Name' },
+  { key: 'email',      label: 'E-Mail' },
+  { key: 'phone',      label: 'Telefon' },
+]
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(ts) {
   if (!ts) return '–'
   return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
-
 function fmtDate(ts) {
   if (!ts) return '–'
   return new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-
 function getDaysRemaining(confirmedAt) {
   if (!confirmedAt) return null
   const end = new Date(confirmedAt).getTime() + 7 * 24 * 60 * 60 * 1000
   return Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24))
 }
 
+function LangBadge({ lang }) {
+  const m = LANGS.find(l => l.code === lang) || LANGS[0]
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
+      {m.flag} {m.code.toUpperCase()}
+    </span>
+  )
+}
+
 function StatusBadge({ request }) {
   if (!request.email_confirmed_at) {
     return <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-full"><Clock className="h-3 w-3" />E-Mail ausstehend</span>
+  }
+  if (request.contract_send?.status === 'signed') {
+    return <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-800 bg-purple-100 border border-purple-300 px-2.5 py-1 rounded-full"><FileSignature className="h-3 w-3" />Unterschrieben</span>
+  }
+  if (request.contract_sent_at) {
+    const openedStr = request.contract_send?.opened_at ? `· geöffnet ${fmtDate(request.contract_send.opened_at)}` : '· noch nicht geöffnet'
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full"><Send className="h-3 w-3" />Vertrag geschickt {openedStr}</span>
   }
   if (!request.confirmation) {
     return <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full"><Eye className="h-3 w-3" />Noch nicht bestätigt</span>
   }
   const days = getDaysRemaining(request.confirmation.confirmed_at)
   if (days > 0) {
-    return <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full"><Clock className="h-3 w-3" />{days} {days === 1 ? 'Tag' : 'Tage'} verbleibend</span>
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full"><Clock className="h-3 w-3" />{days} {days === 1 ? 'Tag' : 'Tage'} bis Versand</span>
   }
-  return <span className="inline-flex items-center gap-1 text-xs font-bold text-green-800 bg-green-100 border border-green-300 px-2.5 py-1 rounded-full"><Send className="h-3 w-3" />Vertrag zusenden!</span>
+  return <span className="inline-flex items-center gap-1 text-xs font-bold text-green-800 bg-green-100 border border-green-300 px-2.5 py-1 rounded-full"><Send className="h-3 w-3" />Vertrag fällig!</span>
 }
 
-// ─── Sortable column header ─────────────────────────────────────────────────
 function SortHeader({ label, field, sortField, sortDir, onSort }) {
   const active = sortField === field
   return (
-    <th
-      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-800 whitespace-nowrap"
-      onClick={() => onSort(field)}
-    >
+    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-800 whitespace-nowrap" onClick={() => onSort(field)}>
       <div className="flex items-center gap-1">
         {label}
         {active
           ? (sortDir === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)
-          : <SortAsc className="h-3.5 w-3.5 text-gray-300" />
-        }
+          : <SortAsc className="h-3.5 w-3.5 text-gray-300" />}
       </div>
     </th>
   )
 }
 
-// ─── Upload panel ────────────────────────────────────────────────────────────
-function UploadPanel({ session, onUploaded }) {
+// ─── Upload Panel (per language) ──────────────────────────────────────────────
+
+function LangUploadPanel({ session, lang, latestVersion, onUploaded }) {
   const [file, setFile] = useState(null)
   const [notes, setNotes] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -86,17 +115,15 @@ function UploadPanel({ session, onUploaded }) {
     setUploading(true)
     setProgress(10)
     try {
-      // 1. Get signed upload URL
       const urlRes = await fetch('/api/admin/brochure/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ fileName: file.name, notes }),
+        body: JSON.stringify({ fileName: file.name, notes, language: lang.code }),
       })
       const urlData = await urlRes.json()
       if (!urlRes.ok) throw new Error(urlData.error || 'Upload-URL Fehler')
       setProgress(30)
 
-      // 2. Upload file directly to Supabase Storage
       const uploadRes = await fetch(urlData.signedUrl, {
         method: 'PUT',
         body: file,
@@ -105,20 +132,19 @@ function UploadPanel({ session, onUploaded }) {
       if (!uploadRes.ok) throw new Error('Datei-Upload fehlgeschlagen')
       setProgress(70)
 
-      // 3. Register version in DB
       const verRes = await fetch('/api/admin/brochure/create-version', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ fileName: file.name, storagePath: urlData.storagePath, versionNumber: urlData.versionNumber, notes }),
+        body: JSON.stringify({ fileName: file.name, storagePath: urlData.storagePath, versionNumber: urlData.versionNumber, notes, language: lang.code }),
       })
       const verData = await verRes.json()
       if (!verRes.ok) throw new Error(verData.error || 'Version-Registrierung Fehler')
       setProgress(100)
 
-      toast({ title: `Version ${urlData.versionNumber} erfolgreich hochgeladen` })
+      toast({ title: `${lang.flag} ${lang.label}: Version ${urlData.versionNumber} hochgeladen` })
       setFile(null)
       setNotes('')
-      fileRef.current.value = ''
+      if (fileRef.current) fileRef.current.value = ''
       onUploaded()
     } catch (err) {
       toast({ title: 'Upload fehlgeschlagen', description: err.message, variant: 'destructive' })
@@ -129,71 +155,82 @@ function UploadPanel({ session, onUploaded }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-dashed border-gray-300 p-6 hover:border-fkvi-blue/50 transition-colors">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 bg-fkvi-blue/8 rounded-lg flex items-center justify-center">
-          <Upload className="h-4.5 w-4.5 text-fkvi-blue" />
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{lang.flag}</span>
+          <div>
+            <p className="font-semibold text-gray-900 text-sm">{lang.label}</p>
+            {latestVersion ? (
+              <p className="text-xs text-gray-400">Aktuelle Version: v{latestVersion.version_number} · {fmtDate(latestVersion.uploaded_at)}</p>
+            ) : (
+              <p className="text-xs text-amber-600 font-medium">Noch keine Broschüre hochgeladen</p>
+            )}
+          </div>
         </div>
-        <div>
-          <p className="font-semibold text-gray-900 text-sm">Neue Version hochladen</p>
-          <p className="text-xs text-gray-400">PDF · max. 50 MB · wird automatisch versioniert</p>
-        </div>
+        {latestVersion && (
+          <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Aktiv</span>
+        )}
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <input ref={fileRef} type="file" accept="application/pdf" onChange={handleFile} className="hidden" id="broschuere-upload" />
-          <label
-            htmlFor="broschuere-upload"
-            className={cn(
-              'flex items-center gap-3 w-full border rounded-lg px-4 py-3 cursor-pointer transition-colors text-sm',
-              file ? 'border-fkvi-blue bg-fkvi-blue/4 text-fkvi-blue' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
-            )}
-          >
-            <FileText className="h-4 w-4 shrink-0" />
-            {file ? file.name : 'PDF-Datei auswählen...'}
-          </label>
-        </div>
-
+      {/* Upload */}
+      <div className="space-y-2">
+        <input ref={fileRef} type="file" accept="application/pdf" onChange={handleFile} className="hidden" id={`upload-${lang.code}`} />
+        <label
+          htmlFor={`upload-${lang.code}`}
+          className={cn(
+            'flex items-center gap-3 w-full border rounded-lg px-3 py-2.5 cursor-pointer transition-colors text-sm',
+            file ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'
+          )}
+        >
+          <FileText className="h-4 w-4 shrink-0" />
+          {file ? file.name : 'PDF auswählen...'}
+        </label>
         <Input
-          placeholder="Versions-Notiz (optional, z.B. 'Aktualisierter Vermittlungsvertrag')"
+          placeholder="Versions-Notiz (optional)"
           value={notes}
           onChange={e => setNotes(e.target.value)}
           className="text-sm"
         />
-
         {progress > 0 && progress < 100 && (
           <div className="w-full bg-gray-100 rounded-full h-1.5">
-            <div className="bg-fkvi-blue h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            <div className="bg-teal-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         )}
-
-        <Button onClick={handleUpload} disabled={!file || uploading} className="w-full">
-          {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird hochgeladen...</> : <><Upload className="h-4 w-4 mr-2" />Version hochladen</>}
+        <Button onClick={handleUpload} disabled={!file || uploading} className="w-full" size="sm">
+          {uploading ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Hochladen...</> : <><Upload className="h-3.5 w-3.5 mr-2" />Hochladen</>}
         </Button>
       </div>
     </div>
   )
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function BrochuerePage() {
   const { session } = useAuthStore()
   const navigate = useNavigate()
 
-  // Versions
-  const [versions, setVersions] = useState([])
+  const [byLanguage, setByLanguage] = useState({})
   const [versionsLoading, setVersionsLoading] = useState(true)
 
-  // Requests
   const [requests, setRequests] = useState([])
   const [requestsLoading, setRequestsLoading] = useState(true)
 
-  // Filters & sorting
+  const [templates, setTemplates] = useState([])
+  const [settings, setSettings] = useState({ contract_template_id: null, prefill_config: {} })
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortField, setSortField] = useState('created_at')
   const [sortDir, setSortDir] = useState('desc')
+
+  const [sendingContract, setSendingContract] = useState(null)
+  const [deletingLead, setDeletingLead] = useState(null)
 
   const fetchVersions = useCallback(async () => {
     if (!session?.access_token) return
@@ -203,12 +240,9 @@ export default function BrochuerePage() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const data = await res.json()
-      setVersions(data.versions || [])
-    } catch {
-      setVersions([])
-    } finally {
-      setVersionsLoading(false)
-    }
+      setByLanguage(data.byLanguage || {})
+    } catch { setByLanguage({}) }
+    finally { setVersionsLoading(false) }
   }, [session])
 
   const fetchRequests = useCallback(async () => {
@@ -223,32 +257,121 @@ export default function BrochuerePage() {
       setRequests(data.requests || [])
     } catch (err) {
       toast({ title: 'Fehler beim Laden', description: err.message, variant: 'destructive' })
-    } finally {
-      setRequestsLoading(false)
-    }
+    } finally { setRequestsLoading(false) }
+  }, [session])
+
+  const fetchTemplates = useCallback(async () => {
+    if (!session?.access_token) return
+    try {
+      const res = await fetch('/api/admin/dokumente/list', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      setTemplates(data.templates || [])
+    } catch { setTemplates([]) }
+  }, [session])
+
+  const fetchSettings = useCallback(async () => {
+    if (!session?.access_token) return
+    setSettingsLoading(true)
+    try {
+      const res = await fetch('/api/admin/brochure/settings', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (res.ok && data.settings) {
+        setSettings(data.settings)
+      }
+    } catch { /* silent */ }
+    finally { setSettingsLoading(false) }
   }, [session])
 
   useEffect(() => {
     fetchVersions()
     fetchRequests()
-  }, [fetchVersions, fetchRequests])
+    fetchTemplates()
+    fetchSettings()
+  }, [fetchVersions, fetchRequests, fetchTemplates, fetchSettings])
+
+  // Sync selectedTemplate with settings
+  useEffect(() => {
+    if (settings.contract_template_id && templates.length > 0) {
+      const t = templates.find(t => t.id === settings.contract_template_id)
+      setSelectedTemplate(t || null)
+    } else {
+      setSelectedTemplate(null)
+    }
+  }, [settings.contract_template_id, templates])
 
   const handleSort = field => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortField(field); setSortDir('asc') }
   }
 
-  const latestVersion = versions[0]
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true)
+    try {
+      const res = await fetch('/api/admin/brochure/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(settings),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      toast({ title: 'Einstellungen gespeichert' })
+    } catch (err) {
+      toast({ title: 'Fehler beim Speichern', description: err.message, variant: 'destructive' })
+    } finally { setSettingsSaving(false) }
+  }
 
-  // Filter + sort
-  const filtered = requests
+  const handleSendContract = async (requestId) => {
+    setSendingContract(requestId)
+    try {
+      const res = await fetch('/api/admin/brochure/send-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ requestId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: 'Vertrag erfolgreich verschickt' })
+      fetchRequests()
+    } catch (err) {
+      toast({ title: 'Fehler beim Versenden', description: err.message, variant: 'destructive' })
+    } finally { setSendingContract(null) }
+  }
+
+  const handleDeleteLead = async (requestId, name) => {
+    if (!confirm(`Lead "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return
+    setDeletingLead(requestId)
+    try {
+      const res = await fetch('/api/admin/brochure/delete-lead', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ requestId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: `Lead "${name}" gelöscht` })
+      fetchRequests()
+    } catch (err) {
+      toast({ title: 'Fehler beim Löschen', description: err.message, variant: 'destructive' })
+    } finally { setDeletingLead(null) }
+  }
+
+  // Separate signed vs active leads
+  const activeRequests = requests.filter(r => r.contract_send?.status !== 'signed')
+  const signedRequests = requests.filter(r => r.contract_send?.status === 'signed')
+
+  // Filter + sort active leads
+  const filtered = activeRequests
     .filter(r => {
       const q = search.toLowerCase()
-      if (q && !`${r.first_name} ${r.last_name} ${r.email} ${r.company_name || ''}`.toLowerCase().includes(q)) return false
+      if (q && !`${r.first_name} ${r.last_name} ${r.email} ${r.phone || ''}`.toLowerCase().includes(q)) return false
       if (statusFilter === 'pending_email') return !r.email_confirmed_at
       if (statusFilter === 'confirmed_email') return r.email_confirmed_at && !r.confirmation
-      if (statusFilter === 'read') return r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) > 0
-      if (statusFilter === 'contract_ready') return r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) <= 0
+      if (statusFilter === 'read') return r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) > 0 && !r.contract_sent_at
+      if (statusFilter === 'contract_ready') return r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) <= 0 && !r.contract_sent_at
+      if (statusFilter === 'contract_sent') return !!r.contract_sent_at
       return true
     })
     .sort((a, b) => {
@@ -268,175 +391,97 @@ export default function BrochuerePage() {
     })
 
   const counts = {
-    all: requests.length,
-    pending_email: requests.filter(r => !r.email_confirmed_at).length,
-    confirmed_email: requests.filter(r => r.email_confirmed_at && !r.confirmation).length,
-    read: requests.filter(r => r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) > 0).length,
-    contract_ready: requests.filter(r => r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) <= 0).length,
+    all: activeRequests.length,
+    pending_email: activeRequests.filter(r => !r.email_confirmed_at).length,
+    confirmed_email: activeRequests.filter(r => r.email_confirmed_at && !r.confirmation).length,
+    read: activeRequests.filter(r => r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) > 0 && !r.contract_sent_at).length,
+    contract_ready: activeRequests.filter(r => r.confirmation && getDaysRemaining(r.confirmation.confirmed_at) <= 0 && !r.contract_sent_at).length,
+    contract_sent: activeRequests.filter(r => !!r.contract_sent_at).length,
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Broschüre</h1>
-        <p className="text-gray-500 mt-0.5 text-sm">PDF-Verwaltung, Download-Tracking und Lesebestätigungen</p>
+        <p className="text-gray-500 mt-0.5 text-sm">Mehrsprachige Broschüren, Lead-Tracking und automatischer Vertragsversand</p>
       </div>
 
-      <Tabs defaultValue="dokument">
-        <TabsList className="mb-6">
-          <TabsTrigger value="dokument">Dokument &amp; Versionen</TabsTrigger>
-          <TabsTrigger value="anfragen">
-            Anfragen
+      <Tabs defaultValue="broschueren">
+        <TabsList className="mb-6 flex-wrap h-auto gap-1">
+          <TabsTrigger value="broschueren">Broschüren</TabsTrigger>
+          <TabsTrigger value="leads">
+            Leads
             {counts.contract_ready > 0 && (
               <span className="ml-2 bg-green-600 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                 {counts.contract_ready}
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="vertragsvorlage">Vertragsvorlage</TabsTrigger>
+          <TabsTrigger value="unterschrieben">
+            Unterschriebene Verträge
+            {signedRequests.length > 0 && (
+              <span className="ml-2 bg-purple-600 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {signedRequests.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
-        {/* ── Tab: Dokument ──────────────────────────────────────────────────── */}
-        <TabsContent value="dokument" className="space-y-6">
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Current version */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="h-4.5 w-4.5 text-fkvi-blue" />
-                <h2 className="font-semibold text-gray-900">Aktuelle Version</h2>
-              </div>
-              {versionsLoading ? (
-                <div className="animate-pulse space-y-2">
-                  <div className="h-5 bg-gray-100 rounded w-2/3" />
-                  <div className="h-4 bg-gray-100 rounded w-1/2" />
+        {/* ── Tab 1: Broschüren ────────────────────────────────────────────── */}
+        <TabsContent value="broschueren" className="space-y-4">
+          <p className="text-sm text-gray-500">Lade für jede Sprache die aktuelle Informationsbroschüre hoch. Jede Sprache wird separat versioniert.</p>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {LANGS.map(lang => (
+              <LangUploadPanel
+                key={lang.code}
+                session={session}
+                lang={lang}
+                latestVersion={versionsLoading ? null : (byLanguage[lang.code]?.latest || null)}
+                onUploaded={fetchVersions}
+              />
+            ))}
+          </div>
+
+          {/* Version history per language */}
+          {!versionsLoading && LANGS.map(lang => {
+            const history = byLanguage[lang.code]?.history || []
+            if (history.length <= 1) return null
+            return (
+              <div key={lang.code} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+                  <History className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-semibold text-gray-800">{lang.flag} {lang.label} — Versionshistorie</span>
+                  <span className="text-xs text-gray-400">({history.length})</span>
                 </div>
-              ) : latestVersion ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl font-black text-fkvi-blue">v{latestVersion.version_number}</span>
-                    <div>
-                      <p className="font-medium text-gray-800 text-sm">{latestVersion.file_name}</p>
-                      <p className="text-xs text-gray-400">Hochgeladen am {fmtDate(latestVersion.uploaded_at)}{latestVersion.uploaded_by && ` von ${latestVersion.uploaded_by}`}</p>
+                <div className="divide-y divide-gray-50">
+                  {history.map((v, i) => (
+                    <div key={v.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors">
+                      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0', i === 0 ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-400')}>
+                        v{v.version_number}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{v.file_name}</p>
+                        <p className="text-xs text-gray-400">{fmt(v.uploaded_at)}{v.uploaded_by && ` · ${v.uploaded_by}`}</p>
+                      </div>
+                      {i === 0 && <span className="text-xs font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">Aktuell</span>}
                     </div>
-                  </div>
-                  {latestVersion.notes && (
-                    <p className="text-sm text-gray-500 bg-gray-50 rounded-lg px-3 py-2 italic">
-                      {latestVersion.notes}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
-                      <CheckCircle2 className="h-3 w-3" />Aktiv
-                    </span>
-                    <span className="text-xs text-gray-400">{requests.length} Anfragen total</span>
-                  </div>
+                  ))}
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <AlertCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">Noch keine Broschüre hochgeladen</p>
-                </div>
-              )}
-            </div>
-
-            {/* Upload */}
-            <UploadPanel session={session} onUploaded={() => { fetchVersions(); fetchRequests() }} />
-          </div>
-
-          {/* Version history */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
-              <History className="h-4 w-4 text-gray-400" />
-              <h2 className="font-semibold text-gray-800">Versionshistorie</h2>
-              <span className="text-xs text-gray-400 ml-1">({versions.length} Versionen)</span>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {versionsLoading ? (
-                <div className="px-5 py-4 text-sm text-gray-400">Lädt...</div>
-              ) : versions.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-gray-400">Keine Versionen vorhanden</div>
-              ) : versions.map((v, i) => (
-                <div key={v.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors group">
-                  <div className={cn(
-                    'w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black shrink-0',
-                    i === 0 ? 'bg-fkvi-blue text-white' : 'bg-gray-100 text-gray-400'
-                  )}>
-                    v{v.version_number}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">{v.file_name}</p>
-                    <p className="text-xs text-gray-400">
-                      {fmt(v.uploaded_at)}{v.uploaded_by && ` · ${v.uploaded_by}`}
-                    </p>
-                    {v.notes && <p className="text-xs text-gray-500 italic mt-0.5">{v.notes}</p>}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {i === 0 && (
-                      <span className="text-xs font-semibold text-fkvi-blue bg-fkvi-blue/8 px-2 py-0.5 rounded-full">Aktuell</span>
-                    )}
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(`/api/admin/brochure/view-url?versionId=${v.id}`, {
-                            headers: { Authorization: `Bearer ${session.access_token}` },
-                          })
-                          const data = await res.json()
-                          if (!res.ok) throw new Error(data.error)
-                          window.open(data.url, '_blank')
-                        } catch (err) {
-                          toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
-                        }
-                      }}
-                      className="ml-1 p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-fkvi-blue/8 transition-colors"
-                      title="Ansehen"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </button>
-                    {i !== 0 && (
-                      <button
-                        onClick={async () => {
-                          if (!confirm(`Version ${v.version_number} wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return
-                          try {
-                            const res = await fetch('/api/admin/brochure/delete-version', {
-                              method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-                              body: JSON.stringify({ versionId: v.id }),
-                            })
-                            const data = await res.json()
-                            if (!res.ok) throw new Error(data.error)
-                            toast({ title: `Version ${v.version_number} gelöscht` })
-                            fetchVersions()
-                          } catch (err) {
-                            toast({ title: 'Fehler beim Löschen', description: err.message, variant: 'destructive' })
-                          }
-                        }}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                        title="Löschen"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )
+          })}
         </TabsContent>
 
-        {/* ── Tab: Anfragen ──────────────────────────────────────────────────── */}
-        <TabsContent value="anfragen" className="space-y-4">
-          {/* Filter bar */}
+        {/* ── Tab 2: Leads ─────────────────────────────────────���───────────── */}
+        <TabsContent value="leads" className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                className="pl-9"
-                placeholder="Name, E-Mail oder Firma suchen..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+              <Input className="pl-9" placeholder="Name, E-Mail oder Telefon..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-52">
+              <SelectTrigger className="w-56">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -444,32 +489,28 @@ export default function BrochuerePage() {
                 <SelectItem value="pending_email">E-Mail ausstehend ({counts.pending_email})</SelectItem>
                 <SelectItem value="confirmed_email">E-Mail bestätigt ({counts.confirmed_email})</SelectItem>
                 <SelectItem value="read">Gelesen – Wartezeit ({counts.read})</SelectItem>
-                <SelectItem value="contract_ready">Vertrag zusenden ({counts.contract_ready})</SelectItem>
+                <SelectItem value="contract_ready">Vertrag fällig ({counts.contract_ready})</SelectItem>
+                <SelectItem value="contract_sent">Vertrag verschickt ({counts.contract_sent})</SelectItem>
               </SelectContent>
             </Select>
-            <button
-              onClick={() => { fetchRequests() }}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Aktualisieren
+            <button onClick={fetchRequests} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <RefreshCw className="h-3.5 w-3.5" />Aktualisieren
             </button>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <SortHeader label="Name" field="name" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Firma</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Sprache</th>
                     <SortHeader label="E-Mail" field="email" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Version</th>
-                    <SortHeader label="Registriert" field="created_at" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                    <SortHeader label="E-Mail bestätigt" field="email_confirmed_at" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                    <SortHeader label="Erstmals gelesen" field="confirmed_at" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
-                    <SortHeader label="Zugriffe" field="access_count" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                    <SortHeader label="Angefragt" field="created_at" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                    <SortHeader label="E-Mail ✓" field="email_confirmed_at" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                    <SortHeader label="Gelesen" field="confirmed_at" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                    <SortHeader label="Aufrufe" field="access_count" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vertrag</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
@@ -486,76 +527,80 @@ export default function BrochuerePage() {
                   ) : filtered.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="px-4 py-12 text-center text-gray-400 text-sm">
-                        Keine Anfragen gefunden
+                        Keine Leads gefunden
                       </td>
                     </tr>
                   ) : filtered.map(r => {
                     const days = r.confirmation ? getDaysRemaining(r.confirmation.confirmed_at) : null
-                    const contractReady = days !== null && days <= 0
+                    const contractReady = days !== null && days <= 0 && !r.contract_sent_at
                     return (
-                      <tr
-                        key={r.id}
-                        className={cn(
-                          'hover:bg-gray-50 transition-colors',
-                          contractReady && 'bg-green-50/60 hover:bg-green-50'
-                        )}
-                      >
+                      <tr key={r.id} className={cn('hover:bg-gray-50 transition-colors', contractReady && 'bg-green-50/60 hover:bg-green-50')}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-fkvi-blue/10 flex items-center justify-center text-fkvi-blue text-xs font-bold shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-bold shrink-0">
                               {r.first_name[0]}{r.last_name[0]}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">{r.first_name} {r.last_name}</p>
-                              <p className="text-xs text-gray-400 flex items-center gap-1">
-                                <Phone className="h-2.5 w-2.5" />{r.phone}
-                              </p>
+                              <p className="font-medium text-gray-900 whitespace-nowrap">{r.first_name} {r.last_name}</p>
+                              <p className="text-xs text-gray-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{r.phone || '–'}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-600 text-xs">
-                          {r.company_name || <span className="text-gray-300">–</span>}
-                        </td>
+                        <td className="px-4 py-3"><LangBadge lang={r.language} /></td>
                         <td className="px-4 py-3">
-                          <a href={`mailto:${r.email}`} className="text-fkvi-blue hover:underline text-xs flex items-center gap-1">
+                          <a href={`mailto:${r.email}`} className="text-teal-600 hover:underline text-xs flex items-center gap-1">
                             <Mail className="h-3 w-3 shrink-0" />{r.email}
                           </a>
-                        </td>
-                        <td className="px-4 py-3">
-                          {r.brochure_version
-                            ? <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">v{r.brochure_version.version_number}</span>
-                            : <span className="text-gray-300 text-xs">–</span>
-                          }
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                         <td className="px-4 py-3 text-xs whitespace-nowrap">
                           {r.email_confirmed_at
                             ? <span className="text-green-700">{fmtDate(r.email_confirmed_at)}</span>
-                            : <span className="text-gray-300">–</span>
-                          }
+                            : <span className="text-gray-300">–</span>}
                         </td>
                         <td className="px-4 py-3 text-xs whitespace-nowrap">
                           {r.confirmation
                             ? <span className="text-blue-700 font-medium">{fmtDate(r.confirmation.confirmed_at)}</span>
-                            : <span className="text-gray-300">–</span>
-                          }
+                            : <span className="text-gray-300">–</span>}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {r.access_count > 0
-                            ? <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-fkvi-blue/10 text-fkvi-blue text-xs font-bold">{r.access_count}</span>
-                            : <span className="text-gray-300 text-xs">0</span>
-                          }
+                            ? <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-teal-100 text-teal-700 text-xs font-bold">{r.access_count}</span>
+                            : <span className="text-gray-300 text-xs">0</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap">
+                          {r.contract_sent_at ? (
+                            <span className="text-blue-600">{fmtDate(r.contract_sent_at)}</span>
+                          ) : contractReady ? (
+                            <button
+                              onClick={() => handleSendContract(r.id)}
+                              disabled={sendingContract === r.id}
+                              className="flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 hover:bg-green-200 border border-green-300 px-2 py-1 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {sendingContract === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                              Jetzt senden
+                            </button>
+                          ) : (
+                            <span className="text-gray-300">–</span>
+                          )}
                         </td>
                         <td className="px-4 py-3"><StatusBadge request={r} /></td>
                         <td className="px-4 py-3">
-                          {r.company_id && (
+                          <div className="flex items-center gap-1">
+                            {r.company_id && (
+                              <button onClick={() => navigate(`/admin/crm/${r.company_id}`)} className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="CRM">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             <button
-                              onClick={() => navigate(`/admin/crm/${r.company_id}`)}
-                              className="text-xs text-gray-400 hover:text-fkvi-blue flex items-center gap-1 whitespace-nowrap"
+                              onClick={() => handleDeleteLead(r.id, `${r.first_name} ${r.last_name}`)}
+                              disabled={deletingLead === r.id}
+                              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Lead löschen"
                             >
-                              <ExternalLink className="h-3 w-3" />CRM
+                              {deletingLead === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                             </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -563,14 +608,189 @@ export default function BrochuerePage() {
                 </tbody>
               </table>
             </div>
-
             {!requestsLoading && filtered.length > 0 && (
               <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-                {filtered.length} von {requests.length} Anfragen
+                {filtered.length} von {activeRequests.length} Leads
               </div>
             )}
           </div>
         </TabsContent>
+
+        {/* ── Tab 3: Vertragsvorlage ───────────────────────────────────────── */}
+        <TabsContent value="vertragsvorlage" className="space-y-6 max-w-2xl">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+            <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700 leading-relaxed">
+              Wähle eine Dokumentenvorlage aus dem Template-Editor aus. 7 Tage nach der Lesebestätigung wird diese Vorlage automatisch an die Fachkraft verschickt. Vorausgefüllte Felder werden mit den Lead-Daten befüllt.
+            </p>
+          </div>
+
+          {settingsLoading ? (
+            <div className="animate-pulse space-y-3">
+              <div className="h-10 bg-gray-100 rounded-lg" />
+              <div className="h-32 bg-gray-100 rounded-xl" />
+            </div>
+          ) : (
+            <>
+              {/* Template selector */}
+              <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-gray-400" />
+                  <h2 className="font-semibold text-gray-900">Vertragsvorlage auswählen</h2>
+                </div>
+                <Select
+                  value={settings.contract_template_id || ''}
+                  onValueChange={val => setSettings(s => ({ ...s, contract_template_id: val || null }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vorlage auswählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Keine Vorlage</SelectItem>
+                    {templates.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {templates.length === 0 && (
+                  <p className="text-xs text-gray-400">
+                    Noch keine Vorlagen vorhanden.{' '}
+                    <button onClick={() => navigate('/admin/postfach')} className="text-teal-600 underline">
+                      Im Template-Editor erstellen
+                    </button>
+                  </p>
+                )}
+              </div>
+
+              {/* Prefill field mapping */}
+              {selectedTemplate && selectedTemplate.fields?.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <PenLine className="h-4 w-4 text-gray-400" />
+                      <h2 className="font-semibold text-gray-900">Vorausgefüllte Felder</h2>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Weise Vorlagenfelder Lead-Daten zu. Diese werden beim Versand automatisch eingefügt.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedTemplate.fields
+                      .filter(f => f.type !== 'signature' && f.type !== 'checkbox')
+                      .map(field => {
+                        const currentSource = settings.prefill_config?.[field.id]?.source || ''
+                        return (
+                          <div key={field.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{field.label || field.name || `Feld ${field.id.slice(0, 6)}`}</p>
+                              <p className="text-xs text-gray-400 capitalize">{field.type}</p>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-gray-300 shrink-0" />
+                            <Select
+                              value={currentSource}
+                              onValueChange={val => setSettings(s => ({
+                                ...s,
+                                prefill_config: {
+                                  ...s.prefill_config,
+                                  [field.id]: val ? { source: val } : undefined,
+                                },
+                              }))}
+                            >
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Lead-Daten wählen..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Nicht vorausfüllen</SelectItem>
+                                {LEAD_FIELDS.map(lf => (
+                                  <SelectItem key={lf.key} value={lf.key}>{lf.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={handleSaveSettings} disabled={settingsSaving}>
+                {settingsSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Speichern...</> : 'Einstellungen speichern'}
+              </Button>
+            </>
+          )}
+        </TabsContent>
+
+        {/* ── Tab 4: Unterschriebene Verträge ─────────────────────────────── */}
+        <TabsContent value="unterschrieben" className="space-y-4">
+          {signedRequests.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+              <FileSignature className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">Noch keine unterschriebenen Verträge</p>
+              <p className="text-xs text-gray-400 mt-1">Sobald eine Fachkraft ihren Vertrag unterschreibt, erscheint sie hier.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Sprache</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">E-Mail</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Angefragt</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Gelesen</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Vertrag verschickt</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Unterschrieben</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {signedRequests.map(r => (
+                      <tr key={r.id} className="hover:bg-purple-50/40 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold shrink-0">
+                              {r.first_name[0]}{r.last_name[0]}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 whitespace-nowrap">{r.first_name} {r.last_name}</p>
+                              <p className="text-xs text-gray-400">{r.phone || '–'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3"><LangBadge lang={r.language} /></td>
+                        <td className="px-4 py-3">
+                          <a href={`mailto:${r.email}`} className="text-teal-600 hover:underline text-xs">{r.email}</a>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtDate(r.confirmation?.confirmed_at)}</td>
+                        <td className="px-4 py-3 text-xs text-blue-600 whitespace-nowrap">{fmtDate(r.contract_sent_at)}</td>
+                        <td className="px-4 py-3 text-xs text-purple-700 font-semibold whitespace-nowrap">
+                          {fmtDate(r.contract_send?.signed_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.contract_send_id && (
+                            <button
+                              onClick={() => navigate(`/admin/postfach`)}
+                              className="text-xs text-gray-400 hover:text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg transition-colors"
+                              title="Vertrag ansehen"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
+                {signedRequests.length} unterschriebene {signedRequests.length === 1 ? 'Vertrag' : 'Verträge'}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
       </Tabs>
     </div>
   )

@@ -20,9 +20,23 @@ export default async function handler(req, res) {
   const { data, error } = await supabaseAdmin
     .from('brochure_versions')
     .select('*')
+    .order('language', { ascending: true })
     .order('version_number', { ascending: false })
 
   if (error) return res.status(500).json({ error: error.message })
 
-  return res.status(200).json({ versions: data || [] })
+  const versions = data || []
+
+  // Build per-language summary: latest version per language
+  const LANGS = ['de', 'en', 'fr', 'ar', 'vi']
+  const byLanguage = {}
+  for (const lang of LANGS) {
+    const langVersions = versions.filter(v => v.language === lang)
+    byLanguage[lang] = {
+      latest: langVersions[0] || null,
+      history: langVersions,
+    }
+  }
+
+  return res.status(200).json({ versions, byLanguage })
 }
