@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Phone, ChevronDown, ChevronUp, Lock, Clock, Star, Users, ArrowRight, Play, CheckCircle2, Info, X, Loader2, ShieldCheck, Building2, MapPin, Banknote, Home, Award, Heart, Globe } from 'lucide-react'
+import { Phone, ChevronDown, ChevronUp, Lock, Clock, Star, Users, ArrowRight, Play, CheckCircle2, Info, X, Menu, Loader2, ShieldCheck, Building2, MapPin, Banknote, Home, Award, Heart, Globe } from 'lucide-react'
 import { RECOGNITION_LABELS } from '@/lib/utils'
 import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 
@@ -75,20 +75,24 @@ function InfoTooltip({ text }) {
 
 function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
   const [scrolled, setScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', fn)
     return () => window.removeEventListener('scroll', fn)
   }, [])
-  const scroll = (ref) => ref.current?.scrollIntoView({ behavior: 'smooth' })
+  const scroll = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth' })
+    setMobileMenuOpen(false)
+  }
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${scrolled ? 'bg-white shadow-sm' : 'bg-white/95 backdrop-blur-sm'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${scrolled || mobileMenuOpen ? 'bg-white shadow-sm' : 'bg-white/95 backdrop-blur-sm'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <img src="/logo.png" alt="FKVI" className="h-14 w-auto" />
 
-        {/* Nav links */}
+        {/* Nav links — desktop */}
         <nav className="hidden lg:flex items-center gap-7 text-xs font-medium text-gray-600">
           <button onClick={() => scroll(vorteileRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Vorteile</button>
           <button onClick={() => scroll(kpassRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Kompetenzpass</button>
@@ -101,15 +105,46 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
         </nav>
 
         {/* Right */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <a href="tel:+491605562142" className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-fkvi-blue transition-colors">
             <Phone className="h-4 w-4" />+49 160 5562142
           </a>
-          <Link to="/beratung" className="bg-fkvi-blue text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fkvi-blue/90 transition-colors whitespace-nowrap">
+          <Link to="/beratung" className="hidden sm:inline-flex items-center gap-2 bg-fkvi-blue text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fkvi-blue/90 transition-colors whitespace-nowrap">
             Gespräch vereinbaren
           </Link>
+          {/* Hamburger */}
+          <button
+            onClick={() => setMobileMenuOpen(o => !o)}
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            aria-label={mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-t border-gray-100 bg-white shadow-lg">
+          <nav className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-0.5">
+            <button onClick={() => scroll(vorteileRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Vorteile</button>
+            <button onClick={() => scroll(kpassRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Kompetenzpass</button>
+            <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
+            <Link to="/downloads" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
+              Broschüre
+              <span className="text-[8px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
+            </Link>
+            <Link to="/matching/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching</Link>
+            <div className="border-t border-gray-100 my-1" />
+            <a href="tel:+491605562142" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
+              <Phone className="h-4 w-4 text-fkvi-teal" /><span>+49 160 5562142</span>
+            </a>
+            <Link to="/beratung" onClick={() => setMobileMenuOpen(false)} className="sm:hidden mt-1 flex items-center justify-center gap-2 bg-fkvi-blue text-white px-4 py-3 rounded-xl font-semibold text-sm hover:bg-fkvi-blue/90 transition-colors">
+              Gespräch vereinbaren <ArrowRight className="h-4 w-4" />
+            </Link>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }
@@ -174,19 +209,19 @@ function HeroSection() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-0 pt-8 border-t border-gray-100">
               {/* Erfolgsquote with tooltip */}
-              <div className="pr-6 border-r border-gray-100">
+              <div className="pr-3 sm:pr-6 border-r border-gray-100">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-fkvi-blue">98,2%</span>
+                  <span className="text-lg sm:text-2xl font-bold text-fkvi-blue">98,2%</span>
                   <InfoTooltip text={ERFOLGSQUOTE_TOOLTIP} />
                 </div>
                 <div className="text-xs text-gray-400 mt-1">Erfolgsquote</div>
               </div>
-              <div className="px-6 border-r border-gray-100">
-                <div className="text-2xl font-bold text-fkvi-blue">4 Monate</div>
+              <div className="px-3 sm:px-6 border-r border-gray-100">
+                <div className="text-lg sm:text-2xl font-bold text-fkvi-blue whitespace-nowrap">4 Monate</div>
                 <div className="text-xs text-gray-400 mt-1">Ø bis vor Ort</div>
               </div>
-              <div className="pl-6">
-                <div className="text-2xl font-bold text-fkvi-blue">100%</div>
+              <div className="pl-3 sm:pl-6">
+                <div className="text-lg sm:text-2xl font-bold text-fkvi-blue">100%</div>
                 <div className="text-xs text-gray-400 mt-1">Vorleistung</div>
               </div>
             </div>
@@ -224,9 +259,9 @@ function HeroSection() {
 
       {/* ── Floating sticky player ─────────────────────────────────────── */}
       <div
-        className="fixed bottom-6 right-6 z-50 transition-all duration-500 ease-out"
+        className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 transition-all duration-500 ease-out"
         style={{
-          width: 320,
+          width: 'min(300px, calc(100vw - 1.5rem))',
           transform: showFloat ? 'translateY(0) scale(1)' : 'translateY(120%) scale(0.95)',
           opacity: showFloat ? 1 : 0,
           pointerEvents: showFloat ? 'auto' : 'none',
@@ -589,6 +624,16 @@ function KompetenzpassSection({ funnelRef }) {
 
   return (
     <section ref={funnelRef} className="py-20 px-4 sm:px-6" style={{ background: '#0f172a' }}>
+      <style>{`
+        @media (min-width: 640px) {
+          .fk-funnel-0 { width: 100%; }
+          .fk-funnel-1 { width: 85%; }
+          .fk-funnel-2 { width: 70%; }
+          .fk-funnel-3 { width: 58%; }
+          .fk-funnel-4 { width: 44%; }
+          .fk-funnel-5 { width: 32%; }
+        }
+      `}</style>
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
           <p className="text-xs font-semibold tracking-widest uppercase text-blue-300 mb-3">Matching-Faktoren</p>
@@ -616,8 +661,8 @@ function KompetenzpassSection({ funnelRef }) {
           {d.stages.map((s, i) => (
             <div key={i} className="w-full flex flex-col items-center gap-1">
               <button onClick={() => setOpenIdx(openIdx === i ? -1 : i)}
-                className="relative flex items-center justify-between px-5 py-4 rounded-xl text-left transition-transform hover:scale-[1.015] w-full"
-                style={{ width:`${s.w}%`, background:s.bg, color:s.fg, ...(i === d.stages.length - 1 ? { border: '2px solid #1a3a5c', fontStyle: 'italic' } : {}) }}>
+                className={`fk-funnel-${i} relative flex items-center justify-between px-5 py-4 rounded-xl text-left transition-transform hover:scale-[1.015] w-full`}
+                style={{ background:s.bg, color:s.fg, ...(i === d.stages.length - 1 ? { border: '2px solid #1a3a5c', fontStyle: 'italic' } : {}) }}>
                 <div>
                   <div className="text-xs font-bold opacity-60 mb-0.5">{s.num}</div>
                   <div className="font-semibold text-sm">{s.title}</div>
@@ -1078,9 +1123,9 @@ function ProfileCard({ profile, index, onRequestAccess }) {
 
 function UeberUnsSection() {
   return (
-    <section className="py-24 px-4 sm:px-6 bg-white">
+    <section className="pt-12 pb-20 px-4 sm:px-6 bg-white">
       <div className="max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-2 gap-16 items-start">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start">
 
           {/* Left: Label + Heading + Image */}
           <div>
@@ -1400,7 +1445,7 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
 
       {/* ── Footer links ── */}
       <div className="max-w-7xl mx-auto py-12">
-        <div className="grid sm:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8">
           <div>
             <img src="/logo.png" alt="FKVI" className="h-14 w-auto mb-4"
               style={{ filter: 'brightness(0) invert(1)', opacity: 0.85 }} />

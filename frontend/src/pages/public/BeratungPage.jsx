@@ -128,10 +128,9 @@ export default function BeratungPage() {
             <iframe
               src={`${CALENDLY_URL}?hide_gdpr_banner=1&background_color=ffffff&text_color=1a1a2e&primary_color=0d9488`}
               width="100%"
-              height="700"
+              style={{ display: 'block', height: 'clamp(580px, 80vh, 800px)' }}
               frameBorder="0"
               title="Termin vereinbaren"
-              style={{ display: 'block' }}
             />
           </div>
 
