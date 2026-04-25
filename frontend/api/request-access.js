@@ -10,10 +10,13 @@ export default async function handler(req, res) {
 
   const { first_name, last_name, email, phone, company_name, address, postal_code, city } = req.body || {}
 
-  if (!first_name?.trim()) return res.status(400).json({ error: 'Vorname ist erforderlich.' })
-  if (!last_name?.trim())  return res.status(400).json({ error: 'Nachname ist erforderlich.' })
-  if (!email?.trim())      return res.status(400).json({ error: 'E-Mail-Adresse ist erforderlich.' })
-  if (!phone?.trim())      return res.status(400).json({ error: 'Telefonnummer ist erforderlich.' })
+  if (!first_name?.trim())   return res.status(400).json({ error: 'Vorname ist erforderlich.' })
+  if (!last_name?.trim())    return res.status(400).json({ error: 'Nachname ist erforderlich.' })
+  if (!email?.trim())        return res.status(400).json({ error: 'E-Mail-Adresse ist erforderlich.' })
+  if (!phone?.trim())        return res.status(400).json({ error: 'Telefonnummer ist erforderlich.' })
+  if (!address?.trim())      return res.status(400).json({ error: 'Straße & Hausnummer ist erforderlich.' })
+  if (!postal_code?.trim())  return res.status(400).json({ error: 'PLZ ist erforderlich.' })
+  if (!city?.trim())         return res.status(400).json({ error: 'Ort ist erforderlich.' })
 
   const normalizedEmail = email.trim().toLowerCase()
 

@@ -99,8 +99,8 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
           <button onClick={() => scroll(kpassRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Kompetenzpass</button>
           <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Verfügbare Fachkräfte</button>
           <button onClick={() => scroll(prozessRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Ablauf</button>
-          <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1 whitespace-nowrap">
-            Broschüre
+          <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1.5 whitespace-nowrap">
+            Broschüre<span className="text-[8px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
           </Link>
           <Link to="/matching/login" className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching</Link>
         </nav>
@@ -132,9 +132,8 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
             <button onClick={() => scroll(kpassRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Kompetenzpass</button>
             <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Verfügbare Fachkräfte</button>
             <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
-            <Link to="/downloads" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
-              Broschüre
-              <span className="text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded leading-none border border-fkvi-teal/20">FK</span>
+            <Link to="/downloads" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
+              Broschüre<span className="text-[8px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
             </Link>
             <Link to="/matching/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching</Link>
             <div className="border-t border-gray-100 my-1" />
@@ -1000,10 +999,10 @@ function AccessRequestModal({ open, onClose }) {
                 <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
                   <MapPin className="h-3 w-3" />
                   Straße &amp; Hausnummer
-                  <span className="text-gray-400 font-normal">(optional)</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={form.address}
                   onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                   placeholder="Musterstraße 12"
@@ -1014,11 +1013,10 @@ function AccessRequestModal({ open, onClose }) {
               {/* PLZ + Ort */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">
-                    PLZ <span className="text-gray-400 font-normal">(optional)</span>
-                  </label>
+                  <label className="text-xs font-medium text-gray-600">PLZ</label>
                   <input
                     type="text"
+                    required
                     value={form.postal_code}
                     onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))}
                     placeholder="12345"
@@ -1026,11 +1024,10 @@ function AccessRequestModal({ open, onClose }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">
-                    Ort <span className="text-gray-400 font-normal">(optional)</span>
-                  </label>
+                  <label className="text-xs font-medium text-gray-600">Ort</label>
                   <input
                     type="text"
+                    required
                     value={form.city}
                     onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
                     placeholder="Frankfurt am Main"
