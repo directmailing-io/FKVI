@@ -1,19 +1,21 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { signIn } = useAuthStore()
+  const { signIn, signOut } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -21,8 +23,16 @@ export default function AdminLogin() {
     setLoading(true)
     try {
       await signIn(email, password)
-      navigate('/admin')
-    } catch (err) {
+      // signIn now eagerly syncs the store — read role synchronously
+      const { isAdmin } = useAuthStore.getState()
+      if (!isAdmin) {
+        await signOut()
+        setError('Dieses Konto hat keinen Zugang zum Administrationsbereich.')
+        return
+      }
+      const from = location.state?.from || '/admin'
+      navigate(from)
+    } catch {
       setError('E-Mail oder Passwort ist falsch.')
     } finally {
       setLoading(false)
@@ -59,14 +69,27 @@ export default function AdminLogin() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Passwort</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-              />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Passwort</Label>
+                <Link to="/matching/passwort-vergessen" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                  Passwort vergessen?
+                </Link>
+              </div>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  className="pr-10"
+                />
+                <button type="button" tabIndex={-1}
+                  onClick={() => setShowPw(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Anmelden...</> : 'Anmelden'}

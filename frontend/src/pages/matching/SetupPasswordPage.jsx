@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -41,6 +42,7 @@ function PasswordStrength({ password }) {
 
 export default function SetupPasswordPage() {
   const navigate = useNavigate()
+  const setSession = useAuthStore(s => s.setSession)
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
@@ -52,19 +54,24 @@ export default function SetupPasswordPage() {
   const [ready, setReady]       = useState(false) // session is available
 
   useEffect(() => {
-    // Supabase automatically exchanges the hash token on load.
-    // We wait for a PASSWORD_RECOVERY session event.
+    // Detect if this page was opened via an auth link (password reset / invite).
+    // Only in that case should a SIGNED_IN event trigger the "ready" state.
+    const params = new URLSearchParams(window.location.search)
+    const fromAuthLink = params.has('code') || window.location.hash.includes('access_token')
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+      // PASSWORD_RECOVERY: password-reset link
+      // SIGNED_IN + fromAuthLink: invite/signup link (initial account setup)
+      if (event === 'PASSWORD_RECOVERY' || (fromAuthLink && event === 'SIGNED_IN' && session)) {
         setEmail(session?.user?.email || '')
         setReady(true)
         window.history.replaceState(null, '', window.location.pathname)
       }
     })
 
-    // Also check if there's already an active session from the hash (fast browsers)
+    // Fast path: if Supabase already exchanged the code (sync) check the session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+      if (session?.user && fromAuthLink) {
         setEmail(session.user.email || '')
         setReady(true)
         window.history.replaceState(null, '', window.location.pathname)
@@ -94,8 +101,12 @@ export default function SetupPasswordPage() {
       }
       const { error: updateErr } = await supabase.auth.updateUser({ password })
       if (updateErr) { setError(updateErr.message); return }
+
+      // Sync auth store then determine role for redirect
+      await setSession(currentSession)
+      const { isAdmin } = useAuthStore.getState()
       setDone(true)
-      setTimeout(() => navigate('/matching'), 2000)
+      setTimeout(() => navigate(isAdmin ? '/admin' : '/matching'), 2000)
     } catch (err) {
       setError(err.message || 'Ein unbekannter Fehler ist aufgetreten.')
     } finally {
@@ -111,8 +122,8 @@ export default function SetupPasswordPage() {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Konto eingerichtet!</h1>
-          <p className="text-gray-500">Ihr Passwort wurde gespeichert. Sie werden weitergeleitet…</p>
+          <h1 className="text-2xl font-bold text-gray-900">Passwort gespeichert!</h1>
+          <p className="text-gray-500">Sie werden automatisch weitergeleitet…</p>
         </div>
       </div>
     )
