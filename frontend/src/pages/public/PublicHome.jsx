@@ -260,7 +260,7 @@ function HeroSection() {
 
       {/* ── Floating sticky player ─────────────────────────────────────── */}
       <div
-        className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 transition-all duration-500 ease-out"
+        className="hidden sm:block fixed bottom-6 right-6 z-50 transition-all duration-500 ease-out"
         style={{
           width: 'min(300px, calc(100vw - 1.5rem))',
           transform: showFloat ? 'translateY(0) scale(1)' : 'translateY(120%) scale(0.95)',
@@ -1093,7 +1093,7 @@ function ProfileCard({ profile, onRequestAccess }) {
                 src={profile.profile_image_url}
                 alt="Fachkraft"
                 className="w-full h-full object-cover object-top"
-                style={{ filter: 'blur(7px)', transform: 'scale(1.15)' }}
+                style={{}}
               />
             ) : (
               <User className="h-9 w-9 text-fkvi-blue/30" />
@@ -1326,7 +1326,7 @@ function ProzessSection({ prozessRef }) {
               90% passieren vorab im Verborgenen: Das 18-Monate Fundament
             </span>
           </div>
-          <div className="p-8 flex flex-col md:flex-row gap-8 items-start">
+          <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start text-center md:text-left">
             {/* Left stat */}
             <div className="shrink-0">
               <div className="text-5xl font-black text-white leading-none mb-1">18</div>
@@ -1335,7 +1335,7 @@ function ProzessSection({ prozessRef }) {
             </div>
             <div className="w-px self-stretch bg-slate-800 hidden md:block shrink-0" />
             <div className="flex-1">
-              <p className="text-slate-300 text-sm leading-relaxed mb-5">
+              <p className="text-slate-300 text-sm leading-relaxed mb-5 text-center md:text-left">
                 Der reibungslose 12-Wochen-Ablauf ist nur möglich, weil wir die Fachkraft davor bereits <strong className="text-white">12 bis 18 Monate</strong> lang intensiv begleitet haben. Das ist Ihre Garantie, dass es klappt.
               </p>
               <div className="grid sm:grid-cols-3 gap-4">
