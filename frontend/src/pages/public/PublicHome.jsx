@@ -100,7 +100,7 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
           <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Verfügbare Fachkräfte</button>
           <button onClick={() => scroll(prozessRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Ablauf</button>
           <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1.5 whitespace-nowrap">
-            Broschüre<span className="text-[8px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
+            Broschüre<span className="relative -top-1.5 -ml-0.5 text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
           </Link>
           <Link to="/matching/login" className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching</Link>
         </nav>
@@ -133,7 +133,7 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
             <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Verfügbare Fachkräfte</button>
             <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
             <Link to="/downloads" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
-              Broschüre<span className="text-[8px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
+              Broschüre<span className="relative -top-1.5 -ml-0.5 text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
             </Link>
             <Link to="/matching/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching</Link>
             <div className="border-t border-gray-100 my-1" />
