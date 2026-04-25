@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { Phone, ChevronDown, ChevronUp, Lock, Clock, Star, Users, ArrowRight, Play, CheckCircle2, Info, X, Menu, Loader2, ShieldCheck, Building2, MapPin, Banknote, Home, Award, Heart, Globe } from 'lucide-react'
-import { RECOGNITION_LABELS } from '@/lib/utils'
+import { Phone, ChevronDown, ChevronUp, Lock, Star, Users, User, EyeOff, ArrowRight, Play, CheckCircle2, Info, X, Menu, Loader2, ShieldCheck, Building2, MapPin, Banknote, Home, Award, Heart, Globe } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -739,7 +739,7 @@ function ProfilesSection({ profiles, profilesLoading }) {
           ) : visible.length > 0 ? (
             <div className="grid sm:grid-cols-3 gap-6">
               {visible.map((p, i) => (
-                <ProfileCard key={p.id} profile={p} index={i} onRequestAccess={() => setModalOpen(true)} />
+                <ProfileCard key={p.id} profile={p} onRequestAccess={() => setModalOpen(true)} />
               ))}
             </div>
           ) : null}
@@ -1022,85 +1022,75 @@ function AccessRequestModal({ open, onClose }) {
   )
 }
 
-function ProfileCard({ profile, index, onRequestAccess }) {
-  const code = `FK${String(index + 1).padStart(3, '0')}`
-  const age = profile.age ? `${profile.age} J.` : null
-  const specs = getProfileSpecializations(profile).slice(0, 3)
-  const exp = profile.total_experience_years
-  const recognition = profile.german_recognition ? RECOGNITION_LABELS?.[profile.german_recognition] : null
+// Matches the recognition config from the matching platform
+const RECOGNITION = {
+  anerkannt:       { label: 'Anerkennung in DE: Anerkannt',             cls: 'bg-green-50 text-green-700 border-green-200' },
+  in_bearbeitung:  { label: 'Anerkennung in DE: läuft',                 cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  nicht_beantragt: { label: 'Anerkennung in DE: noch nicht beantragt',  cls: 'bg-gray-100 text-gray-600 border-gray-200' },
+  abgelehnt:       { label: 'Anerkennung in DE: abgelehnt',             cls: 'bg-red-50 text-red-600 border-red-200' },
+}
 
-  const recColor = recognition === 'Anerkannt'
-    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : 'bg-amber-50 text-amber-700 border-amber-200'
+function ProfileCard({ profile, onRequestAccess }) {
+  const specs = getProfileSpecializations(profile).slice(0, 3)
+  const rec   = RECOGNITION[profile.german_recognition]
 
   return (
-    <div className="group relative bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col">
-      {/* Top gradient band */}
-      <div className="h-24 bg-gradient-to-br from-fkvi-blue/8 via-fkvi-teal/5 to-transparent" />
+    <div className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all flex flex-col">
 
-      {/* Circular avatar — centered, overlapping the band */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2">
-        <div
-          className="w-24 h-24 rounded-full p-[3px] shadow-lg"
-          style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}
-        >
-          <div className="w-full h-full rounded-full overflow-hidden bg-gray-100">
-            {profile.profile_image_url
-              ? <img src={profile.profile_image_url} alt="Fachkraft" className="w-full h-full object-cover object-top" />
-              : (
-                <div className="w-full h-full flex items-center justify-center bg-fkvi-blue/10">
-                  <Users className="h-9 w-9 text-fkvi-blue/40" />
-                </div>
-              )
-            }
+      {/* Top gradient band — same as matching platform */}
+      <div className="h-16 bg-gradient-to-br from-fkvi-blue/10 via-fkvi-teal/5 to-transparent shrink-0" />
+
+      {/* Avatar — always anonymized, no real photo shown */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2">
+        <div className="w-24 h-24 rounded-full p-[3px] shadow-md" style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}>
+          <div className="w-full h-full rounded-full overflow-hidden bg-fkvi-blue/10 flex items-center justify-center">
+            <User className="h-9 w-9 text-fkvi-blue/30" />
           </div>
         </div>
-        {/* ID badge below the circle */}
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-fkvi-blue text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md whitespace-nowrap tracking-wide">
-          {code}
+        {/* "Anonymisiert" pill — identical to matching platform */}
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm rounded-full px-2 py-0.5 whitespace-nowrap">
+          <EyeOff className="h-2.5 w-2.5 text-white/70" />
+          <span className="text-[9px] text-white/80 font-medium tracking-wide">Anonymisiert</span>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="pt-16 pb-5 px-5 flex flex-col flex-1 gap-3">
+      {/* Content */}
+      <div className="pt-14 pb-4 px-4 flex flex-col flex-1 gap-3">
 
-        {/* Blurred name + nationality */}
+        {/* Job title (not personal) + blurred name bar + demographics */}
         <div className="text-center">
-          <div className="inline-block h-4 w-28 rounded bg-gray-200 select-none mb-1.5" style={{ filter: 'blur(6px)' }} />
-          <p className="text-xs text-gray-400">
-            {[profile.nationality, age].filter(Boolean).join(' · ') || 'Internationale Fachkraft'}
+          <p className="font-bold text-gray-900 text-sm leading-tight">{profile.nursing_education || 'Pflegefachkraft'}</p>
+          <div className="flex justify-center my-1">
+            <div className="h-3 w-24 rounded bg-gray-200 select-none" style={{ filter: 'blur(5px)' }} />
+          </div>
+          <p className="text-xs text-gray-500">
+            {[profile.gender, profile.age ? `${profile.age} J.` : null, profile.nationality].filter(Boolean).join(' · ')}
           </p>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-gray-100" />
+        {/* Recognition badge */}
+        {rec && (
+          <div className="flex justify-center">
+            <span className={cn('text-[10px] font-medium px-2.5 py-0.5 rounded-full border', rec.cls)}>
+              {rec.label}
+            </span>
+          </div>
+        )}
 
         {/* Experience */}
-        {exp && (
-          <div className="flex items-center justify-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-fkvi-teal shrink-0" />
-            <span className="text-xs font-semibold text-gray-700">{exp} Jahre Berufserfahrung</span>
-          </div>
+        {profile.total_experience_years && (
+          <p className="text-xs text-gray-600 text-center">
+            <span className="font-semibold">{profile.total_experience_years} J.</span> Berufserfahrung
+            {profile.germany_experience_years ? <span className="text-gray-400"> · {profile.germany_experience_years} J. in DE</span> : ''}
+          </p>
         )}
 
         {/* Specialization tags */}
         {specs.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-1.5">
+          <div className="flex flex-wrap justify-center gap-1">
             {specs.map(s => (
-              <span key={s} className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-fkvi-blue/8 text-fkvi-blue border border-fkvi-blue/10">
-                {s}
-              </span>
+              <span key={s} className="px-2 py-0.5 bg-fkvi-blue/8 text-fkvi-blue rounded-full text-[10px] font-medium">{s}</span>
             ))}
-          </div>
-        )}
-
-        {/* Recognition */}
-        {recognition && (
-          <div className="flex justify-center">
-            <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border ${recColor}`}>
-              <CheckCircle2 className="h-3 w-3" />
-              {recognition}
-            </span>
           </div>
         )}
 
@@ -1109,15 +1099,15 @@ function ProfileCard({ profile, index, onRequestAccess }) {
         {/* CTA */}
         <button
           onClick={onRequestAccess}
-          className="mt-1 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-500 hover:bg-fkvi-blue hover:text-white hover:border-fkvi-blue group-hover:bg-fkvi-blue group-hover:text-white group-hover:border-fkvi-blue transition-all duration-200"
+          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gray-50 border border-gray-200 text-xs font-medium text-gray-500 hover:bg-fkvi-blue hover:text-white hover:border-fkvi-blue group-hover:bg-fkvi-blue group-hover:text-white group-hover:border-fkvi-blue transition-all duration-200"
         >
           <Lock className="h-3.5 w-3.5" />
           Vollprofil freischalten
         </button>
       </div>
 
-      {/* Teal accent line on hover */}
-      <div className="h-0.5 bg-gradient-to-r from-fkvi-teal/0 via-fkvi-teal/60 to-fkvi-teal/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      {/* Hover teal accent */}
+      <div className="h-0.5 bg-gradient-to-r from-fkvi-teal/0 via-fkvi-teal/50 to-fkvi-teal/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
     </div>
   )
 }
