@@ -74,7 +74,7 @@ function InfoTooltip({ text }) {
   )
 }
 
-function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
+function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   useEffect(() => {
@@ -97,10 +97,11 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
         <nav className="hidden lg:flex items-center gap-7 text-xs font-medium text-gray-600">
           <button onClick={() => scroll(vorteileRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Vorteile</button>
           <button onClick={() => scroll(kpassRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Kompetenzpass</button>
+          <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Verfügbare Fachkräfte</button>
           <button onClick={() => scroll(prozessRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Ablauf</button>
-          <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1.5 whitespace-nowrap">
+          <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1 whitespace-nowrap">
             Broschüre
-            <span className="text-[8px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
+            <span className="text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded leading-none border border-fkvi-teal/20">FK</span>
           </Link>
           <Link to="/matching/login" className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching</Link>
         </nav>
@@ -130,10 +131,11 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
           <nav className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-0.5">
             <button onClick={() => scroll(vorteileRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Vorteile</button>
             <button onClick={() => scroll(kpassRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Kompetenzpass</button>
+            <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Verfügbare Fachkräfte</button>
             <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
             <Link to="/downloads" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
               Broschüre
-              <span className="text-[8px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
+              <span className="text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded leading-none border border-fkvi-teal/20">FK</span>
             </Link>
             <Link to="/matching/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching</Link>
             <div className="border-t border-gray-100 my-1" />
@@ -700,7 +702,7 @@ function KompetenzpassSection({ funnelRef }) {
   )
 }
 
-function ProfilesSection({ profiles, profilesLoading }) {
+function ProfilesSection({ profiles, profilesLoading, poolRef }) {
   const [modalOpen, setModalOpen] = useState(false)
   const visible = profiles.slice(0, 3)
 
@@ -708,7 +710,7 @@ function ProfilesSection({ profiles, profilesLoading }) {
     <>
       <AccessRequestModal open={modalOpen} onClose={() => setModalOpen(false)} />
 
-      <section className="py-24 px-4 sm:px-6" style={{ background: '#f8fafc' }}>
+      <section ref={poolRef} className="py-24 px-4 sm:px-6" style={{ background: '#f8fafc' }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-xs font-semibold tracking-widest uppercase text-fkvi-teal mb-3">Aktueller Pool</p>
@@ -1538,6 +1540,7 @@ export default function PublicHome() {
   const kpassRef = useRef(null)
   const funnelRef = useRef(null)
   const prozessRef = useRef(null)
+  const poolRef = useRef(null)
 
   useEffect(() => {
     supabase.from('profiles')
@@ -1558,7 +1561,7 @@ export default function PublicHome() {
         <meta property="og:description" content="Qualifizierte Pflegefachkräfte aus dem Ausland. 100 % Vorleistung, B2-Zertifikat, Wohnung inklusive. 12 Monate Garantie." />
         <meta property="og:url" content="https://fkvi-plattform.de/" />
       </Helmet>
-      <NavBar funnelRef={funnelRef} prozessRef={prozessRef} vorteileRef={vorteileRef} kpassRef={kpassRef} />
+      <NavBar funnelRef={funnelRef} prozessRef={prozessRef} vorteileRef={vorteileRef} kpassRef={kpassRef} poolRef={poolRef} />
       <HeroSection />
       <LogoMarquee />
       <LeistungenSection vorteileRef={vorteileRef} />
@@ -1567,7 +1570,7 @@ export default function PublicHome() {
         <KompetenzpassCarouselSection kpassRef={kpassRef} />
         <KompetenzpassSection funnelRef={funnelRef} />
         <div style={{ background: '#f8fafc', borderRadius: 32, margin: '40px 0', overflow: 'hidden' }}>
-          <ProfilesSection profiles={profiles} profilesLoading={profilesLoading} />
+          <ProfilesSection profiles={profiles} profilesLoading={profilesLoading} poolRef={poolRef} />
           <KundenstimmenSection />
         </div>
         <ProzessSection prozessRef={prozessRef} />
