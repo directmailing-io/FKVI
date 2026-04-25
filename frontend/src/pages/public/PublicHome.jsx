@@ -101,7 +101,6 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
           <button onClick={() => scroll(prozessRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Ablauf</button>
           <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1 whitespace-nowrap">
             Broschüre
-            <span className="text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded leading-none border border-fkvi-teal/20">FK</span>
           </Link>
           <Link to="/matching/login" className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching</Link>
         </nav>
