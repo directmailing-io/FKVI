@@ -140,7 +140,7 @@ function HeroSection() {
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          background: 'radial-gradient(ellipse 70% 60% at 55% 40%, rgba(16,185,129,0.07) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse 75% 65% at 58% 42%, rgba(96,165,250,0.18) 0%, rgba(147,197,253,0.08) 45%, transparent 70%)',
         }}
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 lg:py-24 relative">
