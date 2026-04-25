@@ -300,6 +300,16 @@ export default function DownloadsPage() {
               <p className="text-gray-500 leading-relaxed">{t.subtitle}</p>
             </div>
 
+            {/* Brochure cover mockup */}
+            <div className="flex justify-center lg:justify-start">
+              <img
+                src="/brochure-cover.png"
+                alt="FKVI Informationsbroschüre"
+                className="w-52 sm:w-60 drop-shadow-lg select-none pointer-events-none"
+                draggable={false}
+              />
+            </div>
+
             {/* Language selector */}
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t.langLabel}</p>
