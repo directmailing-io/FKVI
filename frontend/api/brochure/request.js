@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     }
 
     // Already submitted but not confirmed — resend confirmation email
-    const emailError = await sendConfirmationEmail({ first_name, email, opt_in_token: existing.opt_in_token })
+    const emailError = await sendConfirmationEmail({ first_name, email, opt_in_token: existing.opt_in_token, lang })
     if (emailError) return res.status(500).json({ error: `E-Mail konnte nicht gesendet werden: ${emailError}` })
     return res.json({ success: true, resent: true })
   }
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Fehler beim Speichern der Anfrage' })
   }
 
-  const emailError = await sendConfirmationEmail({ first_name, email, opt_in_token: request.opt_in_token })
+  const emailError = await sendConfirmationEmail({ first_name, email, opt_in_token: request.opt_in_token, lang })
   if (emailError) {
     console.error('brochure/request email error:', emailError)
     return res.status(500).json({ error: `E-Mail konnte nicht gesendet werden: ${emailError}` })
@@ -89,18 +89,67 @@ export default async function handler(req, res) {
   return res.json({ success: true })
 }
 
+const EMAIL_CONFIRM_COPY = {
+  de: {
+    subject: 'Bitte bestätigen Sie Ihre E-Mail-Adresse – FKVI Broschüre',
+    heading: (name) => `Fast geschafft, ${name}!`,
+    sub: 'Bitte bestätigen Sie Ihre E-Mail-Adresse, um Zugang zur FKVI-Broschüre zu erhalten.',
+    body: 'Vielen Dank für Ihr Interesse an unserer Broschüre. Nach der Bestätigung Ihrer E-Mail-Adresse erhalten Sie sofortigen Zugang zum Download.',
+    btn: 'E-Mail bestätigen',
+    fallback: 'Wenn der Button nicht funktioniert, kopieren Sie bitte diesen Link in Ihren Browser:',
+    ignore: 'Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.',
+  },
+  en: {
+    subject: 'Please confirm your email address – FKVI Brochure',
+    heading: (name) => `Almost there, ${name}!`,
+    sub: 'Please confirm your email address to get access to the FKVI brochure.',
+    body: 'Thank you for your interest in our brochure. After confirming your email address, you will have immediate access to the download.',
+    btn: 'Confirm email',
+    fallback: 'If the button does not work, please copy this link into your browser:',
+    ignore: 'If you did not request this, you can ignore this email.',
+  },
+  fr: {
+    subject: 'Veuillez confirmer votre adresse e-mail – Brochure FKVI',
+    heading: (name) => `Presque terminé, ${name} !`,
+    sub: 'Veuillez confirmer votre adresse e-mail pour accéder à la brochure FKVI.',
+    body: 'Merci de votre intérêt pour notre brochure. Après confirmation de votre adresse e-mail, vous aurez un accès immédiat au téléchargement.',
+    btn: 'Confirmer l\'e-mail',
+    fallback: 'Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :',
+    ignore: 'Si vous n\'avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
+  },
+  ar: {
+    subject: 'يرجى تأكيد عنوان بريدك الإلكتروني – كتيب FKVI',
+    heading: (name) => `اقتربت من الهدف، ${name}!`,
+    sub: 'يرجى تأكيد عنوان بريدك الإلكتروني للحصول على الكتيب.',
+    body: 'شكراً لاهتمامك بكتيبنا. بعد تأكيد بريدك الإلكتروني، ستحصل فوراً على رابط التحميل.',
+    btn: 'تأكيد البريد الإلكتروني',
+    fallback: 'إذا لم يعمل الزر، يرجى نسخ هذا الرابط في متصفحك:',
+    ignore: 'إذا لم تقم بهذا الطلب، يمكنك تجاهل هذا البريد الإلكتروني.',
+  },
+  vi: {
+    subject: 'Vui lòng xác nhận địa chỉ email của bạn – Tài liệu FKVI',
+    heading: (name) => `Gần xong rồi, ${name}!`,
+    sub: 'Vui lòng xác nhận địa chỉ email của bạn để truy cập tài liệu FKVI.',
+    body: 'Cảm ơn bạn đã quan tâm đến tài liệu của chúng tôi. Sau khi xác nhận email, bạn sẽ có quyền truy cập ngay lập tức.',
+    btn: 'Xác nhận email',
+    fallback: 'Nếu nút không hoạt động, hãy sao chép liên kết này vào trình duyệt của bạn:',
+    ignore: 'Nếu bạn không yêu cầu điều này, bạn có thể bỏ qua email này.',
+  },
+}
+
 // Returns error string on failure, null on success
-async function sendConfirmationEmail({ first_name, email, opt_in_token }) {
+async function sendConfirmationEmail({ first_name, email, opt_in_token, lang = 'de' }) {
   const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '')
   if (!baseUrl) return 'FRONTEND_URL Umgebungsvariable fehlt'
   const confirmUrl = `${baseUrl}/api/brochure/confirm?token=${opt_in_token}`
+  const copy = EMAIL_CONFIRM_COPY[lang] || EMAIL_CONFIRM_COPY.de
 
   const { error } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
     to: email,
-    subject: 'Bitte bestätigen Sie Ihre E-Mail-Adresse – FKVI Broschüre',
+    subject: copy.subject,
     html: `<!DOCTYPE html>
-<html lang="de">
+<html lang="${lang}">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:'Segoe UI',Arial,sans-serif">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:40px 16px">
@@ -114,31 +163,27 @@ async function sendConfirmationEmail({ first_name, email, opt_in_token }) {
         </tr>
         <tr>
           <td style="padding:40px 40px 32px">
-            <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827">Fast geschafft, ${first_name}!</h1>
-            <p style="margin:0 0 24px;font-size:15px;color:#6b7280">Bitte bestätigen Sie Ihre E-Mail-Adresse, um Zugang zur FKVI-Broschüre zu erhalten.</p>
-            <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6">
-              Vielen Dank für Ihr Interesse an unserer Broschüre. Nach der Bestätigung Ihrer E-Mail-Adresse erhalten Sie sofortigen Zugang zum Download.
-            </p>
+            <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827">${copy.heading(first_name)}</h1>
+            <p style="margin:0 0 24px;font-size:15px;color:#6b7280">${copy.sub}</p>
+            <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6">${copy.body}</p>
             <table cellpadding="0" cellspacing="0" style="margin:0 0 32px">
               <tr>
                 <td style="background:#1e3a5f;border-radius:8px;padding:16px 32px">
                   <a href="${confirmUrl}" style="color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;display:block">
-                    E-Mail bestätigen
+                    ${copy.btn}
                   </a>
                 </td>
               </tr>
             </table>
-            <p style="margin:0 0 8px;font-size:13px;color:#9ca3af">
-              Wenn der Button nicht funktioniert, kopieren Sie bitte diesen Link in Ihren Browser:
-            </p>
+            <p style="margin:0 0 8px;font-size:13px;color:#9ca3af">${copy.fallback}</p>
             <p style="margin:0;font-size:12px;color:#6b7280;word-break:break-all">${confirmUrl}</p>
           </td>
         </tr>
         <tr>
           <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:24px 40px;text-align:center">
             <p style="margin:0;font-size:13px;color:#9ca3af">
-              Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.<br>
-              <strong style="color:#6b7280">Ihr FKVI-Team</strong>
+              ${copy.ignore}<br>
+              <strong style="color:#6b7280">FKVI-Team</strong>
             </p>
           </td>
         </tr>

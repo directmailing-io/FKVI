@@ -35,17 +35,26 @@ async function applyPrefillToPdf(pdfDoc, templateFields, prefillConfig, leadData
   }
 }
 
-async function sendEmail({ signerName, signerEmail, signerUrl }) {
-  const html = `<!DOCTYPE html><html lang="de"><body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;">
+const CONTRACT_COPY = {
+  de: { subject: 'Dein Vermittlungsvertrag – Fachkraft Vermittlung International', greeting: (n) => `Hallo ${n},`, body: 'du hast die FKVI-Informationsbroschüre vollständig gelesen. Hier ist dein persönlicher Vermittlungsvertrag.', btn: 'Vertrag unterschreiben' },
+  en: { subject: 'Your placement contract – Fachkraft Vermittlung International', greeting: (n) => `Hello ${n},`, body: 'You have fully read the FKVI information brochure. Here is your personal placement contract.', btn: 'Sign contract' },
+  fr: { subject: 'Votre contrat de placement – Fachkraft Vermittlung International', greeting: (n) => `Bonjour ${n},`, body: 'Vous avez entièrement lu la brochure FKVI. Voici votre contrat de placement personnel.', btn: 'Signer le contrat' },
+  ar: { subject: 'عقد التوظيف الخاص بك – Fachkraft Vermittlung International', greeting: (n) => `مرحباً ${n}،`, body: 'لقد قرأت كتيب معلومات FKVI بالكامل. إليك عقد التوظيف الشخصي.', btn: 'توقيع العقد' },
+  vi: { subject: 'Hợp đồng môi giới của bạn – Fachkraft Vermittlung International', greeting: (n) => `Xin chào ${n},`, body: 'Bạn đã đọc đầy đủ tài liệu FKVI. Đây là hợp đồng môi giới cá nhân của bạn.', btn: 'Ký hợp đồng' },
+}
+
+async function sendEmail({ signerName, signerEmail, signerUrl, lang = 'de' }) {
+  const copy = CONTRACT_COPY[lang] || CONTRACT_COPY.de
+  const html = `<!DOCTYPE html><html lang="${lang}"><body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:40px 0;"><tr><td align="center">
   <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;">
   <tr><td style="background:#1a3a5c;padding:32px 40px;"><h1 style="margin:0;color:#fff;font-size:22px;">Fachkraft Vermittlung International</h1></td></tr>
   <tr><td style="padding:40px;">
-    <p style="color:#333;font-size:16px;">Hallo ${signerName},</p>
-    <p style="color:#555;font-size:15px;line-height:1.6;">du hast die FKVI-Informationsbroschüre vollständig gelesen. Hier ist dein persönlicher Vermittlungsvertrag.</p>
+    <p style="color:#333;font-size:16px;">${copy.greeting(signerName)}</p>
+    <p style="color:#555;font-size:15px;line-height:1.6;">${copy.body}</p>
     <table cellpadding="0" cellspacing="0" style="margin:24px auto;">
       <tr><td style="background:#0ea5a0;border-radius:6px;">
-        <a href="${signerUrl}" style="display:inline-block;padding:14px 36px;color:#fff;font-size:15px;font-weight:700;text-decoration:none;">Vertrag unterschreiben</a>
+        <a href="${signerUrl}" style="display:inline-block;padding:14px 36px;color:#fff;font-size:15px;font-weight:700;text-decoration:none;">${copy.btn}</a>
       </td></tr>
     </table>
     <p style="color:#888;font-size:12px;word-break:break-all;"><a href="${signerUrl}" style="color:#1a3a5c;">${signerUrl}</a></p>
@@ -58,7 +67,7 @@ async function sendEmail({ signerName, signerEmail, signerUrl }) {
     body: JSON.stringify({
       from: 'Fachkraft Vermittlung International <noreply@fkvi-plattform.de>',
       to: [signerEmail],
-      subject: 'Dein Vermittlungsvertrag – Fachkraft Vermittlung International',
+      subject: copy.subject,
       html,
     }),
   })
@@ -131,7 +140,7 @@ async function sendContractToLead(lead, settings, template) {
 
   const signerUrl = `${PLATFORM_URL}/dokument/${send.token}`
   if (lead.email && process.env.RESEND_API_KEY) {
-    await sendEmail({ signerName, signerEmail: lead.email, signerUrl })
+    await sendEmail({ signerName, signerEmail: lead.email, signerUrl, lang: lead.language || 'de' })
   }
 }
 
@@ -177,7 +186,7 @@ export default async function handler(req, res) {
 
   const { data: dueLeads } = await supabaseAdmin
     .from('brochure_requests')
-    .select('id, first_name, last_name, email, phone')
+    .select('id, first_name, last_name, email, phone, language')
     .in('id', dueConfirmations.map(c => c.request_id))
     .is('contract_sent_at', null)
     .not('email_confirmed_at', 'is', null)

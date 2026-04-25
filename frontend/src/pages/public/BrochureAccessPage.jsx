@@ -10,6 +10,79 @@ const LANG_META = {
   vi: { flag: '🇻🇳', label: 'Tiếng Việt' },
 }
 
+const UI_T = {
+  de: {
+    dir: 'ltr',
+    loading: 'Broschüre wird geladen...',
+    errorTitle: 'Link ungültig oder abgelaufen',
+    newRequest: 'Neue Anfrage stellen',
+    switchLang: 'Sprache wechseln',
+    readQuestion: 'Hast du die Broschüre vollständig gelesen und verstanden?',
+    readSubtext: 'Nach deiner Bestätigung erhältst du den Vermittlungsvertrag innerhalb von 7 Tagen.',
+    confirmBtn: 'Ja, ich habe sie gelesen und verstanden',
+    saving: 'Wird gespeichert...',
+    confirmedTitle: 'Lesebestätigung eingegangen',
+    confirmedSubtext: 'Du erhältst den Vermittlungsvertrag innerhalb von 7 Tagen per E-Mail.',
+    downloadPdf: 'PDF herunterladen',
+  },
+  en: {
+    dir: 'ltr',
+    loading: 'Loading brochure...',
+    errorTitle: 'Link invalid or expired',
+    newRequest: 'Submit new request',
+    switchLang: 'Switch language',
+    readQuestion: 'Have you fully read and understood the brochure?',
+    readSubtext: 'After your confirmation, you will receive the placement contract within 7 days.',
+    confirmBtn: 'Yes, I have read and understood it',
+    saving: 'Saving...',
+    confirmedTitle: 'Reading confirmation received',
+    confirmedSubtext: 'You will receive the placement contract within 7 days by email.',
+    downloadPdf: 'Download PDF',
+  },
+  fr: {
+    dir: 'ltr',
+    loading: 'Chargement de la brochure...',
+    errorTitle: 'Lien invalide ou expiré',
+    newRequest: 'Nouvelle demande',
+    switchLang: 'Changer de langue',
+    readQuestion: 'Avez-vous entièrement lu et compris la brochure ?',
+    readSubtext: 'Après votre confirmation, vous recevrez le contrat de placement sous 7 jours.',
+    confirmBtn: "Oui, je l'ai lue et comprise",
+    saving: 'Enregistrement...',
+    confirmedTitle: 'Confirmation de lecture reçue',
+    confirmedSubtext: 'Vous recevrez le contrat de placement sous 7 jours par e-mail.',
+    downloadPdf: 'Télécharger le PDF',
+  },
+  ar: {
+    dir: 'rtl',
+    loading: 'جارٍ تحميل الكتيب...',
+    errorTitle: 'الرابط غير صالح أو منتهي الصلاحية',
+    newRequest: 'تقديم طلب جديد',
+    switchLang: 'تغيير اللغة',
+    readQuestion: 'هل قرأت الكتيب بالكامل وفهمته؟',
+    readSubtext: 'بعد تأكيدك، ستحصل على عقد التوظيف خلال 7 أيام.',
+    confirmBtn: 'نعم، لقد قرأته وفهمته',
+    saving: 'جارٍ الحفظ...',
+    confirmedTitle: 'تم استلام تأكيد القراءة',
+    confirmedSubtext: 'ستحصل على عقد التوظيف خلال 7 أيام عبر البريد الإلكتروني.',
+    downloadPdf: 'تحميل PDF',
+  },
+  vi: {
+    dir: 'ltr',
+    loading: 'Đang tải tài liệu...',
+    errorTitle: 'Liên kết không hợp lệ hoặc đã hết hạn',
+    newRequest: 'Gửi yêu cầu mới',
+    switchLang: 'Đổi ngôn ngữ',
+    readQuestion: 'Bạn đã đọc và hiểu đầy đủ tài liệu chưa?',
+    readSubtext: 'Sau khi xác nhận, bạn sẽ nhận được hợp đồng môi giới trong vòng 7 ngày.',
+    confirmBtn: 'Vâng, tôi đã đọc và hiểu',
+    saving: 'Đang lưu...',
+    confirmedTitle: 'Đã nhận xác nhận đã đọc',
+    confirmedSubtext: 'Bạn sẽ nhận được hợp đồng môi giới trong vòng 7 ngày qua email.',
+    downloadPdf: 'Tải xuống PDF',
+  },
+}
+
 export default function BrochureAccessPage() {
   const { token } = useParams()
 
@@ -79,6 +152,8 @@ export default function BrochureAccessPage() {
     setLangDropdownOpen(false)
   }
 
+  const t = UI_T[activeLang] || UI_T.de
+
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
@@ -89,11 +164,11 @@ export default function BrochureAccessPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="text-center max-w-sm space-y-4">
         <AlertCircle className="h-12 w-12 text-gray-300 mx-auto" />
-        <h1 className="text-lg font-semibold text-gray-700">Link ungültig oder abgelaufen</h1>
+        <h1 className="text-lg font-semibold text-gray-700">{t.errorTitle}</h1>
         <p className="text-sm text-gray-500">{error}</p>
         <Link to="/downloads">
           <button className="mt-2 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-            Neue Anfrage stellen
+            {t.newRequest}
           </button>
         </Link>
       </div>
@@ -105,7 +180,7 @@ export default function BrochureAccessPage() {
   const availableLangsForSwitcher = available_languages?.filter(l => l !== activeLang) || []
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col" style={{ paddingBottom: '72px' }}>
+    <div className="min-h-screen bg-gray-100 flex flex-col" dir={t.dir} style={{ paddingBottom: '72px' }}>
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200 shrink-0 z-10">
@@ -128,7 +203,7 @@ export default function BrochureAccessPage() {
                 {langDropdownOpen && (
                   <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-20 min-w-[160px]">
                     <div className="px-3 py-2 border-b border-gray-100">
-                      <p className="text-xs text-gray-400 font-medium">Sprache wechseln</p>
+                      <p className="text-xs text-gray-400 font-medium">{t.switchLang}</p>
                     </div>
                     {/* Current language */}
                     <div className="flex items-center gap-2 px-3 py-2 bg-teal-50">
@@ -167,7 +242,7 @@ export default function BrochureAccessPage() {
           <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              <p className="text-sm text-gray-400">Broschüre wird geladen...</p>
+              <p className="text-sm text-gray-400">{t.loading}</p>
             </div>
           </div>
         ) : (
@@ -198,8 +273,8 @@ export default function BrochureAccessPage() {
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-green-800 text-sm leading-tight">Lesebestätigung eingegangen</p>
-                  <p className="text-gray-400 text-xs">Du erhältst den Vermittlungsvertrag innerhalb von 7 Tagen per E-Mail.</p>
+                  <p className="font-semibold text-green-800 text-sm leading-tight">{t.confirmedTitle}</p>
+                  <p className="text-gray-400 text-xs">{t.confirmedSubtext}</p>
                 </div>
               </div>
               {pdfUrl && (
@@ -211,15 +286,15 @@ export default function BrochureAccessPage() {
                   className="shrink-0 flex items-center gap-1.5 text-sm text-teal-600 hover:text-teal-700 font-medium border border-teal-200 bg-teal-50 hover:bg-teal-100 px-3 py-2 rounded-lg transition-colors"
                 >
                   <FileDown className="h-4 w-4" />
-                  <span className="hidden sm:inline">PDF herunterladen</span>
+                  <span className="hidden sm:inline">{t.downloadPdf}</span>
                 </a>
               )}
             </>
           ) : (
             <>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 leading-tight">Hast du die Broschüre vollständig gelesen?</p>
-                <p className="text-xs text-gray-400 leading-tight mt-0.5">Nach deiner Bestätigung erhältst du den Vermittlungsvertrag innerhalb von 7 Tagen.</p>
+                <p className="text-sm font-semibold text-gray-900 leading-tight">{t.readQuestion}</p>
+                <p className="text-xs text-gray-400 leading-tight mt-0.5">{t.readSubtext}</p>
               </div>
               <button
                 onClick={handleConfirm}
@@ -227,9 +302,9 @@ export default function BrochureAccessPage() {
                 className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors"
               >
                 {confirming ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Wird gespeichert...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" />{t.saving}</>
                 ) : (
-                  <><CheckCircle2 className="h-4 w-4" />Ja, ich habe sie gelesen</>
+                  <><CheckCircle2 className="h-4 w-4" />{t.confirmBtn}</>
                 )}
               </button>
             </>

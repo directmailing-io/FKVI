@@ -57,9 +57,58 @@ async function applyPrefillToPdf(pdfDoc, templateFields, prefillConfig, leadData
   }
 }
 
-async function sendContractEmail({ signerName, signerEmail, signerUrl }) {
+const CONTRACT_EMAIL_COPY = {
+  de: {
+    subject: 'Dein Vermittlungsvertrag – Fachkraft Vermittlung International',
+    subtitle: 'Dein Vermittlungsvertrag',
+    greeting: (name) => `Hallo ${name},`,
+    body: 'du hast die FKVI-Informationsbroschüre vollständig gelesen. Wir freuen uns sehr darüber! Hier ist dein persönlicher Vermittlungsvertrag – bitte lies ihn sorgfältig durch und unterschreibe ihn digital.',
+    btn: 'Vertrag unterschreiben',
+    fallback: 'Oder kopiere diesen Link in deinen Browser:',
+    footer: 'Diese E-Mail wurde automatisch von Fachkraft Vermittlung International GmbH &amp; Co. KG gesendet.',
+  },
+  en: {
+    subject: 'Your placement contract – Fachkraft Vermittlung International',
+    subtitle: 'Your placement contract',
+    greeting: (name) => `Hello ${name},`,
+    body: 'You have fully read the FKVI information brochure. We are very pleased! Here is your personal placement contract – please read it carefully and sign it digitally.',
+    btn: 'Sign contract',
+    fallback: 'Or copy this link into your browser:',
+    footer: 'This email was sent automatically by Fachkraft Vermittlung International GmbH &amp; Co. KG.',
+  },
+  fr: {
+    subject: 'Votre contrat de placement – Fachkraft Vermittlung International',
+    subtitle: 'Votre contrat de placement',
+    greeting: (name) => `Bonjour ${name},`,
+    body: "Vous avez entièrement lu la brochure d'information FKVI. Nous en sommes ravis ! Voici votre contrat de placement personnel – veuillez le lire attentivement et le signer numériquement.",
+    btn: 'Signer le contrat',
+    fallback: 'Ou copiez ce lien dans votre navigateur :',
+    footer: 'Cet e-mail a été envoyé automatiquement par Fachkraft Vermittlung International GmbH &amp; Co. KG.',
+  },
+  ar: {
+    subject: 'عقد التوظيف الخاص بك – Fachkraft Vermittlung International',
+    subtitle: 'عقد التوظيف الخاص بك',
+    greeting: (name) => `مرحباً ${name}،`,
+    body: 'لقد قرأت كتيب معلومات FKVI بالكامل. يسعدنا ذلك! إليك عقد التوظيف الشخصي – يرجى قراءته بعناية والتوقيع عليه رقمياً.',
+    btn: 'توقيع العقد',
+    fallback: 'أو انسخ هذا الرابط في متصفحك:',
+    footer: 'تم إرسال هذا البريد الإلكتروني تلقائياً من Fachkraft Vermittlung International GmbH &amp; Co. KG.',
+  },
+  vi: {
+    subject: 'Hợp đồng môi giới của bạn – Fachkraft Vermittlung International',
+    subtitle: 'Hợp đồng môi giới của bạn',
+    greeting: (name) => `Xin chào ${name},`,
+    body: 'Bạn đã đọc đầy đủ tài liệu thông tin FKVI. Chúng tôi rất vui! Đây là hợp đồng môi giới cá nhân của bạn – vui lòng đọc kỹ và ký điện tử.',
+    btn: 'Ký hợp đồng',
+    fallback: 'Hoặc sao chép liên kết này vào trình duyệt của bạn:',
+    footer: 'Email này được gửi tự động bởi Fachkraft Vermittlung International GmbH &amp; Co. KG.',
+  },
+}
+
+async function sendContractEmail({ signerName, signerEmail, signerUrl, lang = 'de' }) {
+  const copy = CONTRACT_EMAIL_COPY[lang] || CONTRACT_EMAIL_COPY.de
   const html = `<!DOCTYPE html>
-<html lang="de">
+<html lang="${lang}">
 <head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:40px 0;">
@@ -67,30 +116,25 @@ async function sendContractEmail({ signerName, signerEmail, signerUrl }) {
       <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
         <tr><td style="background:#1a3a5c;padding:32px 40px;">
           <h1 style="margin:0;color:#fff;font-size:24px;font-weight:700;">Fachkraft Vermittlung International</h1>
-          <p style="margin:8px 0 0;color:#a8c4e0;font-size:14px;">Dein Vermittlungsvertrag</p>
+          <p style="margin:8px 0 0;color:#a8c4e0;font-size:14px;">${copy.subtitle}</p>
         </td></tr>
         <tr><td style="padding:40px;">
-          <p style="margin:0 0 16px;color:#333;font-size:16px;">Hallo ${signerName},</p>
-          <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">
-            du hast die FKVI-Informationsbroschüre vollständig gelesen. Wir freuen uns sehr darüber!
-            Hier ist dein persönlicher Vermittlungsvertrag – bitte lies ihn sorgfältig durch und unterschreibe ihn digital.
-          </p>
+          <p style="margin:0 0 16px;color:#333;font-size:16px;">${copy.greeting(signerName)}</p>
+          <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">${copy.body}</p>
           <table cellpadding="0" cellspacing="0" style="margin:0 auto 32px;">
             <tr><td style="background:#0ea5a0;border-radius:6px;">
               <a href="${signerUrl}" style="display:inline-block;padding:16px 40px;color:#fff;font-size:16px;font-weight:700;text-decoration:none;">
-                Vertrag unterschreiben
+                ${copy.btn}
               </a>
             </td></tr>
           </table>
-          <p style="margin:0 0 8px;color:#888;font-size:13px;">Oder kopiere diesen Link in deinen Browser:</p>
+          <p style="margin:0 0 8px;color:#888;font-size:13px;">${copy.fallback}</p>
           <p style="margin:0;color:#1a3a5c;font-size:13px;word-break:break-all;">
             <a href="${signerUrl}" style="color:#1a3a5c;">${signerUrl}</a>
           </p>
         </td></tr>
         <tr><td style="background:#f0f4f8;padding:20px 40px;border-top:1px solid #e2e8f0;">
-          <p style="margin:0;color:#999;font-size:12px;text-align:center;">
-            Diese E-Mail wurde automatisch von Fachkraft Vermittlung International GmbH &amp; Co. KG gesendet.
-          </p>
+          <p style="margin:0;color:#999;font-size:12px;text-align:center;">${copy.footer}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -107,7 +151,7 @@ async function sendContractEmail({ signerName, signerEmail, signerUrl }) {
     body: JSON.stringify({
       from: 'Fachkraft Vermittlung International <noreply@fkvi-plattform.de>',
       to: [signerEmail],
-      subject: 'Dein Vermittlungsvertrag – Fachkraft Vermittlung International',
+      subject: copy.subject,
       html,
     }),
   })
@@ -128,7 +172,7 @@ export default async function handler(req, res) {
   // Load lead
   const { data: lead, error: leadError } = await supabaseAdmin
     .from('brochure_requests')
-    .select('id, first_name, last_name, email, phone, contract_send_id, contract_sent_at')
+    .select('id, first_name, last_name, email, phone, language, contract_send_id, contract_sent_at')
     .eq('id', requestId)
     .single()
 
@@ -252,7 +296,7 @@ export default async function handler(req, res) {
   // Send email
   if (lead.email && process.env.RESEND_API_KEY) {
     try {
-      await sendContractEmail({ signerName, signerEmail: lead.email, signerUrl })
+      await sendContractEmail({ signerName, signerEmail: lead.email, signerUrl, lang: lead.language || 'de' })
     } catch (err) {
       console.error('brochure send-contract email error:', err)
     }

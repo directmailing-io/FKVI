@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import {
-  FileText, Upload, CheckCircle2, Clock, AlertCircle, Eye, Send, Loader2,
+  FileText, Upload, CheckCircle2, Clock, Eye, Send, Loader2,
   ChevronUp, ChevronDown, Search, RefreshCw, Mail, Phone,
-  Trash2, SortAsc, History, ExternalLink, Settings, FileSignature,
+  Trash2, SortAsc, ExternalLink, Settings, FileSignature,
   PenLine, ArrowRight, Info,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
@@ -100,7 +100,43 @@ function LangUploadPanel({ session, lang, latestVersion, onUploaded }) {
   const [notes, setNotes] = useState('')
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [deleting, setDeleting] = useState(false)
+  const [viewing, setViewing] = useState(false)
   const fileRef = useRef()
+
+  const handleView = async () => {
+    if (!latestVersion) return
+    setViewing(true)
+    try {
+      const res = await fetch(`/api/admin/brochure/view-url?versionId=${latestVersion.id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (res.ok && data.url) window.open(data.url, '_blank')
+      else toast({ title: 'Fehler beim Laden', description: data.error, variant: 'destructive' })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally { setViewing(false) }
+  }
+
+  const handleDelete = async () => {
+    if (!latestVersion) return
+    if (!confirm(`${lang.flag} ${lang.label}: Aktuelle Broschüre wirklich löschen? Die Datei wird dauerhaft entfernt.`)) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/admin/brochure/delete-version', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ versionId: latestVersion.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: `${lang.flag} ${lang.label}: Broschüre gelöscht` })
+      onUploaded()
+    } catch (err) {
+      toast({ title: 'Löschen fehlgeschlagen', description: err.message, variant: 'destructive' })
+    } finally { setDeleting(false) }
+  }
 
   const handleFile = e => {
     const f = e.target.files[0]
@@ -170,7 +206,24 @@ function LangUploadPanel({ session, lang, latestVersion, onUploaded }) {
           </div>
         </div>
         {latestVersion && (
-          <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Aktiv</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleView}
+              disabled={viewing}
+              className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors disabled:opacity-50"
+              title="Ansehen"
+            >
+              {viewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              title="Löschen"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </button>
+          </div>
         )}
       </div>
 
@@ -443,34 +496,6 @@ export default function BrochuerePage() {
             ))}
           </div>
 
-          {/* Version history per language */}
-          {!versionsLoading && LANGS.map(lang => {
-            const history = byLanguage[lang.code]?.history || []
-            if (history.length <= 1) return null
-            return (
-              <div key={lang.code} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
-                  <History className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm font-semibold text-gray-800">{lang.flag} {lang.label} — Versionshistorie</span>
-                  <span className="text-xs text-gray-400">({history.length})</span>
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {history.map((v, i) => (
-                    <div key={v.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors">
-                      <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0', i === 0 ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-400')}>
-                        v{v.version_number}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{v.file_name}</p>
-                        <p className="text-xs text-gray-400">{fmt(v.uploaded_at)}{v.uploaded_by && ` · ${v.uploaded_by}`}</p>
-                      </div>
-                      {i === 0 && <span className="text-xs font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">Aktuell</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
         </TabsContent>
 
         {/* ── Tab 2: Leads ─────────────────────────────────────���───────────── */}
@@ -639,14 +664,14 @@ export default function BrochuerePage() {
                   <h2 className="font-semibold text-gray-900">Vertragsvorlage auswählen</h2>
                 </div>
                 <Select
-                  value={settings.contract_template_id || ''}
-                  onValueChange={val => setSettings(s => ({ ...s, contract_template_id: val || null }))}
+                  value={settings.contract_template_id || '__none__'}
+                  onValueChange={val => setSettings(s => ({ ...s, contract_template_id: val === '__none__' ? null : val }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Vorlage auswählen..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Keine Vorlage</SelectItem>
+                    <SelectItem value="__none__">Keine Vorlage</SelectItem>
                     {templates.map(t => (
                       <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                     ))}
@@ -687,12 +712,12 @@ export default function BrochuerePage() {
                             </div>
                             <ArrowRight className="h-4 w-4 text-gray-300 shrink-0" />
                             <Select
-                              value={currentSource}
+                              value={currentSource || '__none__'}
                               onValueChange={val => setSettings(s => ({
                                 ...s,
                                 prefill_config: {
                                   ...s.prefill_config,
-                                  [field.id]: val ? { source: val } : undefined,
+                                  [field.id]: val && val !== '__none__' ? { source: val } : undefined,
                                 },
                               }))}
                             >
@@ -700,7 +725,7 @@ export default function BrochuerePage() {
                                 <SelectValue placeholder="Lead-Daten wählen..." />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">Nicht vorausfüllen</SelectItem>
+                                <SelectItem value="__none__">Nicht vorausfüllen</SelectItem>
                                 {LEAD_FIELDS.map(lf => (
                                   <SelectItem key={lf.key} value={lf.key}>{lf.label}</SelectItem>
                                 ))}
