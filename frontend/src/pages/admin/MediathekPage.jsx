@@ -1175,10 +1175,13 @@ const FILTER_OPTIONS = [
 ]
 
 function VersandTab({ session }) {
-  const [sends,      setSends]      = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [filter,     setFilter]     = useState('')
-  const [detailSend, setDetailSend] = useState(null)
+  const [sends,        setSends]        = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [filter,       setFilter]       = useState('')
+  const [search,       setSearch]       = useState('')
+  const [detailSend,   setDetailSend]   = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting,     setDeleting]     = useState(false)
   const { copied, copy } = useCopyText()
 
   useEffect(() => { fetchSends() }, [filter])
@@ -1199,29 +1202,71 @@ function VersandTab({ session }) {
 
   const handleRevoked = (sendId) => setSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'revoked' } : s))
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/admin/dokumente/delete-send', {
+        method: 'DELETE',
+        headers: authHeaders(session?.access_token),
+        body: JSON.stringify({ sendId: deleteTarget.id }),
+      })
+      if (!res.ok) throw new Error()
+      setSends(prev => prev.filter(s => s.id !== deleteTarget.id))
+      toast({ title: 'Gelöscht', description: `Versand-Eintrag wurde entfernt.` })
+    } catch {
+      toast({ title: 'Fehler', description: 'Eintrag konnte nicht gelöscht werden.', variant: 'destructive' })
+    } finally {
+      setDeleting(false)
+      setDeleteTarget(null)
+    }
+  }
+
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? sends.filter(s =>
+        (s.template_name || '').toLowerCase().includes(q) ||
+        (s.signer_name   || '').toLowerCase().includes(q) ||
+        (s.signer_email  || '').toLowerCase().includes(q)
+      )
+    : sends
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        {FILTER_OPTIONS.map(opt => (
-          <button
-            key={opt.key}
-            onClick={() => setFilter(opt.key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-              filter === opt.key ? 'bg-[#1a3a5c] text-white border-[#1a3a5c]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+      {/* Status-Filter + Suche */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {FILTER_OPTIONS.map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setFilter(opt.key)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                filter === opt.key ? 'bg-[#1a3a5c] text-white border-[#1a3a5c]' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative sm:ml-auto">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Vorlage oder Empfänger…"
+            className="pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-[#1a3a5c]/20 focus:border-[#1a3a5c] transition"
+          />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />)}</div>
-        ) : sends.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Send className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Keine Versand-Einträge gefunden</p>
+            <p className="text-sm">{q ? 'Keine Einträge für diese Suche' : 'Keine Versand-Einträge gefunden'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1234,7 +1279,7 @@ function VersandTab({ session }) {
                 </tr>
               </thead>
               <tbody>
-                {sends.map(send => (
+                {filtered.map(send => (
                   <tr key={send.id} className="border-b border-gray-50 hover:bg-gray-50/70 transition-colors">
                     <td className="px-4 py-3"><p className="font-medium text-gray-800 truncate max-w-[160px]">{send.template_name || '—'}</p></td>
                     <td className="px-4 py-3">
@@ -1256,6 +1301,13 @@ function VersandTab({ session }) {
                             {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <ClipboardCopy className="h-3.5 w-3.5 text-gray-500" />}
                           </button>
                         )}
+                        <button
+                          onClick={() => setDeleteTarget(send)}
+                          title="Eintrag löschen"
+                          className="h-7 w-7 flex items-center justify-center rounded border border-red-100 hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1269,6 +1321,24 @@ function VersandTab({ session }) {
       {detailSend && (
         <SendDetailDialog send={detailSend} open={!!detailSend} onClose={() => setDetailSend(null)} session={session} onRevoked={handleRevoked} />
       )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eintrag löschen?</DialogTitle>
+            <DialogDescription>
+              Versand <strong>{deleteTarget?.template_name || '—'}</strong> an <strong>{deleteTarget?.signer_name}</strong> wird unwiderruflich gelöscht — inklusive signierter PDF (falls vorhanden).
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Abbrechen</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Löschen…</> : 'Ja, löschen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
