@@ -133,7 +133,7 @@ export default function CvDocument({ profile, expiresAt, showRealName = false, d
     }}>
 
       {/* ── HEADER: Title + Photo ────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
           <h1 style={{
             fontSize: 34, fontWeight: 800, color: DARK,
@@ -170,7 +170,6 @@ export default function CvDocument({ profile, expiresAt, showRealName = false, d
         )}
       </div>
 
-      <div style={{ borderBottom: `2px solid ${DARK}`, marginBottom: 20 }} />
 
       {/* ── PERSÖNLICHE DATEN ────────────────────────────────────────────── */}
       <Section title="Persönliche Daten">
