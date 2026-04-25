@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Phone, ChevronDown, ChevronUp, Lock, Clock, Star, Users, ArrowRight, Play, CheckCircle2, Info, X, Menu, Loader2, ShieldCheck, Building2, MapPin, Banknote, Home, Award, Heart, Globe } from 'lucide-react'
@@ -90,7 +91,7 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${scrolled || mobileMenuOpen ? 'bg-white shadow-sm' : 'bg-white/95 backdrop-blur-sm'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <img src="/logo.png" alt="FKVI" className="h-14 w-auto" />
+        <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-14 w-auto" />
 
         {/* Nav links — desktop */}
         <nav className="hidden lg:flex items-center gap-7 text-xs font-medium text-gray-600">
@@ -329,7 +330,7 @@ function LogoMarquee() {
             <div key={i} className="mx-14 shrink-0 flex items-center h-14">
               <img
                 src={logo.src}
-                alt={logo.name}
+                alt={`${logo.name} – Kooperationspartner von FKVI`}
                 className="h-10 w-auto max-w-[180px] object-contain grayscale opacity-55 hover:opacity-100 hover:grayscale-0 transition-all duration-300"
               />
             </div>
@@ -810,7 +811,7 @@ function KundenstimmenSection() {
                     <p className="text-xs text-gray-400">Seniorenresidenzen Lerchenhof</p>
                   </div>
                 </div>
-                <img src="/logos/residenz-gruppe.webp" alt="Residenz Gruppe"
+                <img src="/logos/residenz-gruppe.webp" alt="Residenz-Gruppe – Seniorenresidenzen Lerchenhof"
                   className="h-7 w-auto object-contain grayscale opacity-40" />
               </div>
 
@@ -1138,7 +1139,7 @@ function UeberUnsSection() {
             <div className="rounded-2xl overflow-hidden shadow-lg">
               <img
                 src="https://cdn.prod.website-files.com/6848a984ab0e450784c73da6/69b3f813bf4740250d286673_U%CC%88ber%20FKVI.jpeg"
-                alt="Das FKVI-Team"
+                alt="Das Team der Fachkraft Vermittlung International GmbH & Co. KG"
                 className="w-full object-cover"
               />
             </div>
@@ -1447,7 +1448,7 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
       <div className="max-w-7xl mx-auto py-12">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8">
           <div>
-            <img src="/logo.png" alt="FKVI" className="h-14 w-auto mb-4"
+            <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-14 w-auto mb-4"
               style={{ filter: 'brightness(0) invert(1)', opacity: 0.85 }} />
             <p className="text-slate-500 text-xs leading-relaxed">
               Fachkraft Vermittlung International<br />GmbH &amp; Co. KG<br />
@@ -1506,6 +1507,14 @@ export default function PublicHome() {
 
   return (
     <div className="min-h-screen bg-white">
+      <Helmet>
+        <title>FKVI – Internationale Pflegekräfte für Kliniken &amp; Pflegeheime | Fachkraft Vermittlung International</title>
+        <meta name="description" content="FKVI vermittelt qualifizierte Pflegefachkräfte aus dem Ausland an Kliniken, Pflegeheime und ambulante Dienste. 100 % Vorleistung, B2-Zertifikat, Wohnung, 12 Monate Garantie – in 4 Monaten vor Ort." />
+        <link rel="canonical" href="https://fkvi-plattform.de/" />
+        <meta property="og:title" content="FKVI – Internationale Pflegekräfte für Kliniken & Pflegeheime" />
+        <meta property="og:description" content="Qualifizierte Pflegefachkräfte aus dem Ausland. 100 % Vorleistung, B2-Zertifikat, Wohnung inklusive. 12 Monate Garantie." />
+        <meta property="og:url" content="https://fkvi-plattform.de/" />
+      </Helmet>
       <NavBar funnelRef={funnelRef} prozessRef={prozessRef} vorteileRef={vorteileRef} kpassRef={kpassRef} />
       <HeroSection />
       <LogoMarquee />

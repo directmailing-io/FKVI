@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import { useAuthStore } from '@/store/authStore'
 import { Toaster } from '@/components/ui/toaster'
 import { AdminRoute, CompanyRoute } from '@/components/layout/ProtectedRoute'
@@ -32,6 +33,8 @@ import BeratungPage from '@/pages/public/BeratungPage'
 import DokumentSignPage from '@/pages/public/DokumentSignPage'
 import BundlePage from '@/pages/public/BundlePage'
 import UnterlagenPage from '@/pages/public/UnterlagenPage'
+import ImpressumPage from '@/pages/public/ImpressumPage'
+import DatenschutzPage from '@/pages/public/DatenschutzPage'
 
 // Matching pages
 import MatchingLogin from '@/pages/matching/MatchingLogin'
@@ -69,6 +72,7 @@ export default function App() {
   }, [])
 
   return (
+    <HelmetProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -83,6 +87,8 @@ export default function App() {
         <Route path="/dokument/:token" element={<DokumentSignPage />} />
         <Route path="/bundle/:token" element={<BundlePage />} />
         <Route path="/unterlagen/:token" element={<UnterlagenPage />} />
+        <Route path="/impressum" element={<ImpressumPage />} />
+        <Route path="/datenschutzerklaerung" element={<DatenschutzPage />} />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -112,5 +118,6 @@ export default function App() {
       </Routes>
       <Toaster />
     </BrowserRouter>
+    </HelmetProvider>
   )
 }

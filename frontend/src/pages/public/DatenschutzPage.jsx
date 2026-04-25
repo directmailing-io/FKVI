@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 
 function Section({ title, children }) {
   return (
@@ -21,11 +22,17 @@ function SubSection({ title, children }) {
 export default function DatenschutzPage() {
   return (
     <div className="min-h-screen bg-white">
+      <Helmet>
+        <title>Datenschutzerklärung | FKVI – Fachkraft Vermittlung International</title>
+        <meta name="description" content="Datenschutzerklärung der Fachkraft Vermittlung International GmbH & Co. KG gemäß DSGVO. Informationen zur Erhebung, Verarbeitung und Nutzung personenbezogener Daten." />
+        <link rel="canonical" href="https://fkvi-plattform.de/datenschutzerklaerung" />
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/">
-            <img src="/logo.png" alt="FKVI" className="h-[52px] w-auto" />
+            <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-[52px] w-auto" />
           </Link>
           <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">← Zurück zur Startseite</Link>
         </div>

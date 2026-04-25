@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -270,11 +271,20 @@ export default function DownloadsPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc]" dir={t.dir}>
+      <Helmet>
+        <title>Kostenlose Informationsbroschüre für Pflegefachkräfte | FKVI</title>
+        <meta name="description" content="Kostenlose Informationsbroschüre für Pflegefachkräfte aus dem Ausland. Alles über Ihren Weg nach Deutschland – Vermittlungsprozess, Unterkunft, Begleitung – in Deutsch, Englisch, Französisch, Arabisch & Vietnamesisch." />
+        <link rel="canonical" href="https://fkvi-plattform.de/downloads" />
+        <meta property="og:title" content="Kostenlose Informationsbroschüre für Pflegefachkräfte | FKVI" />
+        <meta property="og:description" content="Alles, was Pflegefachkräfte aus dem Ausland für ihren Start in Deutschland wissen müssen – kompakt und mehrsprachig." />
+        <meta property="og:url" content="https://fkvi-plattform.de/downloads" />
+        <meta name="robots" content="index, follow" />
+      </Helmet>
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/">
-            <img src="/logo.png" alt="FKVI" className="h-[52px] w-auto" />
+            <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-[52px] w-auto" />
           </Link>
           <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             {t.back}

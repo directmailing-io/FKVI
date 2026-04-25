@@ -199,7 +199,7 @@ export default function BrochureAccessPage() {
       <header className="bg-white border-b border-gray-200 shrink-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/">
-            <img src="/logo.png" alt="FKVI" className="h-[52px] w-auto" />
+            <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-[52px] w-auto" />
           </Link>
           <div className="flex items-center gap-3">
             {/* Language switcher */}

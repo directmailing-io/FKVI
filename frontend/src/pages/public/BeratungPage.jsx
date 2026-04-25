@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { Phone, Mail, MapPin, Clock, Video, CheckCircle2, Users, FileText, Info } from 'lucide-react'
 
 const CALENDLY_URL = 'https://calendly.com/fachkraft-vermittlung/beratungsgesprach-fachkrafte-aus-dem-ausland'
@@ -6,11 +7,19 @@ const CALENDLY_URL = 'https://calendly.com/fachkraft-vermittlung/beratungsgespra
 export default function BeratungPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
+      <Helmet>
+        <title>Kostenloses Beratungsgespräch vereinbaren | FKVI – Fachkraft Vermittlung International</title>
+        <meta name="description" content="Sichern Sie sich ein kostenloses und unverbindliches Beratungsgespräch mit FKVI. Wir prüfen gemeinsam, ob internationale Pflegefachkräfte die richtige Lösung für Ihre Einrichtung sind." />
+        <link rel="canonical" href="https://fkvi-plattform.de/beratung" />
+        <meta property="og:title" content="Kostenloses Beratungsgespräch vereinbaren | FKVI" />
+        <meta property="og:description" content="Unverbindliches Erstgespräch mit FKVI – Experten für internationale Pflegekräftevermittlung. Termin online buchen." />
+        <meta property="og:url" content="https://fkvi-plattform.de/beratung" />
+      </Helmet>
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link to="/">
-            <img src="/logo.png" alt="FKVI" className="h-[52px] w-auto" />
+            <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-[52px] w-auto" />
           </Link>
           <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             ← Zurück zur Startseite
