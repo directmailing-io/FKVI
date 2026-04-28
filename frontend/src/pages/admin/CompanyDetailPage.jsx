@@ -11,9 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check } from 'lucide-react'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import DocSendDialog from '@/components/DocSendDialog'
+import AddDocumentModal from '@/components/AddDocumentModal'
 
 const COMPANY_TYPE_LABELS = {
   lead: 'Lead',
@@ -70,6 +71,11 @@ export default function CompanyDetailPage() {
   const [docSends, setDocSends] = useState([])
   const [docSendsLoading, setDocSendsLoading] = useState(false)
   const [showSendDialog, setShowSendDialog] = useState(false)
+  const [sendDocInitial, setSendDocInitial] = useState(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [companyDocuments, setCompanyDocuments] = useState([])
+  const [companyDocSaving, setCompanyDocSaving] = useState(false)
+  const [deletingStoredDocIdx, setDeletingStoredDocIdx] = useState(null)
   const [deletingSendId, setDeletingSendId] = useState(null)
   const [deletingSendBusy, setDeletingSendBusy] = useState(false)
   const [downloadingSendId, setDownloadingSendId] = useState(null)
@@ -198,9 +204,25 @@ export default function CompanyDetailPage() {
       setCompany(data)
       setNotesList(data.notes_list || [])
       setContacts(data.additional_contacts || [])
+      setCompanyDocuments(data.company_documents || [])
     }
     setReservations(resData || [])
     setLoading(false)
+  }
+
+  const saveCompanyDocuments = async (docs) => {
+    setCompanyDocSaving(true)
+    try {
+      await fetch('/api/admin/company-docs/save-docs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ companyId: id, documents: docs }),
+      })
+    } catch {
+      // silent
+    } finally {
+      setCompanyDocSaving(false)
+    }
   }
 
   const updateField = async (field, value) => {
@@ -488,7 +510,7 @@ export default function CompanyDetailPage() {
         {[
           { id: 'stammdaten', label: 'Stammdaten' },
           { id: 'notizen', label: 'Notizen' },
-          { id: 'dokumente', label: `Dokumente${docSends.length > 0 ? ` (${docSends.length})` : ''}` },
+          { id: 'dokumente', label: `Dokumente${(docSends.length + companyDocuments.length) > 0 ? ` (${docSends.length + companyDocuments.length})` : ''}` },
           { id: 'vermittlungen', label: `Vermittlungen${reservations.length > 0 ? ` (${reservations.length})` : ''}` },
         ].map(tab => (
           <button
@@ -826,183 +848,250 @@ export default function CompanyDetailPage() {
 
       {/* Tab: Dokumente */}
       {activeTab === 'dokumente' && (
-      <div className="space-y-6">
+      <div className="space-y-4">
 
-          {/* Signierdokumente */}
-          {(() => {
-            // Group: bundles vs individual sends
-            const individualSends = docSends.filter(s => !s.bundle_id)
-            const bundleMap = {}
-            docSends.filter(s => s.bundle_id).forEach(s => {
-              if (!bundleMap[s.bundle_id]) bundleMap[s.bundle_id] = { id: s.bundle_id, token: s.bundle_token, title: s.bundle_title, url: s.bundle_url, signer_name: s.signer_name, created_at: s.created_at, sends: [] }
-              bundleMap[s.bundle_id].sends.push(s)
-            })
-            const bundles = Object.values(bundleMap)
-            const totalCount = bundles.length + individualSends.length
+        {/* Delete stored doc confirmation */}
+        {deletingStoredDocIdx !== null && (
+          <Dialog open onOpenChange={open => !open && setDeletingStoredDocIdx(null)}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-red-600">
+                  <AlertTriangle className="h-5 w-5" />Dokument löschen?
+                </DialogTitle>
+                <DialogDescription>
+                  <strong>„{companyDocuments[deletingStoredDocIdx]?.title || 'Dieses Dokument'}"</strong> wird unwiderruflich entfernt.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeletingStoredDocIdx(null)}>Abbrechen</Button>
+                <Button variant="destructive" onClick={async () => {
+                  const updated = companyDocuments.filter((_, i) => i !== deletingStoredDocIdx)
+                  setCompanyDocuments(updated)
+                  setDeletingStoredDocIdx(null)
+                  await saveCompanyDocuments(updated)
+                }}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />Löschen
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
-            return (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                  <div>
-                    <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-gray-400" />
-                      Dokumente
-                      {totalCount > 0 && (
-                        <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{totalCount}</span>
+        {/* Unified documents card */}
+        {(() => {
+          const individualSends = docSends.filter(s => !s.bundle_id)
+          const bundleMap = {}
+          docSends.filter(s => s.bundle_id).forEach(s => {
+            if (!bundleMap[s.bundle_id]) bundleMap[s.bundle_id] = {
+              id: s.bundle_id, token: s.bundle_token, title: s.bundle_title,
+              url: s.bundle_url, signer_name: s.signer_name, created_at: s.created_at, sends: [],
+            }
+            bundleMap[s.bundle_id].sends.push(s)
+          })
+          const bundles = Object.values(bundleMap)
+          const totalSends = bundles.length + individualSends.length
+          const totalCount = companyDocuments.length + totalSends
+
+          return (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-400" />
+                  Dokumente
+                  {totalCount > 0 && (
+                    <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{totalCount}</span>
+                  )}
+                  {(companyDocSaving || docSendsLoading) && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                </h2>
+                <Button size="sm" className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white" onClick={() => setShowAddModal(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />Dokument hinzufügen
+                </Button>
+              </div>
+
+              <div className="divide-y divide-gray-50">
+                {/* Stored docs (links/uploads) */}
+                {companyDocuments.map((doc, idx) => (
+                  <div key={idx} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                      {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
+                      <p className="text-xs text-gray-400 truncate">{doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {doc.link && (
+                        <a href={doc.link} target="_blank" rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors" title="Öffnen">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
                       )}
-                    </h2>
-                    <p className="text-xs text-gray-400 mt-0.5">Dokumente an dieses Unternehmen</p>
+                      {doc.link && (
+                        <button
+                          onClick={() => { setSendDocInitial({ sourceUrl: doc.link, sourceTitle: doc.title || '' }); setShowSendDialog(true) }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-[#0d9488] hover:bg-teal-50 transition-colors"
+                          title="Verschicken"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button onClick={() => setDeletingStoredDocIdx(idx)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Löschen">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <Button size="sm" className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white" onClick={() => setShowSendDialog(true)}>
-                    <Send className="h-3.5 w-3.5 mr-1.5" />Verschicken
-                  </Button>
-                </div>
+                ))}
 
-                {docSendsLoading ? (
-                  <div className="px-6 py-8 flex items-center justify-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
-                  </div>
-                ) : totalCount === 0 ? (
-                  <div className="text-center py-10 px-6 text-gray-400">
-                    <Send className="h-7 w-7 mx-auto mb-2 text-gray-200" />
-                    <p className="text-sm font-medium text-gray-500">Noch keine Dokumente verschickt</p>
-                    <p className="text-xs mt-1">Klicke auf „Verschicken" um ein Dokument zu senden.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-
-                    {/* Bundle rows */}
-                    {bundles.map(bundle => {
-                      const signedCount = bundle.sends.filter(s => s.status === 'submitted' || s.status === 'signed').length
-                      const allSigned = signedCount === bundle.sends.length
-                      const anySigned = signedCount > 0
-                      const statusColor = allSigned ? 'bg-green-50 text-green-700 border-green-200' : anySigned ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                      return (
-                        <div key={bundle.id} className="px-6 py-4 hover:bg-gray-50/40 transition-colors">
-                          <div className="flex items-start gap-3">
-                            <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${allSigned ? 'bg-green-500' : anySigned ? 'bg-blue-500' : 'bg-amber-400'}`} />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Package className="h-3.5 w-3.5 text-[#1a3a5c] shrink-0" />
-                                <p className="text-sm font-semibold text-gray-800">
-                                  {bundle.title || `Paket · ${bundle.sends.length} Dokumente`}
-                                </p>
-                                {!bundle.title && null}
-                                {bundle.title && (
-                                  <span className="text-xs text-gray-400">{bundle.sends.length} Dok.</span>
-                                )}
-                              </div>
-                              <p className="text-xs text-gray-400 mt-0.5 ml-5">
-                                {new Date(bundle.created_at).toLocaleDateString('de-DE')}
-                                {bundle.signer_name ? ` · ${bundle.signer_name}` : ''}
-                              </p>
-                              <div className="ml-5 mt-1.5 flex flex-wrap gap-1">
-                                {bundle.sends.map(s => {
-                                  const isSigned = s.status === 'submitted' || s.status === 'signed'
-                                  return (
-                                    <span key={s.id} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${isSigned ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                      {isSigned && <Check className="h-2.5 w-2.5" />}
-                                      {s.template_name || '–'}
-                                    </span>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColor}`}>
-                                {signedCount}/{bundle.sends.length} ✓
+                {/* Bundle rows */}
+                {bundles.map(bundle => {
+                  const signedCount = bundle.sends.filter(s => s.status === 'submitted' || s.status === 'signed').length
+                  const allSigned = signedCount === bundle.sends.length
+                  const anySigned = signedCount > 0
+                  return (
+                    <div key={bundle.id} className="flex items-start gap-3 px-6 py-3 hover:bg-gray-50/40 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
+                        <Package className="h-4 w-4 text-violet-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{bundle.title || `Paket · ${bundle.sends.length} Dokumente`}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(bundle.created_at).toLocaleDateString('de-DE')}
+                          {bundle.signer_name ? ` · ${bundle.signer_name}` : ''}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {bundle.sends.map(s => {
+                            const isSigned = s.status === 'submitted' || s.status === 'signed'
+                            return (
+                              <span key={s.id} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${isSigned ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                {isSigned && <Check className="h-2.5 w-2.5" />}{s.template_name || '–'}
                               </span>
-                              {bundle.url && (
-                                <button
-                                  onClick={() => copyBundleUrl(bundle.id, bundle.url)}
-                                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
-                                  title="Paket-Link kopieren"
-                                >
-                                  {copiedBundleId === bundle.id ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Link2 className="h-3.5 w-3.5" />}
-                                </button>
-                              )}
-                              {bundle.sends.some(s => s.status === 'submitted' || s.status === 'signed') && bundle.sends.map(s => {
-                                const isSigned = s.status === 'submitted' || s.status === 'signed'
-                                if (!isSigned) return null
-                                return (
-                                  <button
-                                    key={s.id}
-                                    onClick={() => handleDownloadSend(s.id)}
-                                    disabled={downloadingSendId === s.id}
-                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
-                                    title={`${s.template_name} herunterladen`}
-                                  >
-                                    {downloadingSendId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                                  </button>
-                                )
-                              })}
-                              <button
-                                onClick={() => setDeletingBundleId(bundle.id)}
-                                className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
-                                title="Paket löschen"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
+                            )
+                          })}
                         </div>
-                      )
-                    })}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${allSigned ? 'bg-green-50 text-green-700 border-green-200' : anySigned ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                          {signedCount}/{bundle.sends.length} ✓
+                        </span>
+                        {bundle.url && (
+                          <button onClick={() => copyBundleUrl(bundle.id, bundle.url)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link kopieren">
+                            {copiedBundleId === bundle.id ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Link2 className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                        {bundle.sends.filter(s => s.status === 'submitted' || s.status === 'signed').map(s => (
+                          <button key={s.id} onClick={() => handleDownloadSend(s.id)} disabled={downloadingSendId === s.id}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title={s.template_name}>
+                            {downloadingSendId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                          </button>
+                        ))}
+                        <button onClick={() => setDeletingBundleId(bundle.id)}
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
 
-                    {/* Individual send rows */}
-                    {individualSends.map(send => {
-                      const isSigned = send.status === 'submitted' || send.status === 'signed'
-                      const isRevoked = send.status === 'revoked'
-                      const statusLabel = isSigned ? 'Unterzeichnet' : isRevoked ? 'Widerrufen' : send.status === 'opened' ? 'Geöffnet' : 'Ausstehend'
-                      const statusColor = isSigned ? 'bg-green-50 text-green-700 border-green-200' : isRevoked ? 'bg-red-50 text-red-600 border-red-200' : send.status === 'opened' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                      return (
-                        <div key={send.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
-                          <div className={`h-2 w-2 rounded-full shrink-0 ${isSigned ? 'bg-green-500' : isRevoked ? 'bg-red-400' : send.status === 'opened' ? 'bg-blue-500' : 'bg-amber-400'}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 truncate">{send.template_name || '–'}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {new Date(send.created_at).toLocaleDateString('de-DE')}
-                              {send.signer_name ? ` · ${send.signer_name}` : ''}
-                            </p>
-                          </div>
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${statusColor}`}>
-                            {statusLabel}
-                          </span>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {isSigned && (
-                              <button
-                                onClick={() => handleDownloadSend(send.id)}
-                                disabled={downloadingSendId === send.id}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
-                                title="Unterzeichnetes Dokument herunterladen"
-                              >
-                                {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                              </button>
-                            )}
-                            {send.signer_url && (
-                              <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
-                                title="Signierlink öffnen">
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                            )}
-                            <button
-                              onClick={() => setDeletingSendId(send.id)}
-                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
-                              title="Signierlink löschen"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
+                {/* Individual send rows */}
+                {individualSends.map(send => {
+                  const isSigned = send.status === 'submitted' || send.status === 'signed'
+                  const isRevoked = send.status === 'revoked'
+                  return (
+                    <div key={send.id} className={`flex items-center gap-3 px-6 py-3 transition-colors ${isSigned ? 'bg-green-50/30' : 'hover:bg-gray-50/50'}`}>
+                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                        <Send className="h-4 w-4 text-violet-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{send.template_name || '–'}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(send.created_at).toLocaleDateString('de-DE')}
+                          {send.signer_name ? ` · ${send.signer_name}` : ''}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${isSigned ? 'bg-green-100 text-green-700' : isRevoked ? 'bg-red-50 text-red-600' : send.status === 'opened' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`}>
+                        {isSigned ? (send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet') : isRevoked ? 'Widerrufen' : send.status === 'opened' ? 'Geöffnet' : 'Ausstehend'}
+                      </span>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        {isSigned && send.send_mode !== 'view' && (
+                          <button onClick={() => handleDownloadSend(send.id)} disabled={downloadingSendId === send.id}
+                            className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex" title="PDF herunterladen">
+                            {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                        {!isSigned && send.signer_url && (
+                          <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link öffnen">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        <button onClick={() => setDeletingSendId(send.id)}
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Empty state */}
+                {totalCount === 0 && !docSendsLoading && (
+                  <div className="text-center py-10 px-6 text-gray-400">
+                    <FileText className="h-8 w-8 mx-auto mb-2 text-gray-200" />
+                    <p className="text-sm font-medium text-gray-500">Noch keine Dokumente</p>
+                    <p className="text-xs mt-1">Klicke auf „Dokument hinzufügen" um loszulegen.</p>
                   </div>
                 )}
               </div>
-            )
-          })()}
 
+              {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
+                <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                  Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
+        {/* AddDocumentModal */}
+        {showAddModal && (
+          <AddDocumentModal
+            profileId={id}
+            session={session}
+            entityType="company"
+            onAddDoc={async (doc) => {
+              const updated = [...companyDocuments, doc]
+              setCompanyDocuments(updated)
+              await saveCompanyDocuments(updated)
+            }}
+            onSendTemplate={() => { setSendDocInitial({ fixedSource: 'template' }); setShowSendDialog(true) }}
+            onClose={() => setShowAddModal(false)}
+          />
+        )}
+
+        {/* DocSendDialog */}
+        {showSendDialog && (
+          <DocSendDialog
+            entityType="company"
+            entityId={id}
+            company={company}
+            activeVermittlungen={reservations.map(r => ({
+              companyId: id,
+              companyName: company?.company_name || '',
+              companyEmail: company?.email || '',
+              profileId: r.profiles?.id,
+              profileName: r.profiles ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim() : '',
+              profileEmail: '',
+            }))}
+            session={session}
+            fixedSource={sendDocInitial?.fixedSource || null}
+            onClose={() => { setShowSendDialog(false); setSendDocInitial(null) }}
+            onSent={loadDocSends}
+          />
+        )}
 
       </div>
       )}

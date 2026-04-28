@@ -2116,8 +2116,15 @@ export default function ProfileForm() {
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-1 text-xs text-teal-700 bg-teal-100 px-2 py-1 rounded-full font-medium shrink-0">
-                    <CheckCircle2 className="h-3 w-3" />Automatisch · Immer aktuell
+                    <CheckCircle2 className="h-3 w-3" />Immer aktuell
                   </span>
+                  <button
+                    onClick={() => setActiveTab('lebenslauf')}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors shrink-0"
+                    title="Lebenslauf ansehen"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
                 </div>
 
                 {/* ── Gespeicherte Dokumente (links/uploads) ── */}

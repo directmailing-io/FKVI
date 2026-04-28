@@ -40,6 +40,7 @@ const MODES = [
 export default function AddDocumentModal({
   profileId,
   session,
+  entityType = 'profile', // 'profile' | 'company'
   onAddDoc,       // (doc: { title, link, doc_type, is_internal }) => void
   onSendTemplate, // () => void — opens DocSendDialog with fixedSource='template'
   onClose,
@@ -206,7 +207,7 @@ export default function AddDocumentModal({
         {/* ── Auswahl ── */}
         {!mode && (
           <div className="grid grid-cols-2 gap-3 py-1">
-            {MODES.map(m => {
+            {MODES.filter(m => !(m.id === 'company' && entityType === 'company')).map(m => {
               const Icon = m.icon
               return (
                 <button
