@@ -11,10 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Package } from 'lucide-react'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import SendDocumentDialog from '@/components/SendDocumentDialog'
-import BundleDialog from '@/components/BundleDialog'
+import DocSendDialog from '@/components/DocSendDialog'
 
 const COMPANY_TYPE_LABELS = {
   lead: 'Lead',
@@ -67,14 +66,16 @@ export default function CompanyDetailPage() {
   const [contacts, setContacts] = useState([])
   const [savingContacts, setSavingContacts] = useState(false)
 
-  // Signierdokumente state
+  // Dokumente state
   const [docSends, setDocSends] = useState([])
   const [docSendsLoading, setDocSendsLoading] = useState(false)
   const [showSendDialog, setShowSendDialog] = useState(false)
-  const [showBundleDialog, setShowBundleDialog] = useState(false)
   const [deletingSendId, setDeletingSendId] = useState(null)
   const [deletingSendBusy, setDeletingSendBusy] = useState(false)
   const [downloadingSendId, setDownloadingSendId] = useState(null)
+  const [deletingBundleId, setDeletingBundleId] = useState(null)
+  const [deletingBundleBusy, setDeletingBundleBusy] = useState(false)
+  const [copiedBundleId, setCopiedBundleId] = useState(null)
 
   useEffect(() => {
     fetchCompany()
@@ -134,6 +135,32 @@ export default function CompanyDetailPage() {
       setDeletingSendBusy(false)
       setDeletingSendId(null)
     }
+  }
+
+  const handleDeleteBundle = async (bundleId) => {
+    setDeletingBundleBusy(true)
+    try {
+      const res = await fetch('/api/admin/dokumente/bundle-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ bundleId }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Fehler')
+      setDocSends(prev => prev.filter(s => s.bundle_id !== bundleId))
+      toast({ title: 'Paket gelöscht', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Fehler beim Löschen', description: err.message, variant: 'destructive' })
+    } finally {
+      setDeletingBundleBusy(false)
+      setDeletingBundleId(null)
+    }
+  }
+
+  const copyBundleUrl = (bundleId, url) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedBundleId(bundleId)
+      setTimeout(() => setCopiedBundleId(null), 2000)
+    })
   }
 
   const handleDownloadSend = async (sendId) => {
@@ -683,23 +710,7 @@ export default function CompanyDetailPage() {
 
       {/* Tab: Notizen */}
       {activeTab === 'notizen' && (
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* CRM-Notizen */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
-            <h2 className="font-semibold text-gray-900 text-base">CRM-Notizen</h2>
-            <p className="text-xs text-gray-500">Freitext-Notizen zum Unternehmen — werden automatisch gespeichert.</p>
-            <Textarea
-              defaultValue={company.crm_notes || ''}
-              onBlur={handleCrmNotesBlur}
-              placeholder="Interne Notizen, Gesprächsnotizen, nächste Schritte..."
-              rows={5}
-            />
-          </div>
-        </div>
-
-        <div className="lg:col-span-3 space-y-6">
+      <div className="space-y-6">
 
           {/* Notizen & Verlauf */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
@@ -810,7 +821,6 @@ export default function CompanyDetailPage() {
               )}
             </div>
           </div>
-        </div>
       </div>
       )}
 
@@ -819,104 +829,179 @@ export default function CompanyDetailPage() {
       <div className="space-y-6">
 
           {/* Signierdokumente */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <div>
-                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-gray-400" />
-                  Signierdokumente
-                  {docSends.length > 0 && (
-                    <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
-                  )}
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">Dokumente, die das Unternehmen unterschreiben soll</p>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => setShowBundleDialog(true)}>
-                  <Package className="h-3.5 w-3.5 mr-1.5" />Paket
-                </Button>
-                <Button size="sm" className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white" onClick={() => setShowSendDialog(true)}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />Einzeln
-                </Button>
-              </div>
-            </div>
+          {(() => {
+            // Group: bundles vs individual sends
+            const individualSends = docSends.filter(s => !s.bundle_id)
+            const bundleMap = {}
+            docSends.filter(s => s.bundle_id).forEach(s => {
+              if (!bundleMap[s.bundle_id]) bundleMap[s.bundle_id] = { id: s.bundle_id, token: s.bundle_token, title: s.bundle_title, url: s.bundle_url, signer_name: s.signer_name, created_at: s.created_at, sends: [] }
+              bundleMap[s.bundle_id].sends.push(s)
+            })
+            const bundles = Object.values(bundleMap)
+            const totalCount = bundles.length + individualSends.length
 
-            {docSendsLoading ? (
-              <div className="px-6 py-8 flex items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
-              </div>
-            ) : docSends.length === 0 ? (
-              <div className="text-center py-10 px-6 text-gray-400">
-                <FileText className="h-7 w-7 mx-auto mb-2 text-gray-200" />
-                <p className="text-sm font-medium text-gray-500">Noch keine Signierdokumente</p>
-                <p className="text-xs mt-1">Sende ein Dokument aus der Mediathek an dieses Unternehmen.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {docSends.map(send => {
-                  const isSigned = send.status === 'submitted' || send.status === 'signed'
-                  const isRevoked = send.status === 'revoked'
-                  const statusLabel = isSigned ? 'Unterzeichnet' : isRevoked ? 'Widerrufen' : send.status === 'opened' ? 'Geöffnet' : 'Ausstehend'
-                  const statusColor = isSigned ? 'bg-green-50 text-green-700 border-green-200' : isRevoked ? 'bg-red-50 text-red-600 border-red-200' : send.status === 'opened' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+            return (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                  <div>
+                    <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                      Dokumente
+                      {totalCount > 0 && (
+                        <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{totalCount}</span>
+                      )}
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Dokumente an dieses Unternehmen</p>
+                  </div>
+                  <Button size="sm" className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white" onClick={() => setShowSendDialog(true)}>
+                    <Send className="h-3.5 w-3.5 mr-1.5" />Verschicken
+                  </Button>
+                </div>
 
-                  return (
-                    <div key={send.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${isSigned ? 'bg-green-500' : isRevoked ? 'bg-red-400' : send.status === 'opened' ? 'bg-blue-500' : 'bg-amber-400'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{send.template_name || '–'}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {new Date(send.created_at).toLocaleDateString('de-DE')}
-                          {send.signer_name ? ` · ${send.signer_name}` : ''}
-                        </p>
-                      </div>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${statusColor}`}>
-                        {statusLabel}
-                      </span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {isSigned && (
-                          <button
-                            onClick={() => handleDownloadSend(send.id)}
-                            disabled={downloadingSendId === send.id}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
-                            title="Unterzeichnetes Dokument herunterladen"
-                          >
-                            {downloadingSendId === send.id
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              : <Download className="h-3.5 w-3.5" />}
-                          </button>
-                        )}
-                        {send.signer_url && (
-                          <a
-                            href={send.signer_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
-                            title="Signierlink öffnen"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                        <button
-                          onClick={() => setDeletingSendId(send.id)}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
-                          title="Signierlink löschen"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                {docSendsLoading ? (
+                  <div className="px-6 py-8 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+                  </div>
+                ) : totalCount === 0 ? (
+                  <div className="text-center py-10 px-6 text-gray-400">
+                    <Send className="h-7 w-7 mx-auto mb-2 text-gray-200" />
+                    <p className="text-sm font-medium text-gray-500">Noch keine Dokumente verschickt</p>
+                    <p className="text-xs mt-1">Klicke auf „Verschicken" um ein Dokument zu senden.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
 
-            {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
-              <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
-                <Download className="h-3.5 w-3.5 shrink-0" />
-                Unterzeichnete Dokumente können direkt heruntergeladen werden.
+                    {/* Bundle rows */}
+                    {bundles.map(bundle => {
+                      const signedCount = bundle.sends.filter(s => s.status === 'submitted' || s.status === 'signed').length
+                      const allSigned = signedCount === bundle.sends.length
+                      const anySigned = signedCount > 0
+                      const statusColor = allSigned ? 'bg-green-50 text-green-700 border-green-200' : anySigned ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                      return (
+                        <div key={bundle.id} className="px-6 py-4 hover:bg-gray-50/40 transition-colors">
+                          <div className="flex items-start gap-3">
+                            <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${allSigned ? 'bg-green-500' : anySigned ? 'bg-blue-500' : 'bg-amber-400'}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Package className="h-3.5 w-3.5 text-[#1a3a5c] shrink-0" />
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {bundle.title || `Paket · ${bundle.sends.length} Dokumente`}
+                                </p>
+                                {!bundle.title && null}
+                                {bundle.title && (
+                                  <span className="text-xs text-gray-400">{bundle.sends.length} Dok.</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-400 mt-0.5 ml-5">
+                                {new Date(bundle.created_at).toLocaleDateString('de-DE')}
+                                {bundle.signer_name ? ` · ${bundle.signer_name}` : ''}
+                              </p>
+                              <div className="ml-5 mt-1.5 flex flex-wrap gap-1">
+                                {bundle.sends.map(s => {
+                                  const isSigned = s.status === 'submitted' || s.status === 'signed'
+                                  return (
+                                    <span key={s.id} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${isSigned ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                      {isSigned && <Check className="h-2.5 w-2.5" />}
+                                      {s.template_name || '–'}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColor}`}>
+                                {signedCount}/{bundle.sends.length} ✓
+                              </span>
+                              {bundle.url && (
+                                <button
+                                  onClick={() => copyBundleUrl(bundle.id, bundle.url)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
+                                  title="Paket-Link kopieren"
+                                >
+                                  {copiedBundleId === bundle.id ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Link2 className="h-3.5 w-3.5" />}
+                                </button>
+                              )}
+                              {bundle.sends.some(s => s.status === 'submitted' || s.status === 'signed') && bundle.sends.map(s => {
+                                const isSigned = s.status === 'submitted' || s.status === 'signed'
+                                if (!isSigned) return null
+                                return (
+                                  <button
+                                    key={s.id}
+                                    onClick={() => handleDownloadSend(s.id)}
+                                    disabled={downloadingSendId === s.id}
+                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
+                                    title={`${s.template_name} herunterladen`}
+                                  >
+                                    {downloadingSendId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                  </button>
+                                )
+                              })}
+                              <button
+                                onClick={() => setDeletingBundleId(bundle.id)}
+                                className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
+                                title="Paket löschen"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Individual send rows */}
+                    {individualSends.map(send => {
+                      const isSigned = send.status === 'submitted' || send.status === 'signed'
+                      const isRevoked = send.status === 'revoked'
+                      const statusLabel = isSigned ? 'Unterzeichnet' : isRevoked ? 'Widerrufen' : send.status === 'opened' ? 'Geöffnet' : 'Ausstehend'
+                      const statusColor = isSigned ? 'bg-green-50 text-green-700 border-green-200' : isRevoked ? 'bg-red-50 text-red-600 border-red-200' : send.status === 'opened' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                      return (
+                        <div key={send.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
+                          <div className={`h-2 w-2 rounded-full shrink-0 ${isSigned ? 'bg-green-500' : isRevoked ? 'bg-red-400' : send.status === 'opened' ? 'bg-blue-500' : 'bg-amber-400'}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{send.template_name || '–'}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {new Date(send.created_at).toLocaleDateString('de-DE')}
+                              {send.signer_name ? ` · ${send.signer_name}` : ''}
+                            </p>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${statusColor}`}>
+                            {statusLabel}
+                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isSigned && (
+                              <button
+                                onClick={() => handleDownloadSend(send.id)}
+                                disabled={downloadingSendId === send.id}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
+                                title="Unterzeichnetes Dokument herunterladen"
+                              >
+                                {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                              </button>
+                            )}
+                            {send.signer_url && (
+                              <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
+                                title="Signierlink öffnen">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            <button
+                              onClick={() => setDeletingSendId(send.id)}
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
+                              title="Signierlink löschen"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
+          })()}
 
 
       </div>
@@ -1108,51 +1193,46 @@ export default function CompanyDetailPage() {
         </Dialog>
       )}
 
-      {/* Send document dialog */}
+      {/* Delete bundle confirmation */}
+      {deletingBundleId && (
+        <Dialog open onOpenChange={open => !open && setDeletingBundleId(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />Paket löschen?
+              </DialogTitle>
+              <DialogDescription>
+                Das Paket und alle enthaltenen Dokumente werden dauerhaft gelöscht. Der Signierlink wird ungültig.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeletingBundleId(null)}>Abbrechen</Button>
+              <Button variant="destructive" disabled={deletingBundleBusy} onClick={() => handleDeleteBundle(deletingBundleId)}>
+                {deletingBundleBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Löschen
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* DocSendDialog */}
       {showSendDialog && company && (
-        <SendDocumentDialog
+        <DocSendDialog
           entityType="company"
           entityId={id}
-          prefillData={{
-            'company.company_name': company.company_name || '',
-            'company.contact_name': `${company.first_name || ''} ${company.last_name || ''}`.trim(),
-            'company.contact_first_name': company.first_name || '',
-            'company.contact_last_name': company.last_name || '',
-            'company.email': company.email || '',
-            'company.phone': company.phone || '',
-            'company.address': company.address || '',
-            'company.city': company.city || '',
-            'company.postal_code': company.postal_code || '',
-            'signer.name': `${company.first_name || ''} ${company.last_name || ''}`.trim() || company.company_name || '',
-            'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-          }}
-          defaultSignerName={`${company.first_name || ''} ${company.last_name || ''}`.trim() || company.company_name || ''}
-          defaultEmail={company.email || ''}
+          company={company}
+          activeVermittlungen={reservations.map(r => ({
+            profileId: r.profiles?.id,
+            profileName: r.profiles ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim() : '',
+            profileEmail: '',
+            companyId: id,
+            companyName: company.company_name || '',
+            companyEmail: company.email || '',
+          })).filter(v => v.profileId)}
           session={session}
           onClose={() => setShowSendDialog(false)}
           onSent={() => { setShowSendDialog(false); loadDocSends() }}
-        />
-      )}
-
-      {showBundleDialog && company && (
-        <BundleDialog
-          entityType="company"
-          entityId={id}
-          prefillData={{
-            'company.company_name': company.company_name || '',
-            'company.contact_name': `${company.first_name || ''} ${company.last_name || ''}`.trim(),
-            'company.contact_first_name': company.first_name || '',
-            'company.contact_last_name': company.last_name || '',
-            'company.email': company.email || '',
-            'company.phone': company.phone || '',
-            'signer.name': `${company.first_name || ''} ${company.last_name || ''}`.trim() || company.company_name || '',
-            'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-          }}
-          defaultSignerName={`${company.first_name || ''} ${company.last_name || ''}`.trim() || company.company_name || ''}
-          defaultEmail={company.email || ''}
-          session={session}
-          onClose={() => setShowBundleDialog(false)}
-          onSent={() => { setShowBundleDialog(false); loadDocSends() }}
         />
       )}
 

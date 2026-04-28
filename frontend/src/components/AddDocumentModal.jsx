@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Link2, Upload, FileText, Building2, ChevronLeft, Loader2, Check, Search, X } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
 import { toast } from '@/hooks/use-toast'
 
 const MODES = [
@@ -14,7 +13,6 @@ const MODES = [
     label: 'Link einfügen',
     desc: 'Google Drive, Dropbox, Webseite',
     color: 'bg-blue-50 text-blue-600 border-blue-200',
-    activeColor: 'border-blue-500 bg-blue-50',
   },
   {
     id: 'upload',
@@ -22,15 +20,13 @@ const MODES = [
     label: 'Datei hochladen',
     desc: 'PDF, Word oder andere Dateien',
     color: 'bg-green-50 text-green-600 border-green-200',
-    activeColor: 'border-green-500 bg-green-50',
   },
   {
     id: 'template',
     icon: FileText,
     label: 'Aus Vorlage',
-    desc: 'Dokument zum Ausfüllen senden',
+    desc: 'Vorlage auswählen & versenden',
     color: 'bg-violet-50 text-violet-600 border-violet-200',
-    activeColor: 'border-violet-500 bg-violet-50',
   },
   {
     id: 'company',
@@ -38,7 +34,6 @@ const MODES = [
     label: 'Aus Unternehmen',
     desc: 'Dokument von Firmenprofil übernehmen',
     color: 'bg-amber-50 text-amber-600 border-amber-200',
-    activeColor: 'border-amber-500 bg-amber-50',
   },
 ]
 
@@ -46,7 +41,7 @@ export default function AddDocumentModal({
   profileId,
   session,
   onAddDoc,       // (doc: { title, link, doc_type, is_internal }) => void
-  onSendTemplate, // () => void — opens DocSendDialog
+  onSendTemplate, // () => void — opens DocSendDialog with fixedSource='template'
   onClose,
 }) {
   const [mode, setMode] = useState(null)
@@ -59,38 +54,49 @@ export default function AddDocumentModal({
   // Upload form
   const [uploadTitle, setUploadTitle] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
   const fileInputRef = useRef(null)
+
+  // Template picker
+  const [templates, setTemplates] = useState([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
 
   // Company copy
   const [companySearch, setCompanySearch] = useState('')
-  const [companyResults, setCompanyResults] = useState([])
-  const [companySearching, setCompanySearching] = useState(false)
+  const [allCompanies, setAllCompanies] = useState([])
+  const [companiesLoading, setCompaniesLoading] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState(null)
   const [companyDocs, setCompanyDocs] = useState([])
   const [companyDocsLoading, setCompanyDocsLoading] = useState(false)
-  const searchTimeout = useRef(null)
 
-  // Company search
+  // Load templates when template mode is activated
   useEffect(() => {
-    if (!companySearch.trim()) { setCompanyResults([]); return }
-    clearTimeout(searchTimeout.current)
-    searchTimeout.current = setTimeout(() => {
-      setCompanySearching(true)
-      fetch(`/api/admin/companies/search?q=${encodeURIComponent(companySearch)}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      })
-        .then(r => r.json())
-        .then(d => { setCompanyResults(d.companies || []); setCompanySearching(false) })
-        .catch(() => setCompanySearching(false))
-    }, 300)
-    return () => clearTimeout(searchTimeout.current)
-  }, [companySearch])
+    if (mode !== 'template') return
+    setTemplatesLoading(true)
+    fetch('/api/admin/dokumente/list', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => { setTemplates(d.templates || []); setTemplatesLoading(false) })
+      .catch(() => setTemplatesLoading(false))
+  }, [mode])
+
+  // Load all companies when company mode is activated
+  useEffect(() => {
+    if (mode !== 'company') return
+    setCompaniesLoading(true)
+    fetch('/api/admin/entities/companies', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => { setAllCompanies(d.companies || []); setCompaniesLoading(false) })
+      .catch(() => setCompaniesLoading(false))
+  }, [mode])
 
   // Load company docs when company selected
   useEffect(() => {
     if (!selectedCompany) { setCompanyDocs([]); return }
     setCompanyDocsLoading(true)
-    // Load signed docs from that company
     fetch(`/api/admin/dokumente/sends-list?companyId=${selectedCompany.id}`, {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     })
@@ -110,30 +116,43 @@ export default function AddDocumentModal({
     onClose()
   }
 
-  const handleFileSelect = async (e) => {
+  const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!uploadTitle.trim()) {
-      setUploadTitle(file.name.replace(/\.[^.]+$/, ''))
-    }
+    setSelectedFile(file)
+    if (!uploadTitle.trim()) setUploadTitle(file.name.replace(/\.[^.]+$/, ''))
   }
 
   const handleUpload = async () => {
-    const file = fileInputRef.current?.files?.[0]
-    if (!file) return
+    if (!selectedFile) return
     setUploading(true)
     try {
-      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-      const path = `profile-docs/${profileId}/${fileName}`
-      const { error: uploadError } = await supabase.storage
-        .from('signed-documents')
-        .upload(path, file, { upsert: false })
-      if (uploadError) throw uploadError
+      // Get signed upload URL from server (avoids RLS issues)
+      const urlRes = await fetch('/api/admin/profile-docs/upload-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ profileId, filename: selectedFile.name }),
+      })
+      if (!urlRes.ok) {
+        const err = await urlRes.json()
+        throw new Error(err.error || 'Upload-URL konnte nicht erstellt werden')
+      }
+      const { uploadUrl, downloadUrl } = await urlRes.json()
 
-      const { data: { publicUrl } } = supabase.storage.from('signed-documents').getPublicUrl(path)
+      // Upload file directly to Supabase storage via signed URL
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': selectedFile.type || 'application/octet-stream' },
+        body: selectedFile,
+      })
+      if (!uploadRes.ok) throw new Error('Upload fehlgeschlagen')
+
       onAddDoc({
-        title: uploadTitle.trim() || file.name,
-        link: publicUrl,
+        title: uploadTitle.trim() || selectedFile.name,
+        link: downloadUrl,
         doc_type: 'upload',
         description: '',
         is_internal: false,
@@ -156,6 +175,16 @@ export default function AddDocumentModal({
     })
     onClose()
   }
+
+  const filteredCompanies = allCompanies.filter(c => {
+    const q = companySearch.toLowerCase()
+    if (!q) return true
+    return (
+      c.company_name?.toLowerCase().includes(q) ||
+      c.first_name?.toLowerCase().includes(q) ||
+      c.last_name?.toLowerCase().includes(q)
+    )
+  })
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
@@ -190,7 +219,7 @@ export default function AddDocumentModal({
                   className="flex flex-col items-start gap-2 p-4 rounded-xl border-2 border-gray-200 hover:border-gray-300 bg-white text-left transition-all hover:shadow-sm active:scale-[0.98]"
                 >
                   <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${m.color}`}>
-                    <Icon className="h-4.5 w-4.5 h-[18px] w-[18px]" />
+                    <Icon className="h-[18px] w-[18px]" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-800">{m.label}</p>
@@ -253,10 +282,13 @@ export default function AddDocumentModal({
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-              <p className="text-sm font-medium text-gray-500">Datei auswählen</p>
-              <p className="text-xs text-gray-400 mt-1">PDF, Word, JPG — max. 10 MB</p>
-              {fileInputRef.current?.files?.[0] && (
-                <p className="text-xs text-[#1a3a5c] font-medium mt-2">{fileInputRef.current.files[0].name}</p>
+              {selectedFile ? (
+                <p className="text-sm font-medium text-[#1a3a5c]">{selectedFile.name}</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-gray-500">Datei auswählen</p>
+                  <p className="text-xs text-gray-400 mt-1">PDF, Word, JPG — max. 10 MB</p>
+                </>
               )}
             </div>
             <input
@@ -266,13 +298,11 @@ export default function AddDocumentModal({
               className="hidden"
               onChange={handleFileSelect}
             />
-            {/* Show selected file name */}
-            <FilePreview fileRef={fileInputRef} />
             <div className="flex gap-2 justify-end pt-1">
               <Button variant="outline" onClick={onClose}>Abbrechen</Button>
               <Button
                 onClick={handleUpload}
-                disabled={uploading}
+                disabled={uploading || !selectedFile}
                 className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
               >
                 {uploading
@@ -297,11 +327,11 @@ export default function AddDocumentModal({
                     autoFocus
                     className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#1a3a5c]"
                   />
-                  {companySearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 animate-spin" />}
+                  {companiesLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 animate-spin" />}
                 </div>
-                {companyResults.length > 0 && (
+                {!companiesLoading && filteredCompanies.length > 0 && (
                   <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {companyResults.map(c => (
+                    {filteredCompanies.map(c => (
                       <button
                         key={c.id}
                         type="button"
@@ -309,13 +339,16 @@ export default function AddDocumentModal({
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 bg-white text-left text-sm"
                       >
                         <Building2 className="h-4 w-4 text-gray-400 shrink-0" />
-                        <span className="font-medium text-gray-800 truncate">{c.company_name || c.name || '—'}</span>
+                        <span className="font-medium text-gray-800 truncate">{c.company_name || '—'}</span>
                       </button>
                     ))}
                   </div>
                 )}
-                {companySearch.trim() && !companySearching && companyResults.length === 0 && (
+                {!companiesLoading && companySearch.trim() && filteredCompanies.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-4">Keine Unternehmen gefunden.</p>
+                )}
+                {!companiesLoading && !companySearch.trim() && allCompanies.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">Noch keine Unternehmen angelegt.</p>
                 )}
               </>
             ) : (
@@ -358,18 +391,5 @@ export default function AddDocumentModal({
         )}
       </DialogContent>
     </Dialog>
-  )
-}
-
-// Helper: show selected file name reactively
-function FilePreview({ fileRef }) {
-  const [name, setName] = useState(null)
-  return (
-    <input
-      type="file"
-      className="hidden"
-      onChange={e => setName(e.target.files?.[0]?.name || null)}
-      // This is just a display trick – actual ref is above
-    />
   )
 }

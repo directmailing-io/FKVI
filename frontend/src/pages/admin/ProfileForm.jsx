@@ -2257,7 +2257,7 @@ export default function ProfileForm() {
                   setDocuments(updated)
                   if (isEdit) await saveDocumentsToApi(updated)
                 }}
-                onSendTemplate={() => { setSendDocInitial(null); setSendTemplateDialog(true) }}
+                onSendTemplate={() => { setSendDocInitial({ fixedSource: 'template' }); setSendTemplateDialog(true) }}
                 onClose={() => setShowAddModal(false)}
               />
             )}
@@ -2270,6 +2270,7 @@ export default function ProfileForm() {
                 profile={profile}
                 activeVermittlungen={[]}
                 session={session}
+                fixedSource={sendDocInitial?.fixedSource || null}
                 onClose={() => { setSendTemplateDialog(false); setSendDocInitial(null) }}
                 onSent={loadDocSends}
               />
