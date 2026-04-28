@@ -15,16 +15,28 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { MultiSelect } from '@/components/ui/multi-select'
 import {
-  GERMAN_STATES, FACILITY_TYPES, WORK_TIME_OPTIONS,
-  SPECIALIZATIONS, EXPERIENCE_AREAS, PROFILE_STATUS_LABELS, PROCESS_STATUS_LABELS, formatDateTime
+  GERMAN_STATES, WORK_TIME_OPTIONS,
+  EXPERIENCE_AREAS, PROFILE_STATUS_LABELS, PROCESS_STATUS_LABELS, formatDateTime
 } from '@/lib/utils'
 import {
+  BERUFSGRUPPEN,
+  SPECIALIZATIONS_BY_BERUFSGRUPPE,
+  EINRICHTUNGSTYPEN_BY_BERUFSGRUPPE,
+  FLEXIBEL_OPTION,
+  ALL_SPECIALIZATION_FIELDS,
+  getSpecializationsField,
+  getEinrichtungstypenField,
+  getSpecializationsLabel,
+  getProfileSpecializations,
+  getProfileEinrichtungstypen,
+} from '@/lib/profileOptions'
+import {
   ArrowLeft, Save, Loader2, Upload, X, Plus, Trash2,
-  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff, Link2, Copy, Check, ClipboardCopy, Download, Send, Package
+  Video, CheckCircle2, AlertCircle, User, FlaskConical, Crop, AlertTriangle, Bookmark, Building2, ExternalLink, Mail, Lock, Unlink, ChevronRight, FileText, Pencil, Eye, EyeOff, Link2, Copy, Check, ClipboardCopy, Download, Send
 } from 'lucide-react'
 import VimeoPlayer from '@/components/VimeoPlayer'
-import SendDocumentDialog from '@/components/SendDocumentDialog'
-import BundleDialog from '@/components/BundleDialog'
+import DocSendDialog from '@/components/DocSendDialog'
+import AddDocumentModal from '@/components/AddDocumentModal'
 import { toast } from '@/hooks/use-toast'
 
 // ─── Field helper — defined OUTSIDE component to avoid focus-jumping bug ──────
@@ -70,9 +82,10 @@ function generateTestData() {
   const maritalStatuses = ['ledig', 'verheiratet', 'geschieden', 'verwitwet']
   const workTimes = WORK_TIME_OPTIONS
   const states = GERMAN_STATES.slice(0, 4)
-  const facilities = FACILITY_TYPES.slice(0, 3)
-  const specs = SPECIALIZATIONS.slice(0, 3)
   const expAreas = EXPERIENCE_AREAS.slice(0, 4)
+  const bg = 'pflegefachkraft'
+  const specs = SPECIALIZATIONS_BY_BERUFSGRUPPE[bg].slice(0, 5)
+  const facilities = EINRICHTUNGSTYPEN_BY_BERUFSGRUPPE[bg].slice(1, 5)
 
   const pick = arr => arr[Math.floor(Math.random() * arr.length)]
   const pickN = (arr, n) => arr.slice().sort(() => Math.random() - 0.5).slice(0, n)
@@ -90,7 +103,9 @@ function generateTestData() {
     has_drivers_license: Math.random() > 0.4,
     state_preferences: pickN(states, 2),
     nationwide: false,
-    preferred_facility_types: pickN(facilities, 2),
+    berufsgruppe: bg,
+    specializations_pflegefachkraft: pickN(specs, 2),
+    einrichtungstyp_pflegefachkraft: pickN(facilities, 2),
     work_time_preference: pick(workTimes),
     profile_image_url: '',
     vimeo_video_url: '',
@@ -101,7 +116,6 @@ function generateTestData() {
     graduation_year: String(year),
     german_recognition: pick(recognitions),
     education_notes: 'Ausbildung erfolgreich abgeschlossen. Alle Zeugnisse liegen vor.',
-    specializations: pickN(specs, 2),
     additional_qualifications: pickN(['Wundmanagement', 'Kinästhetik', 'Diabetes-Beratung', 'Palliative Care'], 2),
     total_experience_years: String(2 + Math.floor(Math.random() * 10)),
     germany_experience_years: String(Math.floor(Math.random() * 3)),
@@ -282,11 +296,18 @@ const EMPTY_PROFILE = {
   first_name: '', last_name: '', gender: '', age: '',
   nationality: '', marital_status: '', children_count: '0', has_drivers_license: false,
   state_preferences: [], nationwide: false,
-  preferred_facility_types: [], work_time_preference: '',
+  berufsgruppe: '',
+  specializations_pflegefachkraft: [], specializations_pflegeassistenz: [],
+  specializations_ota: [], specializations_ata: [], specializations_physiotherapie: [],
+  bereichswunsch_azubi: [],
+  einrichtungstyp_pflegefachkraft: [], einrichtungstyp_pflegeassistenz: [],
+  einrichtungstyp_ota: [], einrichtungstyp_ata: [], einrichtungstyp_physiotherapie: [],
+  einrichtungstyp_azubi_pflege: [],
+  work_time_preference: '',
   profile_image_url: '', vimeo_video_url: '', vimeo_video_id: '',
   school_education: '', nursing_education: '', education_duration: '',
   graduation_year: '', german_recognition: '', education_notes: '',
-  specializations: [], additional_qualifications: [],
+  additional_qualifications: [],
   total_experience_years: '', germany_experience_years: '',
   experience_areas: [], language_skills: [],
   fkvi_competency_proof: '', internal_notes: '',
@@ -549,7 +570,8 @@ export default function ProfileForm() {
   const [docSends, setDocSends] = useState([])
   const [docSendsLoading, setDocSendsLoading] = useState(false)
   const [sendTemplateDialog, setSendTemplateDialog] = useState(false)
-  const [bundleDialog, setBundleDialog] = useState(false)
+  const [sendDocInitial, setSendDocInitial] = useState(null)
+  const [showAddModal, setShowAddModal] = useState(false)
   const [deletingSendId, setDeletingSendId] = useState(null) // id being confirmed for deletion
   const [deletingSendBusy, setDeletingSendBusy] = useState(false)
   const [downloadingSendId, setDownloadingSendId] = useState(null)
@@ -1555,6 +1577,14 @@ export default function ProfileForm() {
             {/* Preferences */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <h3 className="font-semibold text-gray-900">Präferenzen</h3>
+              <Field label="Berufsgruppe" required>
+                <Select value={profile.berufsgruppe || ''} onValueChange={v => set('berufsgruppe', v)}>
+                  <SelectTrigger><SelectValue placeholder="Berufsgruppe auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    {BERUFSGRUPPEN.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
               <div className="flex items-center gap-3">
                 <Switch checked={profile.nationwide} onCheckedChange={v => set('nationwide', v)} />
                 <Label>Bundesweit einsetzbar</Label>
@@ -1569,14 +1599,30 @@ export default function ProfileForm() {
                   />
                 </Field>
               )}
-              <Field label="Bevorzugter Einrichtungstyp">
-                <MultiSelect
-                  options={FACILITY_TYPES}
-                  value={profile.preferred_facility_types}
-                  onChange={v => set('preferred_facility_types', v)}
-                  placeholder="Einrichtungstypen auswählen..."
-                />
-              </Field>
+              {profile.berufsgruppe && (() => {
+                const field = getEinrichtungstypenField(profile.berufsgruppe)
+                const options = EINRICHTUNGSTYPEN_BY_BERUFSGRUPPE[profile.berufsgruppe] || []
+                const current = profile[field] || []
+                const isFlexibel = current.includes(FLEXIBEL_OPTION)
+                return (
+                  <Field label="Bevorzugter Einrichtungstyp">
+                    <MultiSelect
+                      options={options}
+                      value={current}
+                      onChange={v => {
+                        // Flexibel is mutually exclusive with others
+                        const hadFlexibel = current.includes(FLEXIBEL_OPTION)
+                        const nowFlexibel = v.includes(FLEXIBEL_OPTION)
+                        let next = v
+                        if (!hadFlexibel && nowFlexibel) next = [FLEXIBEL_OPTION]
+                        else if (hadFlexibel && nowFlexibel && v.length > 1) next = v.filter(x => x !== FLEXIBEL_OPTION)
+                        set(field, next)
+                      }}
+                      placeholder="Einrichtungstypen auswählen..."
+                    />
+                  </Field>
+                )
+              })()}
               <Field label="Arbeitszeitpräferenz">
                 <Select value={profile.work_time_preference || ''} onValueChange={v => set('work_time_preference', v)}>
                   <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
@@ -1837,9 +1883,16 @@ export default function ProfileForm() {
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <h3 className="font-semibold text-gray-900">Qualifikationen</h3>
-              <Field label="Spezialisierungen">
-                <MultiSelect options={SPECIALIZATIONS} value={profile.specializations} onChange={v => set('specializations', v)} placeholder="Spezialisierungen auswählen..." />
-              </Field>
+              {profile.berufsgruppe && (() => {
+                const field = getSpecializationsField(profile.berufsgruppe)
+                const options = SPECIALIZATIONS_BY_BERUFSGRUPPE[profile.berufsgruppe] || []
+                const label = getSpecializationsLabel(profile.berufsgruppe)
+                return (
+                  <Field label={label}>
+                    <MultiSelect options={options} value={profile[field] || []} onChange={v => set(field, v)} placeholder={`${label} auswählen...`} />
+                  </Field>
+                )
+              })()}
               <Field label="Zusatzqualifikationen">
                 <MultiSelect
                   options={['Wundmanagement', 'Kinästhetik', 'Diabetes-Beratung', 'Palliative Care', 'Basale Stimulation', 'Aromapflege', 'Sturzprävention']}
@@ -1994,7 +2047,7 @@ export default function ProfileForm() {
 
           {/* ── TAB: Dokumente ──────────────────────────────────────────── */}
           <TabsContent value="documents" className="space-y-4 mt-6">
-            {/* Edit/Add dialog */}
+            {/* Edit dialog */}
             {editingDoc && (
               <DocEditDialog
                 doc={editingDoc.doc}
@@ -2003,6 +2056,7 @@ export default function ProfileForm() {
               />
             )}
 
+            {/* Delete stored doc confirmation */}
             {deletingDocIdx !== null && (
               <Dialog open onOpenChange={open => !open && setDeletingDocIdx(null)}>
                 <DialogContent className="max-w-sm">
@@ -2024,114 +2078,166 @@ export default function ProfileForm() {
               </Dialog>
             )}
 
+            {/* ── Unified documents card ── */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <div>
+                <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-gray-400" />
                     Dokumente
-                    {documents.length > 0 && (
-                      <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{documents.length}</span>
+                    {(documents.length + (isEdit ? docSends.length : 0)) > 0 && (
+                      <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                        {documents.length + (isEdit ? docSends.length : 0)}
+                      </span>
                     )}
-                    {docSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                    {(docSaving || (isEdit && docSendsLoading)) && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
                   </h3>
-                  <p className="text-xs text-gray-400 mt-0.5">Google Drive, Dropbox oder andere externe Links</p>
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => setEditingDoc({ idx: null, doc: { title: '', doc_type: '', description: '', link: '', is_internal: false } })}
+                  className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
+                  onClick={() => setShowAddModal(true)}
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />Dokument hinzufügen
                 </Button>
               </div>
 
-              {/* List */}
-              {documents.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <FileText className="h-8 w-8 mx-auto mb-3 text-gray-200" />
-                  <p className="text-sm font-medium text-gray-500">Noch keine Dokumente</p>
-                  <p className="text-xs mt-1">Füge Links zu Zeugnissen, Lebensläufen oder anderen Dokumenten hinzu.</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={() => setEditingDoc({ idx: null, doc: { title: '', doc_type: '', description: '', link: '', is_internal: false } })}
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1.5" />Erstes Dokument hinzufügen
-                  </Button>
+              <div className="divide-y divide-gray-50">
+                {/* ── Auto-Lebenslauf (always pinned) ── */}
+                <div className="flex items-center gap-3 px-6 py-3 bg-teal-50/40">
+                  <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
+                    <User className="h-4 w-4 text-teal-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 text-sm">Lebenslauf</p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {[profile.first_name, profile.last_name].filter(Boolean).join(' ')}
+                      {profile.beruf ? ` · ${profile.beruf}` : ''}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs text-teal-700 bg-teal-100 px-2 py-1 rounded-full font-medium shrink-0">
+                    <CheckCircle2 className="h-3 w-3" />Automatisch · Immer aktuell
+                  </span>
                 </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/50">
-                      <th className="text-left px-6 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Dokument</th>
-                      <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide hidden sm:table-cell">Typ</th>
-                      <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Sichtbarkeit</th>
-                      <th className="px-3 py-2.5 w-24"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {documents.map((doc, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
-                        <td className="px-6 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                              <FileText className="h-4 w-4 text-fkvi-blue" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-900 truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
-                              {doc.description && <p className="text-xs text-gray-400 truncate">{doc.description}</p>}
-                            </div>
+
+                {/* ── Gespeicherte Dokumente (links/uploads) ── */}
+                {documents.map((doc, idx) => (
+                  <div key={idx} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors group">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                      {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {doc.link && (
+                        <a href={doc.link} target="_blank" rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors" title="Öffnen">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {isEdit && doc.link && (
+                        <button
+                          onClick={() => { setSendDocInitial({ sourceUrl: doc.link, sourceTitle: doc.title || '' }); setSendTemplateDialog(true) }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-[#0d9488] hover:bg-teal-50 transition-colors"
+                          title="Verschicken"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button onClick={() => setEditingDoc({ idx, doc })}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Bearbeiten">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => setDeletingDocIdx(idx)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Löschen">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* ── Versendungen ── */}
+                {isEdit && docSends.map(send => {
+                  const isSigned = send.status === 'submitted' || send.status === 'signed'
+                  const isConfirmingDelete = deletingSendId === send.id
+                  return (
+                    <div key={send.id} className={`flex items-center gap-3 px-6 py-3 transition-colors ${isSigned ? 'bg-green-50/30' : 'hover:bg-gray-50/50'}`}>
+                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                        <Send className="h-4 w-4 text-violet-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{send.template_name || send.bundle_title || '–'}</p>
+                        <p className="text-xs text-gray-400">
+                          {send.signer_name}
+                          {isSigned && send.signed_at ? ` · ${new Date(send.signed_at).toLocaleDateString('de-DE')}` : ` · ${new Date(send.created_at).toLocaleDateString('de-DE')}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isSigned ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full font-medium">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet'}
+                          </span>
+                        ) : send.status === 'opened' ? (
+                          <span className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">Geöffnet</span>
+                        ) : send.status === 'revoked' ? (
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Widerrufen</span>
+                        ) : (
+                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">Ausstehend</span>
+                        )}
+                        {isConfirmingDelete ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleDeleteSend(send.id)} disabled={deletingSendBusy}
+                              className="text-xs text-red-600 font-semibold hover:text-red-700 disabled:opacity-50">
+                              {deletingSendBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Löschen'}
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button onClick={() => setDeletingSendId(null)} className="text-xs text-gray-500 hover:text-gray-700">Abbruch</button>
                           </div>
-                        </td>
-                        <td className="px-3 py-3 hidden sm:table-cell">
-                          {doc.doc_type
-                            ? <span className={`text-xs px-2 py-1 rounded-full font-medium ${DOC_TYPE_COLORS[doc.doc_type] || 'bg-gray-100 text-gray-600'}`}>{doc.doc_type}</span>
-                            : <span className="text-gray-300 text-xs">—</span>}
-                        </td>
-                        <td className="px-3 py-3">
-                          {doc.is_internal
-                            ? <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
-                                <EyeOff className="h-3 w-3" />Intern
-                              </span>
-                            : <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">
-                                <Eye className="h-3 w-3" />Sichtbar
-                              </span>}
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            {doc.link && (
-                              <a
-                                href={doc.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors"
-                                title="Link öffnen"
-                              >
+                        ) : (
+                          <div className="flex items-center gap-0.5">
+                            {isSigned && send.send_mode !== 'view' && (
+                              <button onClick={() => handleDownloadSend(send.id)} disabled={downloadingSendId === send.id}
+                                className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex" title="PDF herunterladen">
+                                {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                              </button>
+                            )}
+                            {!isSigned && send.signer_url && (
+                              <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link öffnen">
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </a>
                             )}
-                            <button
-                              onClick={() => setEditingDoc({ idx, doc })}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                              title="Bearbeiten"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setDeletingDocIdx(idx)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              title="Löschen"
-                            >
+                            <button onClick={() => setDeletingSendId(send.id)}
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* ── Empty state (only if no docs and no sends) ── */}
+                {documents.length === 0 && (!isEdit || docSends.length === 0) && (
+                  <div className="text-center py-10 text-gray-400">
+                    <FileText className="h-8 w-8 mx-auto mb-2 text-gray-200" />
+                    <p className="text-sm font-medium text-gray-500">Noch keine Dokumente hinzugefügt</p>
+                    <p className="text-xs mt-1">Klicke auf „Dokument hinzufügen" um loszulegen.</p>
+                  </div>
+                )}
+              </div>
+
+              {isEdit && docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
+                <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                  Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
+                </div>
               )}
             </div>
 
@@ -2141,187 +2247,30 @@ export default function ProfileForm() {
               </p>
             )}
 
-            {/* ── Signierlinks ── */}
-            {isEdit && (
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                  <div>
-                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-gray-400" />
-                      Signierlinks
-                      {docSends.length > 0 && (
-                        <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
-                      )}
-                      {docSendsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Vorlage auswählen → Link generieren → teilen</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setBundleDialog(true)}>
-                      <Package className="h-3.5 w-3.5 mr-1.5" />Paket
-                    </Button>
-                    <Button size="sm" onClick={() => setSendTemplateDialog(true)} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
-                      <Plus className="h-3.5 w-3.5 mr-1.5" />Einzeln
-                    </Button>
-                  </div>
-                </div>
-                {docSends.length === 0 && !docSendsLoading ? (
-                  <div className="text-center py-10 text-gray-400">
-                    <FileText className="h-7 w-7 mx-auto mb-2 text-gray-200" />
-                    <p className="text-sm font-medium text-gray-500">Noch keine Signierlinks erstellt</p>
-                    <p className="text-xs mt-1">Wähle eine Vorlage aus der Mediathek und sende sie an die Fachkraft.</p>
-                  </div>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-100 bg-gray-50/50">
-                        <th className="text-left px-6 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Vorlage</th>
-                        <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide">Status</th>
-                        <th className="px-3 py-2.5 w-24"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {docSends.map(send => {
-                        const isSigned = send.status === 'submitted' || send.status === 'signed'
-                        const isConfirmingDelete = deletingSendId === send.id
-                        return (
-                          <tr key={send.id} className={`transition-colors ${isSigned ? 'bg-green-50/40' : 'hover:bg-gray-50/50'}`}>
-                            <td className="px-6 py-3">
-                              <p className="font-medium text-gray-900 text-sm">{send.template_name || '–'}</p>
-                              <p className="text-xs text-gray-400">
-                                {send.signer_name}
-                                {isSigned && send.signed_at && (
-                                  <> · Unterzeichnet {new Date(send.signed_at).toLocaleDateString('de-DE')}</>
-                                )}
-                                {!isSigned && (
-                                  <> · {new Date(send.created_at).toLocaleDateString('de-DE')}</>
-                                )}
-                              </p>
-                            </td>
-                            <td className="px-3 py-3">
-                              {isSigned ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full font-medium">
-                                  <CheckCircle2 className="h-3 w-3" />Unterzeichnet
-                                </span>
-                              ) : send.status === 'opened' ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
-                                  Geöffnet
-                                </span>
-                              ) : send.status === 'revoked' ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                                  Widerrufen
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
-                                  Ausstehend
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-3">
-                              {isConfirmingDelete ? (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => handleDeleteSend(send.id)}
-                                    disabled={deletingSendBusy}
-                                    className="text-xs text-red-600 font-semibold hover:text-red-700 disabled:opacity-50"
-                                  >
-                                    {deletingSendBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Löschen'}
-                                  </button>
-                                  <span className="text-gray-300">|</span>
-                                  <button
-                                    onClick={() => setDeletingSendId(null)}
-                                    className="text-xs text-gray-500 hover:text-gray-700"
-                                  >
-                                    Abbruch
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-0.5 justify-end">
-                                  {isSigned && (
-                                    <button
-                                      onClick={() => handleDownloadSend(send.id)}
-                                      disabled={downloadingSendId === send.id}
-                                      className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex"
-                                      title="Signiertes PDF herunterladen"
-                                    >
-                                      {downloadingSendId === send.id
-                                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                        : <Download className="h-3.5 w-3.5" />}
-                                    </button>
-                                  )}
-                                  {!isSigned && send.signer_url && (
-                                    <a
-                                      href={send.signer_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex"
-                                      title="Signierlink öffnen"
-                                    >
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                    </a>
-                                  )}
-                                  <button
-                                    onClick={() => setDeletingSendId(send.id)}
-                                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex"
-                                    title={isSigned ? 'Signierlink + Dokument löschen' : 'Signierlink löschen'}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                )}
-                {/* Hint for signed documents */}
-                {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
-                  <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
-                    <Download className="h-3.5 w-3.5 shrink-0" />
-                    Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Send document dialog */}
-            {sendTemplateDialog && (
-              <SendDocumentDialog
-                entityType="profile"
-                entityId={id}
-                prefillData={{
-                  'profile.first_name': profile?.first_name || '',
-                  'profile.last_name': profile?.last_name || '',
-                  'profile.nationality': profile?.nationality || '',
-                  'profile.education': profile?.nursing_education || '',
-                  'signer.name': `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
-                  'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                }}
-                defaultSignerName={`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()}
-                defaultEmail={profile?.contact_email || ''}
+            {/* AddDocumentModal */}
+            {showAddModal && (
+              <AddDocumentModal
+                profileId={id}
                 session={session}
-                onClose={() => setSendTemplateDialog(false)}
-                onSent={loadDocSends}
+                onAddDoc={async (doc) => {
+                  const updated = [...documents, doc]
+                  setDocuments(updated)
+                  if (isEdit) await saveDocumentsToApi(updated)
+                }}
+                onSendTemplate={() => { setSendDocInitial(null); setSendTemplateDialog(true) }}
+                onClose={() => setShowAddModal(false)}
               />
             )}
 
-            {bundleDialog && (
-              <BundleDialog
+            {/* DocSendDialog */}
+            {sendTemplateDialog && (
+              <DocSendDialog
                 entityType="profile"
                 entityId={id}
-                prefillData={{
-                  'profile.first_name': profile?.first_name || '',
-                  'profile.last_name': profile?.last_name || '',
-                  'profile.nationality': profile?.nationality || '',
-                  'signer.name': `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
-                  'today': new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                }}
-                defaultSignerName={`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim()}
-                defaultEmail={profile?.contact_email || ''}
+                profile={profile}
+                activeVermittlungen={[]}
                 session={session}
-                onClose={() => setBundleDialog(false)}
+                onClose={() => { setSendTemplateDialog(false); setSendDocInitial(null) }}
                 onSent={loadDocSends}
               />
             )}
