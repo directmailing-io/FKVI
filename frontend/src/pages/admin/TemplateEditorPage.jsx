@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import {
-  Type, CheckSquare, PenLine, Calendar, Fingerprint,
+  Type, CheckSquare, PenLine, Calendar,
   Trash2, Save, ChevronLeft, ChevronRight, Loader2,
   ArrowLeft, AlertCircle, Plus, CheckCircle2, X,
 } from 'lucide-react'
@@ -23,7 +23,6 @@ const FIELD_TYPES = [
   { key: 'checkbox',  label: 'Checkbox',    icon: CheckSquare, border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400' },
   { key: 'signature', label: 'Unterschrift', icon: PenLine,    border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400' },
   { key: 'date',      label: 'Datum',       icon: Calendar,    border: 'border-green-500',  bg: 'bg-green-50',  text: 'text-green-700',  ring: 'ring-green-400'  },
-  { key: 'initials',  label: 'Initialen',   icon: Fingerprint, border: 'border-pink-500',   bg: 'bg-pink-50',   text: 'text-pink-700',   ring: 'ring-pink-400'   },
 ]
 
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
@@ -202,12 +201,10 @@ function FieldOverlay({ field, isSelected, onClick, onDelete }) {
         <Icon className="h-3 w-3 shrink-0 opacity-60" />
         {field.label && <span className="text-[10px] font-medium truncate leading-none">{field.label}</span>}
       </div>
-      {/* Audience badge */}
-      {field.audience && field.audience !== 'fachkraft' && (
-        <span className={`absolute -bottom-0.5 -right-0.5 text-[7px] font-bold px-0.5 rounded leading-none ${
-          field.audience === 'unternehmen' ? 'bg-emerald-500 text-white' : 'bg-purple-500 text-white'
-        }`}>
-          {field.audience === 'unternehmen' ? 'UN' : 'AD'}
+      {/* Audience badge — only for Unternehmen fields */}
+      {field.audience === 'unternehmen' && (
+        <span className="absolute -bottom-0.5 -right-0.5 text-[7px] font-bold px-0.5 rounded leading-none bg-emerald-500 text-white">
+          UN
         </span>
       )}
       {isSelected && (
@@ -286,27 +283,46 @@ function FieldProperties({ field, onChange, onDelete }) {
         />
       </div>
 
-      {/* Audience / Empfänger */}
+      {/* Empfänger */}
       <div className="space-y-1">
         <Label className="text-xs text-gray-500">Empfänger</Label>
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           {[
-            { val: 'fachkraft',  label: 'Fachkraft', color: 'border-blue-400 bg-blue-50 text-blue-700' },
+            { val: 'fachkraft',   label: 'Fachkraft',   color: 'border-blue-400 bg-blue-50 text-blue-700' },
             { val: 'unternehmen', label: 'Unternehmen', color: 'border-emerald-400 bg-emerald-50 text-emerald-700' },
-            { val: 'admin',      label: 'FKVI',       color: 'border-purple-400 bg-purple-50 text-purple-700' },
           ].map(({ val, label, color }) => (
             <button key={val} type="button"
               onClick={() => onChange({ ...field, audience: val })}
-              className={`flex-1 py-1 px-1 rounded-lg text-[11px] font-medium border-2 transition-all ${
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border-2 transition-all ${
                 (field.audience || 'fachkraft') === val ? color : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
               }`}
             >{label}</button>
           ))}
         </div>
         <p className="text-[10px] text-gray-400 leading-snug">
-          {(field.audience || 'fachkraft') === 'admin' ? 'FKVI füllt dieses Feld vor dem Senden aus.' : `Nur beim Senden an ${(field.audience || 'fachkraft') === 'fachkraft' ? 'Fachkraft' : 'Unternehmen'} sichtbar.`}
+          Nur beim Senden an {(field.audience || 'fachkraft') === 'fachkraft' ? 'Fachkraft' : 'Unternehmen'} sichtbar.
         </p>
       </div>
+
+      {/* Vorausfüllen — before Pflichtfeld */}
+      {field.type !== 'checkbox' && field.type !== 'signature' && (
+        <div className="space-y-1">
+          <Label className="text-xs text-gray-500">Vorausfüllen mit</Label>
+          <select
+            value={field.prefillKey || ''}
+            onChange={e => onChange({ ...field, prefillKey: e.target.value })}
+            className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {PREFILL_GROUPS.map((g, gi) =>
+              g.group
+                ? <optgroup key={gi} label={g.group}>
+                    {g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </optgroup>
+                : g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)
+            )}
+          </select>
+        </div>
+      )}
 
       {/* Pflichtfeld */}
       <div className="flex items-center gap-3">
@@ -391,25 +407,6 @@ function FieldProperties({ field, onChange, onDelete }) {
         </>
       )}
 
-      {/* Prefill */}
-      {field.type !== 'checkbox' && field.type !== 'signature' && (
-        <div className="space-y-1">
-          <Label className="text-xs text-gray-500">Vorausfüllen mit</Label>
-          <select
-            value={field.prefillKey || ''}
-            onChange={e => onChange({ ...field, prefillKey: e.target.value })}
-            className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {PREFILL_GROUPS.map((g, gi) =>
-            g.group
-              ? <optgroup key={gi} label={g.group}>
-                  {g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </optgroup>
-              : g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)
-          )}
-          </select>
-        </div>
-      )}
 
       <button
         type="button"

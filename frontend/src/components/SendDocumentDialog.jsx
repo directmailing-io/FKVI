@@ -68,7 +68,6 @@ export default function SendDocumentDialog({
   const [prefillMode, setPrefillMode] = useState('prefilled')
   const [fieldPickerOpen, setFieldPickerOpen] = useState(false)
   const [disabledPrefillIds, setDisabledPrefillIds] = useState(new Set())
-  const [adminFieldValues, setAdminFieldValues] = useState({})
 
   // ── Forward mode state ────────────────────────────────────────
   const [fwdProfileId, setFwdProfileId] = useState(
@@ -105,7 +104,6 @@ export default function SendDocumentDialog({
     setCheckboxPrefills({})
     setDisabledPrefillIds(new Set())
     setFieldPickerOpen(false)
-    setAdminFieldValues({})
   }, [selectedId])
 
   useEffect(() => {
@@ -170,9 +168,6 @@ export default function SendDocumentDialog({
   const checkboxFields = (selectedTemplate?.fields || []).filter(
     f => f.type === 'checkbox' && Array.isArray(f.options) && f.options.length > 0
   )
-  const adminFields = (selectedTemplate?.fields || []).filter(
-    f => f.audience === 'admin' && !['signature', 'checkbox'].includes(f.type)
-  )
   const activePrefillFieldIds = prefillableFields
     .filter(f => !disabledPrefillIds.has(f.id))
     .map(f => f.id)
@@ -210,7 +205,7 @@ export default function SendDocumentDialog({
         templateId: selectedId,
         signerName: signerName.trim(),
         signerEmail: null,
-        prefillData: { ...prefillData, ...checkboxPrefills, ...adminFieldValues },
+        prefillData: { ...prefillData, ...checkboxPrefills },
         prefillMode,
         recipientType,
       }
@@ -596,28 +591,6 @@ export default function SendDocumentDialog({
                       </div>
                     )
                   })}
-                </div>
-              )}
-
-              {/* FKVI admin fields — filled by admin before sending */}
-              {selectedId && !templateLoading && adminFields.length > 0 && (
-                <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-3">
-                  <p className="text-xs font-semibold text-purple-700 flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded bg-purple-500 text-white flex items-center justify-center text-[9px] font-bold">AD</span>
-                    FKVI-Felder (werden direkt eingetragen)
-                  </p>
-                  {adminFields.map(f => (
-                    <div key={f.id} className="space-y-1">
-                      <label className="text-xs text-purple-600 font-medium">{f.label || f.type}</label>
-                      <input
-                        type="text"
-                        value={adminFieldValues[f.id] || ''}
-                        onChange={e => setAdminFieldValues(prev => ({ ...prev, [f.id]: e.target.value }))}
-                        placeholder={`${f.label || f.type}...`}
-                        className="w-full h-8 text-sm border border-purple-200 rounded-md px-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-purple-300"
-                      />
-                    </div>
-                  ))}
                 </div>
               )}
 
