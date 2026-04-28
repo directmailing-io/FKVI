@@ -20,7 +20,7 @@ import {
 import {
   Upload, FileText, Pencil, Send, Trash2, Copy, Check, Eye,
   CheckCircle2, XCircle, Loader2, ClipboardCopy, ExternalLink,
-  ChevronDown, Search, Tag, Users, Building2, UserCheck, Mail, AlertCircle,
+  ChevronDown, Search, Tag, Users, Building2, UserCheck, Mail, AlertCircle, Forward,
 } from 'lucide-react'
 import { PDFDocument } from 'pdf-lib'
 
@@ -1180,8 +1180,9 @@ function VersandTab({ session }) {
   const [filter,       setFilter]       = useState('')
   const [search,       setSearch]       = useState('')
   const [detailSend,   setDetailSend]   = useState(null)
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [deleting,     setDeleting]     = useState(false)
+  const [deleteTarget, setDeleteTarget]   = useState(null)
+  const [deleting,     setDeleting]       = useState(false)
+  const [forwardTarget, setForwardTarget] = useState(null)
   const { copied, copy } = useCopyText()
 
   useEffect(() => { fetchSends() }, [filter])
@@ -1292,6 +1293,17 @@ function VersandTab({ session }) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setDetailSend(send)}>Details</Button>
+                        {/* Weiterleiten: only for signed FK-sends without a child forward */}
+                        {(send.status === 'submitted' || send.status === 'signed') &&
+                          (!send.recipient_type || send.recipient_type === 'fachkraft') && (
+                          <button
+                            onClick={() => setForwardTarget(send)}
+                            title="An Unternehmen weiterleiten"
+                            className="h-7 w-7 flex items-center justify-center rounded border border-[#0d9488]/30 hover:bg-[#0d9488]/10 text-[#0d9488] transition-colors"
+                          >
+                            <Forward className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {send.signer_url && (
                           <button
                             onClick={() => copy(send.signer_url)}
@@ -1322,6 +1334,16 @@ function VersandTab({ session }) {
         <SendDetailDialog send={detailSend} open={!!detailSend} onClose={() => setDetailSend(null)} session={session} onRevoked={handleRevoked} />
       )}
 
+      {forwardTarget && (
+        <ForwardDialog
+          send={forwardTarget}
+          open={!!forwardTarget}
+          onClose={() => setForwardTarget(null)}
+          session={session}
+          onForwarded={fetchSends}
+        />
+      )}
+
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
         <DialogContent className="max-w-sm">
@@ -1340,6 +1362,147 @@ function VersandTab({ session }) {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── Forward Dialog ───────────────────────────────────────────────────────────
+
+function ForwardDialog({ send, open, onClose, session, onForwarded }) {
+  const [signerName,    setSignerName]    = useState('')
+  const [signerEmail,   setSignerEmail]   = useState('')
+  const [message,       setMessage]       = useState('')
+  const [expiresInDays, setExpiresInDays] = useState(30)
+  const [sending,       setSending]       = useState(false)
+  const [done,          setDone]          = useState(null) // { signerUrl }
+
+  useEffect(() => {
+    if (open) { setSignerName(''); setSignerEmail(''); setMessage(''); setExpiresInDays(30); setSending(false); setDone(null) }
+  }, [open])
+
+  const handleSend = async () => {
+    if (!signerName.trim()) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/admin/dokumente/forward-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          originalSendId: send.id,
+          signerName: signerName.trim(),
+          signerEmail: signerEmail.trim() || null,
+          message: message.trim() || null,
+          expiresInDays,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Weiterleiten')
+      setDone(data)
+      onForwarded?.()
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const { copied, copy } = useCopyText()
+
+  return (
+    <Dialog open={open} onOpenChange={open => { if (!open) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Forward className="h-5 w-5 text-[#0d9488]" />
+            An Unternehmen weiterleiten
+          </DialogTitle>
+          <DialogDescription>
+            Das von der Fachkraft signierte Dokument wird an das Unternehmen zur Unterzeichnung weitergeleitet.
+          </DialogDescription>
+        </DialogHeader>
+
+        {done ? (
+          <div className="space-y-4 py-2">
+            <div className="rounded-xl bg-green-50 border border-green-200 p-4 flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-green-800 text-sm">Erfolgreich weitergeleitet</p>
+                {done.signerUrl && <p className="text-green-700 text-xs mt-1">Signierlink wurde erstellt{signerEmail ? ' und per E-Mail gesendet' : ''}.</p>}
+              </div>
+            </div>
+            {done.signerUrl && (
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly value={done.signerUrl}
+                  className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-600 truncate"
+                />
+                <Button size="sm" variant="outline" onClick={() => copy(done.signerUrl)}>
+                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <ClipboardCopy className="h-4 w-4" />}
+                </Button>
+              </div>
+            )}
+            <Button className="w-full" onClick={onClose}>Schließen</Button>
+          </div>
+        ) : (
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700">
+              Vorlage: <strong>{send?.template_name || '—'}</strong> · Fachkraft: <strong>{send?.signer_name || '—'}</strong>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Unternehmens-Ansprechpartner <span className="text-red-500">*</span></label>
+              <input
+                value={signerName}
+                onChange={e => setSignerName(e.target.value)}
+                placeholder="Name des Unterzeichners..."
+                className="w-full h-9 border border-input rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">E-Mail (optional)</label>
+              <input
+                type="email"
+                value={signerEmail}
+                onChange={e => setSignerEmail(e.target.value)}
+                placeholder="unternehmen@beispiel.de"
+                className="w-full h-9 border border-input rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Nachricht (optional)</label>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                placeholder="Optionale Nachricht ans Unternehmen..."
+                rows={2}
+                className="w-full border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Gültigkeitsdauer</label>
+              <select
+                value={expiresInDays}
+                onChange={e => setExpiresInDays(Number(e.target.value))}
+                className="w-full h-9 border border-input rounded-md px-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {[7, 14, 30, 60, 90].map(d => <option key={d} value={d}>{d} Tage</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {!done && (
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose} disabled={sending}>Abbrechen</Button>
+            <Button onClick={handleSend} disabled={sending || !signerName.trim()}>
+              {sending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Weiterleiten…</> : <><Forward className="h-4 w-4 mr-2" />Weiterleiten</>}
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 

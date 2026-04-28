@@ -31,9 +31,11 @@ export default withHandler(async (req, res) => {
   let query = supabaseAdmin
     .from('document_sends')
     .select(`
-      id, token, signer_name, signer_email, status,
+      id, token, signer_name, signer_email, status, bundle_id,
       created_at, signed_at, expires_at,
-      document_templates ( name )
+      recipient_type, parent_send_id,
+      document_templates ( name ),
+      document_bundles ( id, token, title )
     `)
     .order('created_at', { ascending: false })
     .limit(100)
@@ -66,7 +68,11 @@ export default withHandler(async (req, res) => {
     ...s,
     template_name: s.document_templates?.name || null,
     signer_url: s.token ? `${baseUrl}/dokument/${s.token}` : null,
-    document_templates: undefined, // strip nested object
+    bundle_url: s.document_bundles?.token ? `${baseUrl}/bundle/${s.document_bundles.token}` : null,
+    bundle_title: s.document_bundles?.title || null,
+    bundle_token: s.document_bundles?.token || null,
+    document_templates: undefined,
+    document_bundles: undefined,
   }))
 
   return res.json({ sends: mapped })

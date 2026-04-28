@@ -646,6 +646,15 @@ export default function DokumentSignPage() {
               <span className="text-gray-500 text-sm truncate">{data.templateName}</span>
             </>
           )}
+          {data?.recipientType && (
+            <span className={`ml-auto shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${
+              data.recipientType === 'unternehmen'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-blue-50 text-blue-700 border border-blue-200'
+            }`}>
+              {data.recipientType === 'unternehmen' ? 'Unternehmen' : 'Fachkraft'}
+            </span>
+          )}
         </div>
       </header>
 

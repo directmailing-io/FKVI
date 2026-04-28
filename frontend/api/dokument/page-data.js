@@ -27,6 +27,8 @@ export default withHandler(async (req, res) => {
       template_id,
       prefill_mode,
       prefilled_field_ids,
+      recipient_type,
+      parent_send_id,
       document_templates (
         name,
         description,
@@ -89,6 +91,16 @@ export default withHandler(async (req, res) => {
 
   const tpl = send.document_templates || {}
   const alreadySigned = send.status === 'signed' || send.status === 'submitted'
+  const recipientType = send.recipient_type || 'fachkraft'
+
+  // Filter fields to only those relevant to the recipient
+  // 'admin'-audience fields are always handled as prefills (never shown to signer)
+  const allFields = tpl.fields || []
+  const visibleFields = allFields.filter(f => {
+    const audience = f.audience || 'fachkraft'
+    if (audience === 'admin') return false // admin fields are pre-filled, not shown
+    return audience === recipientType
+  })
 
   return res.json({
     sendId: send.id,
@@ -97,12 +109,14 @@ export default withHandler(async (req, res) => {
     signerName: send.signer_name,
     message: send.message || null,
     prefillData: send.prefill_data || {},
-    fields: tpl.fields || [],
+    fields: visibleFields,
     pageCount: tpl.page_count || null,
     expiresAt: send.expires_at,
     status: isFirstOpen ? 'opened' : send.status,
     alreadySigned,
     prefillMode: send.prefill_mode || 'blank',
     prefilledFieldIds: send.prefilled_field_ids || [],
+    recipientType,
+    isForwarded: !!send.parent_send_id,
   })
 })

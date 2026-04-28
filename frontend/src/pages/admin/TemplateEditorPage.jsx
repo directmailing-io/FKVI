@@ -202,6 +202,14 @@ function FieldOverlay({ field, isSelected, onClick, onDelete }) {
         <Icon className="h-3 w-3 shrink-0 opacity-60" />
         {field.label && <span className="text-[10px] font-medium truncate leading-none">{field.label}</span>}
       </div>
+      {/* Audience badge */}
+      {field.audience && field.audience !== 'fachkraft' && (
+        <span className={`absolute -bottom-0.5 -right-0.5 text-[7px] font-bold px-0.5 rounded leading-none ${
+          field.audience === 'unternehmen' ? 'bg-emerald-500 text-white' : 'bg-purple-500 text-white'
+        }`}>
+          {field.audience === 'unternehmen' ? 'UN' : 'AD'}
+        </span>
+      )}
       {isSelected && (
         <button
           onClick={e => { e.stopPropagation(); onDelete(field.id) }}
@@ -276,6 +284,28 @@ function FieldProperties({ field, onChange, onDelete }) {
           placeholder={field.type === 'checkbox' ? 'z. B. Geschlecht...' : 'Feldname...'}
           className="w-full h-8 text-sm border border-input rounded-md px-2.5 focus:outline-none focus:ring-2 focus:ring-ring"
         />
+      </div>
+
+      {/* Audience / Empfänger */}
+      <div className="space-y-1">
+        <Label className="text-xs text-gray-500">Empfänger</Label>
+        <div className="flex gap-1">
+          {[
+            { val: 'fachkraft',  label: 'Fachkraft', color: 'border-blue-400 bg-blue-50 text-blue-700' },
+            { val: 'unternehmen', label: 'Unternehmen', color: 'border-emerald-400 bg-emerald-50 text-emerald-700' },
+            { val: 'admin',      label: 'FKVI',       color: 'border-purple-400 bg-purple-50 text-purple-700' },
+          ].map(({ val, label, color }) => (
+            <button key={val} type="button"
+              onClick={() => onChange({ ...field, audience: val })}
+              className={`flex-1 py-1 px-1 rounded-lg text-[11px] font-medium border-2 transition-all ${
+                (field.audience || 'fachkraft') === val ? color : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
+              }`}
+            >{label}</button>
+          ))}
+        </div>
+        <p className="text-[10px] text-gray-400 leading-snug">
+          {(field.audience || 'fachkraft') === 'admin' ? 'FKVI füllt dieses Feld vor dem Senden aus.' : `Nur beim Senden an ${(field.audience || 'fachkraft') === 'fachkraft' ? 'Fachkraft' : 'Unternehmen'} sichtbar.`}
+        </p>
       </div>
 
       {/* Pflichtfeld */}

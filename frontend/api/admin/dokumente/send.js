@@ -175,6 +175,7 @@ export default withHandler(async (req, res) => {
     expiresInDays = 30,
     prefillMode = 'blank',
     prefillFieldIds: requestedPrefillFieldIds,
+    recipientType = 'fachkraft',
   } = req.body || {}
 
   if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
@@ -219,10 +220,18 @@ export default withHandler(async (req, res) => {
         }
       }
 
+      // Always include admin-audience fields as prefills (FKVI fills them before sending)
+      const adminFieldIds = templateFields
+        .filter(f => f.audience === 'admin' && resolvedValues[f.id] !== undefined)
+        .map(f => f.id)
+
       // Determine which field IDs to actually prefill
       if (requestedPrefillFieldIds && Array.isArray(requestedPrefillFieldIds)) {
-        // Admin explicitly selected a subset — only use those that have values
-        finalPrefillFieldIds = requestedPrefillFieldIds.filter(id => resolvedValues[id] !== undefined)
+        // Admin explicitly selected a subset — only use those that have values, plus all admin fields
+        finalPrefillFieldIds = [...new Set([
+          ...requestedPrefillFieldIds.filter(id => resolvedValues[id] !== undefined),
+          ...adminFieldIds,
+        ])]
       } else {
         // Default: all fields that have resolvable values
         finalPrefillFieldIds = Object.keys(resolvedValues)
@@ -275,6 +284,7 @@ export default withHandler(async (req, res) => {
       status: 'pending',
       prefill_mode: prefillMode === 'prefilled' && finalPrefillFieldIds.length > 0 ? 'prefilled' : 'blank',
       prefilled_field_ids: finalPrefillFieldIds.length > 0 ? finalPrefillFieldIds : [],
+      recipient_type: recipientType || 'fachkraft',
     })
     .select('id, token')
     .single()

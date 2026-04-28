@@ -23,6 +23,8 @@ export default withHandler(async (req, res) => {
         expires_at,
         prefill_data,
         template_id,
+        prefill_mode,
+        prefilled_storage_path,
         document_templates (
           storage_path,
           fields
@@ -69,14 +71,23 @@ export default withHandler(async (req, res) => {
       }
     }
 
-    if (!storagePath) {
+    if (!storagePath && !send.prefilled_storage_path) {
       return res.status(500).json({ error: 'Kein Template-PDF gefunden' })
     }
 
-    // 3. Download template PDF
-    const { data: pdfBlob, error: pdfError } = await supabaseAdmin.storage
-      .from('document-templates')
-      .download(storagePath)
+    // 3. Download base PDF — prefer prefilled (FK-signed) if available (forward flow)
+    let pdfBlob, pdfError
+    if (send.prefill_mode === 'prefilled' && send.prefilled_storage_path) {
+      ;({ data: pdfBlob, error: pdfError } = await supabaseAdmin.storage
+        .from('signed-documents')
+        .download(send.prefilled_storage_path))
+    }
+    // Fall back to original template (blank or prefill failed)
+    if (!pdfBlob) {
+      ;({ data: pdfBlob, error: pdfError } = await supabaseAdmin.storage
+        .from('document-templates')
+        .download(storagePath))
+    }
 
     if (pdfError || !pdfBlob) {
       console.error('dokument/submit PDF download error:', pdfError)
@@ -265,6 +276,7 @@ export default withHandler(async (req, res) => {
         submitted_at: now,
         signed_at: now,
         signed_storage_path: signedPath,
+        field_values: fieldValues || {},
         updated_at: now,
       })
       .eq('id', send.id)
