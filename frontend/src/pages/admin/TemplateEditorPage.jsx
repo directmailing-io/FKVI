@@ -27,45 +27,48 @@ const FIELD_TYPES = [
 
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
 
-const PREFILL_GROUPS = [
-  {
-    group: null,
-    options: [{ value: '', label: 'Kein Vorausfüllen' }],
-  },
-  {
-    group: '👤 Fachkraft',
-    options: [
-      { value: 'profile.first_name',  label: 'Vorname' },
-      { value: 'profile.last_name',   label: 'Nachname' },
-      { value: 'profile.nationality', label: 'Nationalität' },
-      { value: 'profile.education',   label: 'Ausbildung' },
-    ],
-  },
-  {
-    group: '🏢 Unternehmen',
-    options: [
-      { value: 'company.company_name',       label: 'Unternehmensname' },
-      { value: 'company.contact_name',       label: 'Ansprechpartner (vollständig)' },
-      { value: 'company.contact_first_name', label: 'Ansprechpartner Vorname' },
-      { value: 'company.contact_last_name',  label: 'Ansprechpartner Nachname' },
-      { value: 'company.email',              label: 'E-Mail' },
-      { value: 'company.phone',              label: 'Telefon' },
-      { value: 'company.address',            label: 'Adresse' },
-      { value: 'company.city',               label: 'Stadt' },
-      { value: 'company.postal_code',        label: 'PLZ' },
-    ],
-  },
-  {
-    group: '📅 Allgemein',
-    options: [
-      { value: 'today',        label: 'Heutiges Datum' },
-      { value: 'signer.name', label: 'Unterzeichner Name' },
-    ],
-  },
+// Prefill options per audience
+const PREFILL_FACHKRAFT = [
+  { value: 'profile.first_name',            label: 'Vorname' },
+  { value: 'profile.last_name',             label: 'Nachname' },
+  { value: 'profile.nationality',           label: 'Nationalität' },
+  { value: 'profile.nursing_education',     label: 'Ausbildungsbezeichnung' },
+  { value: 'profile.education_duration',    label: 'Ausbildungsdauer' },
+  { value: 'profile.graduation_year',       label: 'Abschlussjahr' },
+  { value: 'profile.german_recognition',    label: 'Anerkennung in Deutschland' },
+  { value: 'profile.total_experience_years',   label: 'Berufserfahrung gesamt (Jahre)' },
+  { value: 'profile.germany_experience_years', label: 'Erfahrung in Deutschland (Jahre)' },
+  { value: 'profile.work_time_preference',  label: 'Arbeitszeitpräferenz' },
+  { value: 'profile.marital_status',        label: 'Familienstand' },
+  { value: 'profile.children_count',        label: 'Anzahl Kinder' },
+  { value: 'profile.address',               label: 'Straße & Hausnummer' },
+  { value: 'profile.postal_code',           label: 'PLZ' },
+  { value: 'profile.city',                  label: 'Stadt' },
+  { value: 'today',                         label: 'Heutiges Datum' },
+  { value: 'signer.name',                   label: 'Name Unterzeichner' },
 ]
 
-// Flat list for backward-compat (e.g. display of selected value)
-const PREFILL_OPTIONS = PREFILL_GROUPS.flatMap(g => g.options)
+const PREFILL_UNTERNEHMEN = [
+  { value: 'company.company_name',       label: 'Unternehmensname' },
+  { value: 'company.contact_name',       label: 'Ansprechpartner (vollständig)' },
+  { value: 'company.contact_first_name', label: 'Ansprechpartner Vorname' },
+  { value: 'company.contact_last_name',  label: 'Ansprechpartner Nachname' },
+  { value: 'company.email',              label: 'E-Mail' },
+  { value: 'company.phone',              label: 'Telefon' },
+  { value: 'company.address',            label: 'Straße & Hausnummer' },
+  { value: 'company.city',               label: 'Stadt' },
+  { value: 'company.postal_code',        label: 'PLZ' },
+  { value: 'today',                      label: 'Heutiges Datum' },
+  { value: 'signer.name',                label: 'Name Unterzeichner' },
+]
+
+// Legacy flat list (kept for backward-compat)
+const PREFILL_GROUPS = [
+  { group: null, options: [{ value: '', label: 'Kein Vorausfüllen' }] },
+  { group: '👤 Fachkraft', options: PREFILL_FACHKRAFT.filter(o => o.value !== 'today' && o.value !== 'signer.name') },
+  { group: '🏢 Unternehmen', options: PREFILL_UNTERNEHMEN.filter(o => o.value !== 'today' && o.value !== 'signer.name') },
+  { group: '📅 Allgemein', options: [{ value: 'today', label: 'Heutiges Datum' }, { value: 'signer.name', label: 'Unterzeichner Name' }] },
+]
 
 function cfg(type) { return FIELD_TYPE_MAP[type] || FIELD_TYPES[0] }
 
@@ -258,6 +261,9 @@ function FieldProperties({ field, onChange, onDelete }) {
 
   const c = cfg(field.type)
   const Icon = c.icon
+  const audience = field.audience || 'fachkraft'
+  const prefillOptions = audience === 'unternehmen' ? PREFILL_UNTERNEHMEN : PREFILL_FACHKRAFT
+  const prefillActive = !!(field.prefillKey)
 
   return (
     <div className="space-y-3">
@@ -270,7 +276,7 @@ function FieldProperties({ field, onChange, onDelete }) {
         </span>
       </div>
 
-      {/* Name */}
+      {/* 1. Beschriftung */}
       <div className="space-y-1">
         <Label className="text-xs text-gray-500">
           {field.type === 'checkbox' ? 'Gruppenname' : 'Beschriftung'}
@@ -283,48 +289,50 @@ function FieldProperties({ field, onChange, onDelete }) {
         />
       </div>
 
-      {/* Empfänger */}
+      {/* 2. Wer soll das ausfüllen? */}
       <div className="space-y-1">
-        <Label className="text-xs text-gray-500">Empfänger</Label>
+        <Label className="text-xs text-gray-500">Wer soll das ausfüllen?</Label>
         <div className="flex gap-1.5">
           {[
             { val: 'fachkraft',   label: 'Fachkraft',   color: 'border-blue-400 bg-blue-50 text-blue-700' },
             { val: 'unternehmen', label: 'Unternehmen', color: 'border-emerald-400 bg-emerald-50 text-emerald-700' },
           ].map(({ val, label, color }) => (
             <button key={val} type="button"
-              onClick={() => onChange({ ...field, audience: val })}
+              onClick={() => onChange({ ...field, audience: val, prefillKey: '' })}
               className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border-2 transition-all ${
-                (field.audience || 'fachkraft') === val ? color : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
+                audience === val ? color : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
               }`}
             >{label}</button>
           ))}
         </div>
-        <p className="text-[10px] text-gray-400 leading-snug">
-          Nur beim Senden an {(field.audience || 'fachkraft') === 'fachkraft' ? 'Fachkraft' : 'Unternehmen'} sichtbar.
-        </p>
       </div>
 
-      {/* Vorausfüllen — before Pflichtfeld */}
+      {/* 3. Vorausfüllen — toggle + conditional select */}
       {field.type !== 'checkbox' && field.type !== 'signature' && (
-        <div className="space-y-1">
-          <Label className="text-xs text-gray-500">Vorausfüllen mit</Label>
-          <select
-            value={field.prefillKey || ''}
-            onChange={e => onChange({ ...field, prefillKey: e.target.value })}
-            className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {PREFILL_GROUPS.map((g, gi) =>
-              g.group
-                ? <optgroup key={gi} label={g.group}>
-                    {g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </optgroup>
-                : g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)
-            )}
-          </select>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Label className="text-xs text-gray-500 flex-1">Vorausfüllen</Label>
+            <button
+              type="button"
+              onClick={() => onChange({ ...field, prefillKey: prefillActive ? '' : prefillOptions[0]?.value || '' })}
+              className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${prefillActive ? 'bg-[#0d9488]' : 'bg-gray-200'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${prefillActive ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </div>
+          {prefillActive && (
+            <select
+              value={field.prefillKey || ''}
+              onChange={e => onChange({ ...field, prefillKey: e.target.value })}
+              className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {prefillOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          )}
         </div>
       )}
 
-      {/* Pflichtfeld */}
+      {/* 4. Pflichtfeld */}
       <div className="flex items-center gap-3">
         <Label className="text-xs text-gray-500 flex-1">Pflichtfeld</Label>
         <button
@@ -851,7 +859,7 @@ export default function TemplateEditorPage() {
             {!placingOption && (
               <div className="px-3 pt-3 pb-3">
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Werkzeug</p>
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-2 gap-1.5">
                   {FIELD_TYPES.map(t => {
                     const Icon = t.icon
                     const active = activeTool === t.key
