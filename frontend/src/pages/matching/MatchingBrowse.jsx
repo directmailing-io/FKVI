@@ -8,6 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SlidersHorizontal, Heart, Loader2, User, EyeOff } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import {
+  getProfileSpecializations,
+  getProfileEinrichtungstypen,
+  FLEXIBEL_OPTION,
+  ALL_SPECIALIZATION_FIELDS,
+} from '@/lib/profileOptions'
 
 export default function MatchingBrowse() {
   const [profiles, setProfiles] = useState([])
@@ -31,16 +37,17 @@ export default function MatchingBrowse() {
           supabase
             .from('profiles')
             .select(`
-              id, gender, age, nationality, marital_status, children_count, has_drivers_license,
-              state_preferences, nationwide, preferred_facility_types, work_time_preference,
+              id, status, gender, age, nationality, marital_status, children_count, has_drivers_license,
+              state_preferences, nationwide, work_time_preference,
               profile_image_url, vimeo_video_url, vimeo_video_id,
               nursing_education, education_duration, graduation_year, german_recognition, education_notes,
-              specializations, additional_qualifications,
+              additional_qualifications,
               total_experience_years, germany_experience_years, experience_areas,
-              language_skills, fkvi_competency_proof
+              language_skills, fkvi_competency_proof,
+              ${ALL_SPECIALIZATION_FIELDS.join(', ')}
             `)
-            .eq('status', 'published')
-            .order('created_at', { ascending: false }),
+            .in('status', ['published'])
+            .order('sort_order', { ascending: true, nullsFirst: false }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
         ])
         if (mounted) setProfiles(data || [])
@@ -95,13 +102,15 @@ export default function MatchingBrowse() {
 
   const applyFilters = useCallback((profiles) => {
     return profiles.filter(p => {
+      if (filters.berufsgruppe && p.berufsgruppe !== filters.berufsgruppe) return false
       if (filters.gender && p.gender !== filters.gender) return false
       if (filters.german_recognition && p.german_recognition !== filters.german_recognition) return false
       if (filters.has_drivers_license && !p.has_drivers_license) return false
       if (filters.work_time_preference && p.work_time_preference !== filters.work_time_preference) return false
 
       if (filters.specializations.length > 0) {
-        if (!filters.specializations.some(s => (p.specializations || []).includes(s))) return false
+        const profileSpecs = getProfileSpecializations(p)
+        if (!filters.specializations.some(s => profileSpecs.includes(s))) return false
       }
       if (filters.additional_qualifications.length > 0) {
         if (!filters.additional_qualifications.some(q => (p.additional_qualifications || []).includes(q))) return false
@@ -109,8 +118,11 @@ export default function MatchingBrowse() {
       if (filters.experience_areas.length > 0) {
         if (!filters.experience_areas.some(a => (p.experience_areas || []).includes(a))) return false
       }
-      if (filters.preferred_facility_types.length > 0) {
-        if (!filters.preferred_facility_types.some(t => (p.preferred_facility_types || []).includes(t))) return false
+      if (filters.einrichtungstypen.length > 0) {
+        const profileFacilities = getProfileEinrichtungstypen(p)
+        // "Flexibel / Alle Einrichtungstypen" matches any filter
+        if (!profileFacilities.includes(FLEXIBEL_OPTION) &&
+            !filters.einrichtungstypen.some(t => profileFacilities.includes(t))) return false
       }
       if (filters.state_preferences.length > 0) {
         if (!p.nationwide && !filters.state_preferences.some(s => (p.state_preferences || []).includes(s))) return false
@@ -137,7 +149,7 @@ export default function MatchingBrowse() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
-      window.open('https://calendly.com/fachkraft-vermittlung/beratungsgesprach-fachkrafte-aus-dem-ausland', '_blank')
+      window.open('https://calendly.com/fachkraft-vermittlung/vorstellungsgesprach', '_blank')
     } catch (err) {
       toast({ title: 'Fehler', description: err.message || 'Bitte versuchen Sie es erneut.', variant: 'destructive' })
     } finally {
@@ -285,16 +297,19 @@ export default function MatchingBrowse() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filtered.map(profile => (
-                <ProfileCard
-                  key={profile.id}
-                  profile={profile}
-                  isFavorite={favorites.has(profile.id)}
-                  onToggleFavorite={toggleFavorite}
-                  onViewDetail={(p) => { setDetailProfile(p); setDetailOpen(true) }}
-                />
-              ))}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filtered.map(profile => (
+                  <ProfileCard
+                    key={profile.id}
+                    profile={profile}
+                    isFavorite={favorites.has(profile.id)}
+                    onToggleFavorite={toggleFavorite}
+                    onViewDetail={(p) => { setDetailProfile(p); setDetailOpen(true) }}
+                  />
+                ))}
+              </div>
+
             </div>
           )}
         </div>

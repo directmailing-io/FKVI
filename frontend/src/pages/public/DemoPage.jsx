@@ -328,7 +328,7 @@ export default function DemoPage() {
             ${ALL_SPECIALIZATION_FIELDS.join(', ')}
           `)
           .eq('status', 'published')
-          .order('created_at', { ascending: false })
+          .order('sort_order', { ascending: true, nullsFirst: false })
           .limit(3)
         setProfiles(data || [])
       } catch {

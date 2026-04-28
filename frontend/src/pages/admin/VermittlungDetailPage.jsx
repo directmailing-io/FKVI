@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
@@ -7,10 +7,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PROCESS_STATUS_LABELS, formatDateTime } from '@/lib/utils'
+import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 import {
   ArrowLeft, User, Building2, Mail, Phone, CheckCircle2,
   Circle, Loader2, AlertTriangle, Send, Clock, ChevronRight,
-  ExternalLink
+  ExternalLink, FileText, Upload, X, MailX, MailCheck, FolderOpen
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -90,43 +91,141 @@ function HistoryEntry({ entry }) {
 }
 
 // ─── Zusage Dialog (Step 4) ───────────────────────────────────────────────────
-function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
-  const [profileDocs, setProfileDocs] = useState([])
-  const [selectedKeys, setSelectedKeys] = useState([])
-  const [expiresInDays, setExpiresInDays] = useState('30')
-  const [loadingDocs, setLoadingDocs] = useState(false)
-  const [sending, setSending] = useState(false)
+const ZUSAGE_TABS = [
+  { key: 'profile', label: 'Fachkraft-Dokumente', Icon: User },
+  { key: 'templates', label: 'Vorlagen',           Icon: FolderOpen },
+  { key: 'upload',   label: 'Dateien hochladen',   Icon: Upload },
+]
 
+function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
+  // Email toggle
+  const [sendEmail, setSendEmail] = useState(true)
+  // Doc sources
+  const [docTab,      setDocTab]      = useState('profile')
+  const [profileDocs, setProfileDocs] = useState([])
+  const [templates,   setTemplates]   = useState([])
+  const [uploadFiles, setUploadFiles] = useState([]) // [{ file, name, uploading, url, error }]
+  // Selected docs (unified): [{ title, doc_type, link }]
+  const [selectedDocs, setSelectedDocs] = useState([])
+  const [expiresInDays, setExpiresInDays] = useState('30')
+  const [loadingProfile, setLoadingProfile]     = useState(false)
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [sending, setSending] = useState(false)
+  const fileInputRef = useRef(null)
+
+  // Reset when dialog opens
   useEffect(() => {
-    if (!open || !reservation?.profile_id) return
-    setLoadingDocs(true)
-    setSelectedKeys([])
-    supabase
+    if (!open) return
+    setSendEmail(true)
+    setDocTab('profile')
+    setSelectedDocs([])
+    setUploadFiles([])
+    setExpiresInDays('30')
+    loadProfileDocs()
+  }, [open, reservation?.profile_id])
+
+  const loadProfileDocs = async () => {
+    if (!reservation?.profile_id) return
+    setLoadingProfile(true)
+    const { data } = await supabase
       .from('profile_documents')
       .select('*')
       .eq('profile_id', reservation.profile_id)
       .eq('is_internal', false)
       .order('sort_order', { ascending: true })
-      .then(({ data }) => {
-        setProfileDocs(data || [])
-        setLoadingDocs(false)
-      })
-  }, [open, reservation?.profile_id])
-
-  const toggleDoc = (key) => {
-    setSelectedKeys(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key])
+    setProfileDocs(data || [])
+    setLoadingProfile(false)
   }
 
-  const handleConfirm = async () => {
-    if (selectedKeys.length === 0) {
-      toast({ title: 'Keine Dokumente ausgewählt', description: 'Wähle mindestens ein Dokument aus.', variant: 'destructive' })
-      return
+  const loadTemplates = async () => {
+    if (templates.length > 0) return // already loaded
+    setLoadingTemplates(true)
+    try {
+      const res = await fetch('/api/admin/company-docs/list-templates', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const data = await res.json()
+      setTemplates(data.templates || [])
+    } catch {
+      toast({ title: 'Fehler', description: 'Vorlagen konnten nicht geladen werden.', variant: 'destructive' })
+    } finally {
+      setLoadingTemplates(false)
     }
+  }
+
+  const handleTabChange = (tab) => {
+    setDocTab(tab)
+    if (tab === 'templates') loadTemplates()
+  }
+
+  // Toggle a doc in/out of selectedDocs (by title as key)
+  const toggleDoc = (doc) => {
+    setSelectedDocs(prev => {
+      const exists = prev.some(d => d.title === doc.title && d.link === doc.link)
+      return exists ? prev.filter(d => !(d.title === doc.title && d.link === doc.link)) : [...prev, doc]
+    })
+  }
+  const isSelected = (doc) => selectedDocs.some(d => d.title === doc.title && d.link === doc.link)
+
+  // File upload handling
+  const handleFilesPicked = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploadFiles(prev => [
+      ...prev,
+      ...files.map(f => ({ file: f, name: f.name, uploading: false, url: null, error: null })),
+    ])
+    e.target.value = ''
+  }
+
+  const uploadFile = async (idx) => {
+    const item = uploadFiles[idx]
+    if (!item || item.uploading || item.url) return
+
+    setUploadFiles(prev => prev.map((f, i) => i === idx ? { ...f, uploading: true, error: null } : f))
+    try {
+      // 1. Get presigned upload URL
+      const prepRes = await fetch('/api/admin/company-docs/prepare-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ filename: item.name }),
+      })
+      const prepData = await prepRes.json()
+      if (!prepRes.ok) throw new Error(prepData.error || 'Upload-Vorbereitung fehlgeschlagen')
+
+      // 2. Upload file directly to Supabase storage via presigned URL
+      const uploadRes = await fetch(prepData.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
+        body: item.file,
+      })
+      if (!uploadRes.ok) throw new Error('Datei-Upload fehlgeschlagen')
+
+      // 3. Mark as uploaded with download URL
+      setUploadFiles(prev => prev.map((f, i) => i === idx ? { ...f, uploading: false, url: prepData.downloadUrl } : f))
+      // Auto-add to selectedDocs
+      setSelectedDocs(prev => {
+        const doc = { title: item.name, doc_type: 'Hochgeladen', link: prepData.downloadUrl }
+        return prev.some(d => d.link === prepData.downloadUrl) ? prev : [...prev, doc]
+      })
+    } catch (err) {
+      setUploadFiles(prev => prev.map((f, i) => i === idx ? { ...f, uploading: false, error: err.message } : f))
+    }
+  }
+
+  const removeUploadFile = (idx) => {
+    const item = uploadFiles[idx]
+    if (item?.url) {
+      setSelectedDocs(prev => prev.filter(d => d.link !== item.url))
+    }
+    setUploadFiles(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleSkip = () => { onClose(); onConfirm() }
+
+  const handleSend = async () => {
     setSending(true)
     try {
-      const docs = profileDocs
-        .filter(d => selectedKeys.includes(d.link || d.title))
-        .map(d => ({ title: d.title, doc_type: d.doc_type || '', link: d.link || '' }))
       const c = reservation.companies
       const res = await fetch('/api/admin/company-docs/create-link', {
         method: 'POST',
@@ -136,13 +235,13 @@ function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
           profileId: reservation.profile_id,
           companyEmail: c?.email,
           companyName: c?.company_name,
-          documents: docs,
+          documents: selectedDocs,
           expiresInDays: parseInt(expiresInDays, 10),
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Fehler beim Erstellen des Links')
-      toast({ title: 'E-Mail wurde gesendet', description: `Dokumente-Link an ${c?.email} versendet.`, variant: 'success' })
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Senden')
+      toast({ title: 'E-Mail gesendet', description: `Zusage-E-Mail an ${c?.email} versendet.` })
       onClose()
       onConfirm()
     } catch (err) {
@@ -153,91 +252,205 @@ function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
   }
 
   const c = reservation?.companies
-  const hasDocs = !loadingDocs && profileDocs.length > 0
-  const canSend = hasDocs && selectedKeys.length > 0
+  const pendingUploads = uploadFiles.filter(f => !f.url && !f.error).length
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={open => { if (!open && !sending) onClose() }}>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Zusage – Schritt 4</DialogTitle>
+          <DialogTitle>Zusage erteilen – Schritt 4</DialogTitle>
           <DialogDescription>
-            Wähle Dokumente aus, die <strong>{c?.company_name || 'das Unternehmen'}</strong> per E-Mail erhalten soll, oder fahre ohne E-Mail fort.
+            Empfänger: <strong>{c?.company_name || 'Unternehmen'}</strong>
+            {c?.email && <span className="text-gray-400"> · {c.email}</span>}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[55vh] overflow-y-auto space-y-4 pr-1">
-          {loadingDocs ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-            </div>
-          ) : profileDocs.length === 0 ? (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-              Keine öffentlichen Dokumente für diese Fachkraft hinterlegt. Du kannst trotzdem zu Schritt 4 weiterschalten.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {profileDocs.map(doc => {
-                const key = doc.link || doc.title
-                const isOn = selectedKeys.includes(key)
-                return (
-                  <label key={key} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    isOn ? 'border-[#1a3a5c] bg-[#1a3a5c]/5' : 'border-gray-200 hover:border-gray-300'
-                  }`}>
-                    <input
-                      type="checkbox"
-                      checked={isOn}
-                      onChange={() => toggleDoc(key)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#1a3a5c]"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-gray-900">{doc.title}</p>
-                      {doc.doc_type && <p className="text-xs text-gray-400 mt-0.5">{doc.doc_type}</p>}
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
-          )}
+        <div className="space-y-4">
+          {/* ── E-Mail Toggle ── */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+            <button
+              onClick={() => setSendEmail(false)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                !sendEmail ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MailX className="h-4 w-4" />
+              Keine E-Mail
+            </button>
+            <button
+              onClick={() => setSendEmail(true)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                sendEmail ? 'bg-white shadow-sm text-[#1a3a5c]' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MailCheck className="h-4 w-4" />
+              E-Mail senden
+            </button>
+          </div>
 
-          {hasDocs && (
-            <div className="space-y-1.5 pt-2 border-t border-gray-100">
-              <label className="text-xs font-medium text-gray-700">Link gültig für</label>
-              <select
-                value={expiresInDays}
-                onChange={e => setExpiresInDays(e.target.value)}
-                className="w-full h-9 text-sm border border-input rounded-md px-3 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {[7, 14, 30, 90].map(d => (
-                  <option key={d} value={d}>{d} Tage</option>
+          {/* ── Email options ── */}
+          {sendEmail && (
+            <div className="space-y-3">
+              {/* Source tabs */}
+              <div className="flex border-b border-gray-200">
+                {ZUSAGE_TABS.map(({ key, label, Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleTabChange(key)}
+                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${
+                      docTab === key
+                        ? 'border-[#1a3a5c] text-[#1a3a5c]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
                 ))}
-              </select>
+              </div>
+
+              {/* Tab: Fachkraft-Dokumente */}
+              {docTab === 'profile' && (
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {loadingProfile ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  ) : profileDocs.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-4 text-center">Keine öffentlichen Dokumente für diese Fachkraft.</p>
+                  ) : profileDocs.map(doc => {
+                    const docObj = { title: doc.title, doc_type: doc.doc_type || '', link: doc.link || '' }
+                    const on = isSelected(docObj)
+                    return (
+                      <label key={doc.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${on ? 'border-[#1a3a5c] bg-[#1a3a5c]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={on} onChange={() => toggleDoc(docObj)} className="h-4 w-4 rounded border-gray-300 accent-[#1a3a5c]" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{doc.title}</p>
+                          {doc.doc_type && <p className="text-xs text-gray-400">{doc.doc_type}</p>}
+                        </div>
+                        <FileText className="h-4 w-4 text-gray-300 shrink-0" />
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Tab: Vorlagen */}
+              {docTab === 'templates' && (
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {loadingTemplates ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  ) : templates.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-4 text-center">Keine Vorlagen verfügbar.</p>
+                  ) : templates.map(t => {
+                    const docObj = { title: t.name, doc_type: 'Vorlage', link: t.url }
+                    const on = isSelected(docObj)
+                    return (
+                      <label key={t.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${on ? 'border-[#1a3a5c] bg-[#1a3a5c]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={on} onChange={() => toggleDoc(docObj)} className="h-4 w-4 rounded border-gray-300 accent-[#1a3a5c]" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                          {t.label && <p className="text-xs text-gray-400 capitalize">{t.label}</p>}
+                        </div>
+                        <FileText className="h-4 w-4 text-gray-300 shrink-0" />
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Tab: Dateien hochladen */}
+              {docTab === 'upload' && (
+                <div className="space-y-2">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer hover:border-[#1a3a5c]/40 hover:bg-gray-50 transition-colors"
+                  >
+                    <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Klicken oder Dateien hierher ziehen</p>
+                    <p className="text-xs text-gray-400 mt-1">PDF, Word, Bilder – mehrere Dateien möglich</p>
+                  </div>
+                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilesPicked} />
+
+                  {uploadFiles.length > 0 && (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {uploadFiles.map((f, idx) => (
+                        <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg border text-sm ${f.url ? 'border-green-200 bg-green-50' : f.error ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
+                          <FileText className={`h-4 w-4 shrink-0 ${f.url ? 'text-green-500' : f.error ? 'text-red-400' : 'text-gray-400'}`} />
+                          <span className="flex-1 truncate text-gray-700">{f.name}</span>
+                          {f.url && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+                          {f.error && <span className="text-xs text-red-500 shrink-0">{f.error}</span>}
+                          {!f.url && !f.uploading && !f.error && (
+                            <button onClick={() => uploadFile(idx)} className="text-xs text-[#1a3a5c] font-medium hover:underline shrink-0">
+                              Hochladen
+                            </button>
+                          )}
+                          {f.uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 shrink-0" />}
+                          <button onClick={() => removeUploadFile(idx)} className="text-gray-300 hover:text-gray-500 shrink-0">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Selected docs summary */}
+              {selectedDocs.length > 0 && (
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 mb-2">{selectedDocs.length} Dokument{selectedDocs.length > 1 ? 'e' : ''} ausgewählt:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedDocs.map((d, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 text-xs bg-[#1a3a5c]/8 text-[#1a3a5c] border border-[#1a3a5c]/20 rounded-full px-2 py-0.5">
+                        {d.title}
+                        <button onClick={() => setSelectedDocs(prev => prev.filter((_, j) => j !== i))} className="opacity-60 hover:opacity-100">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Link expiry */}
+              <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+                <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Link gültig für</label>
+                <select
+                  value={expiresInDays}
+                  onChange={e => setExpiresInDays(e.target.value)}
+                  className="h-8 text-sm border border-gray-200 rounded-md px-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#1a3a5c]"
+                >
+                  {[7, 14, 30, 90].map(d => <option key={d} value={d}>{d} Tage</option>)}
+                </select>
+                <span className="text-xs text-gray-400">(Dokumente-Zugangslink)</span>
+              </div>
             </div>
           )}
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={onClose} disabled={sending} className="sm:mr-auto">
+        <DialogFooter className="gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={sending} className="mr-auto">
             Abbrechen
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => { onClose(); onConfirm() }}
-            disabled={sending}
-            className="text-gray-500 text-sm"
-          >
-            Ohne E-Mail weiter →
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={sending || !canSend}
-            className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
-          >
-            {sending
-              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird gesendet...</>
-              : <><Send className="h-4 w-4 mr-2" />E-Mail senden & weiter</>
-            }
-          </Button>
+          {sendEmail ? (
+            <Button
+              onClick={handleSend}
+              disabled={sending || pendingUploads > 0}
+              className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
+            >
+              {sending
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird gesendet…</>
+                : <><Send className="h-4 w-4 mr-2" />{selectedDocs.length > 0 ? `E-Mail senden (${selectedDocs.length} Dok.) & weiter` : 'E-Mail senden & weiter'}</>
+              }
+            </Button>
+          ) : (
+            <Button onClick={handleSkip} disabled={sending} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
+              Ohne E-Mail weiter →
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -272,8 +485,9 @@ export default function VermittlungDetailPage() {
             profile_id, company_id,
             profiles (
               id, first_name, last_name, gender, age, nationality,
-              profile_image_url, nursing_education, specializations,
-              total_experience_years, german_recognition
+              profile_image_url, nursing_education,
+              total_experience_years, german_recognition,
+              ${ALL_SPECIALIZATION_FIELDS.join(', ')}
             ),
             companies (
               id, company_name, email, phone, first_name, last_name
@@ -481,9 +695,9 @@ export default function VermittlungDetailPage() {
                 <div className="text-xs text-gray-500 space-y-1">
                   {p?.nursing_education && <p>🎓 {p.nursing_education}</p>}
                   {p?.total_experience_years && <p>⏱ {p.total_experience_years} Jahre Erfahrung</p>}
-                  {(p?.specializations || []).length > 0 && (
+                  {getProfileSpecializations(p).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {p.specializations.slice(0, 3).map(s => (
+                      {getProfileSpecializations(p).slice(0, 3).map(s => (
                         <span key={s} className="bg-blue-50 text-blue-600 rounded-full px-2 py-0.5">{s}</span>
                       ))}
                     </div>

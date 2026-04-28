@@ -1542,7 +1542,7 @@ export default function PublicHome() {
     supabase.from('profiles')
       .select(`id,age,nationality,profile_image_url,total_experience_years,german_recognition,${ALL_SPECIALIZATION_FIELDS.join(',')}`)
       .eq('status', 'published')
-      .order('created_at', { ascending: false })
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .limit(3)
       .then(({ data }) => { setProfiles(data || []); setProfilesLoading(false) })
   }, [])
