@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Link2, Upload, FileText, Building2, ChevronLeft, Loader2, Check, Search, X } from 'lucide-react'
+import { Link2, Upload, FileText, Building2, User, ChevronLeft, Loader2, Check, Search, X } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const MODES = [
@@ -25,7 +25,7 @@ const MODES = [
     id: 'template',
     icon: FileText,
     label: 'Aus Vorlage',
-    desc: 'Vorlage auswählen & versenden',
+    desc: 'Vorlage auswählen & hinzufügen',
     color: 'bg-violet-50 text-violet-600 border-violet-200',
   },
   {
@@ -34,6 +34,15 @@ const MODES = [
     label: 'Aus Unternehmen',
     desc: 'Dokument von Firmenprofil übernehmen',
     color: 'bg-amber-50 text-amber-600 border-amber-200',
+    onlyFor: 'profile',
+  },
+  {
+    id: 'fachkraft',
+    icon: User,
+    label: 'Aus Fachkraft',
+    desc: 'Dokumente einer Fachkraft übernehmen',
+    color: 'bg-teal-50 text-teal-600 border-teal-200',
+    onlyFor: 'company',
   },
 ]
 
@@ -41,6 +50,7 @@ export default function AddDocumentModal({
   profileId,
   session,
   entityType = 'profile', // 'profile' | 'company'
+  activeVermittlungen = [], // [{ profileId, profileName }]
   onAddDoc,       // (doc: { title, link, doc_type, is_internal }) => void
   onSendTemplate, // () => void — opens DocSendDialog with fixedSource='template'
   onClose,
@@ -69,6 +79,14 @@ export default function AddDocumentModal({
   const [selectedCompany, setSelectedCompany] = useState(null)
   const [companyDocs, setCompanyDocs] = useState([])
   const [companyDocsLoading, setCompanyDocsLoading] = useState(false)
+
+  // Fachkraft copy
+  const [fkSearch, setFkSearch] = useState('')
+  const [fkSearchResults, setFkSearchResults] = useState([])
+  const [fkSearchLoading, setFkSearchLoading] = useState(false)
+  const [selectedFk, setSelectedFk] = useState(null)
+  const [fkDocs, setFkDocs] = useState([])
+  const [fkDocsLoading, setFkDocsLoading] = useState(false)
 
   // Load templates when template mode is activated
   useEffect(() => {
@@ -128,7 +146,7 @@ export default function AddDocumentModal({
     if (!selectedFile) return
     setUploading(true)
     try {
-      // Get signed upload URL from server (avoids RLS issues)
+      // Step 1: Get signed upload URL
       const urlRes = await fetch('/api/admin/profile-docs/upload-url', {
         method: 'POST',
         headers: {
@@ -141,15 +159,30 @@ export default function AddDocumentModal({
         const err = await urlRes.json()
         throw new Error(err.error || 'Upload-URL konnte nicht erstellt werden')
       }
-      const { uploadUrl, downloadUrl } = await urlRes.json()
+      const { uploadUrl, storagePath } = await urlRes.json()
 
-      // Upload file directly to Supabase storage via signed URL
+      // Step 2: Upload file directly to Supabase storage via signed URL
       const uploadRes = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': selectedFile.type || 'application/octet-stream' },
         body: selectedFile,
       })
       if (!uploadRes.ok) throw new Error('Upload fehlgeschlagen')
+
+      // Step 3: Resolve download URL now that the file exists
+      const resolveRes = await fetch('/api/admin/profile-docs/resolve-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ storagePath }),
+      })
+      if (!resolveRes.ok) {
+        const err = await resolveRes.json()
+        throw new Error(err.error || 'Download-URL konnte nicht erstellt werden')
+      }
+      const { downloadUrl } = await resolveRes.json()
 
       onAddDoc({
         title: uploadTitle.trim() || selectedFile.name,
@@ -164,6 +197,47 @@ export default function AddDocumentModal({
     } finally {
       setUploading(false)
     }
+  }
+
+  // Search FKs with debounce
+  useEffect(() => {
+    if (mode !== 'fachkraft') return
+    if (!fkSearch.trim()) { setFkSearchResults([]); return }
+    const timer = setTimeout(async () => {
+      setFkSearchLoading(true)
+      try {
+        const res = await fetch(`/api/admin/profiles/search?q=${encodeURIComponent(fkSearch.trim())}`, {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        })
+        const d = await res.json()
+        setFkSearchResults(d.profiles || [])
+      } catch { /* ignore */ }
+      setFkSearchLoading(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [fkSearch, mode])
+
+  // Load FK docs when FK selected
+  useEffect(() => {
+    if (!selectedFk) { setFkDocs([]); return }
+    setFkDocsLoading(true)
+    fetch(`/api/admin/profile-docs/list?profileId=${selectedFk.id}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.json())
+      .then(d => { setFkDocs(d.docs || []); setFkDocsLoading(false) })
+      .catch(() => setFkDocsLoading(false))
+  }, [selectedFk])
+
+  const handleCopyFkDoc = (doc) => {
+    onAddDoc({
+      title: doc.title || 'Dokument',
+      link: doc.link || '',
+      doc_type: 'fk_copy',
+      description: `Von ${selectedFk.first_name || ''} ${selectedFk.last_name || ''}`.trim(),
+      is_internal: false,
+    })
+    onClose()
   }
 
   const handleCopyCompanyDoc = (doc) => {
@@ -200,23 +274,20 @@ export default function AddDocumentModal({
                 <ChevronLeft className="h-4 w-4 text-gray-500" />
               </button>
             )}
-            {mode ? MODES.find(m => m.id === mode)?.label : 'Dokument hinzufügen'}
+            {mode ? (MODES.find(m => m.id === mode)?.label ?? 'Dokument hinzufügen') : 'Dokument hinzufügen'}
           </DialogTitle>
         </DialogHeader>
 
         {/* ── Auswahl ── */}
         {!mode && (
           <div className="grid grid-cols-2 gap-3 py-1">
-            {MODES.filter(m => !(m.id === 'company' && entityType === 'company')).map(m => {
+            {MODES.filter(m => !m.onlyFor || m.onlyFor === entityType).map(m => {
               const Icon = m.icon
               return (
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => {
-                    if (m.id === 'template') { onSendTemplate(); onClose(); return }
-                    setMode(m.id)
-                  }}
+                  onClick={() => setMode(m.id)}
                   className="flex flex-col items-start gap-2 p-4 rounded-xl border-2 border-gray-200 hover:border-gray-300 bg-white text-left transition-all hover:shadow-sm active:scale-[0.98]"
                 >
                   <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${m.color}`}>
@@ -252,6 +323,12 @@ export default function AddDocumentModal({
                 placeholder="https://drive.google.com/..."
                 type="url"
               />
+              {(linkUrl.includes('drive.google.com') || linkUrl.includes('docs.google.com') || linkUrl.includes('dropbox.com')) && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
+                  <span className="shrink-0 mt-0.5">ℹ</span>
+                  Externe Links können nur <strong>eingesehen</strong>, aber nicht digital ausgefüllt oder signiert werden. Für ausfüllbare Dokumente bitte die Datei hochladen.
+                </p>
+              )}
             </div>
             <div className="flex gap-2 justify-end pt-1">
               <Button variant="outline" onClick={onClose}>Abbrechen</Button>
@@ -311,6 +388,148 @@ export default function AddDocumentModal({
                   : <><Upload className="h-3.5 w-3.5 mr-1.5" />Hochladen</>}
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* ── Aus Vorlage ── */}
+        {mode === 'template' && (
+          <div className="space-y-3 py-1">
+            {templatesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+              </div>
+            ) : templates.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">Keine Vorlagen vorhanden.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                {templates.map(tpl => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => {
+                      onAddDoc({
+                        title: tpl.name,
+                        link: `template:${tpl.id}`,
+                        doc_type: 'template',
+                        description: tpl.description || '',
+                        is_internal: false,
+                      })
+                      onClose()
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-violet-300 hover:bg-violet-50/40 bg-white text-left transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                      <FileText className="h-4 w-4 text-violet-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{tpl.name}</p>
+                      {tpl.description && (
+                        <p className="text-xs text-gray-400 truncate">{tpl.description}</p>
+                      )}
+                    </div>
+                    <Check className="h-4 w-4 text-violet-400 shrink-0 opacity-0 group-hover:opacity-100" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Aus Fachkraft ── */}
+        {mode === 'fachkraft' && (
+          <div className="space-y-3 py-1">
+            {!selectedFk ? (
+              <>
+                {/* Active Vermittlungen quick-select */}
+                {activeVermittlungen.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-0.5">Aktive Vermittlungen</p>
+                    {activeVermittlungen.map(v => (
+                      <button
+                        key={v.profileId}
+                        type="button"
+                        onClick={() => setSelectedFk({ id: v.profileId, first_name: v.profileName?.split(' ')[0] || '', last_name: v.profileName?.split(' ').slice(1).join(' ') || '' })}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-teal-200 bg-teal-50 hover:border-teal-400 text-left text-sm transition-colors"
+                      >
+                        <User className="h-4 w-4 text-teal-500 shrink-0" />
+                        <span className="font-medium text-gray-800 truncate">{v.profileName || '—'}</span>
+                        <span className="text-xs text-teal-600 ml-auto shrink-0">Aktiv</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search other FKs */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    value={fkSearch}
+                    onChange={e => setFkSearch(e.target.value)}
+                    placeholder="Andere Fachkraft suchen..."
+                    autoFocus={activeVermittlungen.length === 0}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#1a3a5c]"
+                  />
+                  {fkSearchLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 animate-spin" />}
+                </div>
+                {fkSearchResults.length > 0 && (
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {fkSearchResults.map(fk => (
+                      <button
+                        key={fk.id}
+                        type="button"
+                        onClick={() => { setSelectedFk(fk); setFkSearch('') }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-gray-300 bg-white text-left text-sm"
+                      >
+                        <User className="h-4 w-4 text-gray-400 shrink-0" />
+                        <span className="font-medium text-gray-800 truncate">
+                          {[fk.first_name, fk.last_name].filter(Boolean).join(' ') || '—'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!fkSearchLoading && fkSearch.trim() && fkSearchResults.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-3">Keine Fachkraft gefunden.</p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 px-3 py-2 bg-teal-50 border border-teal-200 rounded-lg text-sm">
+                  <User className="h-4 w-4 text-teal-600 shrink-0" />
+                  <span className="font-medium text-teal-800 flex-1 truncate">
+                    {[selectedFk.first_name, selectedFk.last_name].filter(Boolean).join(' ') || '—'}
+                  </span>
+                  <button onClick={() => { setSelectedFk(null); setFkDocs([]) }} className="text-teal-500 hover:text-teal-700">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {fkDocsLoading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+                  </div>
+                ) : fkDocs.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Keine Dokumente vorhanden.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {fkDocs.map(doc => (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        onClick={() => handleCopyFkDoc(doc)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-[#1a3a5c] bg-white text-left transition-colors"
+                      >
+                        <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{doc.title || '—'}</p>
+                          <p className="text-xs text-gray-400">{doc.doc_type || 'Dokument'}</p>
+                        </div>
+                        <Check className="h-4 w-4 text-teal-500 shrink-0 opacity-0 group-hover:opacity-100" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 

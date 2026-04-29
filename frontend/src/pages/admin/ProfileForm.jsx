@@ -2181,8 +2181,8 @@ export default function ProfileForm() {
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
                         {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
                       </div>
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                        {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${doc.doc_type === 'template' ? 'bg-violet-50' : 'bg-blue-50'}`}>
+                        {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : doc.doc_type === 'template' ? <FileText className="h-4 w-4 text-violet-500" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>

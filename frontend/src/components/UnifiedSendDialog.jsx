@@ -43,7 +43,9 @@ export default function UnifiedSendDialog({
     : (company?.email || '')
 
   // Per-doc mode: 'view' | 'fill'
-  const [docModes, setDocModes] = useState(() => Object.fromEntries(docs.map((_, i) => [i, 'view'])))
+  const [docModes, setDocModes] = useState(() =>
+    Object.fromEntries(docs.map((doc, i) => [i, doc.doc_type === 'template' ? 'fill' : 'view']))
+  )
   // Per-doc template info (for uploads converted to templates)
   const [docTemplates, setDocTemplates] = useState({}) // { [i]: { id, creating, error } }
 
@@ -62,7 +64,8 @@ export default function UnifiedSendDialog({
   const [results, setResults] = useState(null) // [{title, signerUrl, mode}]
   const [copiedIdx, setCopiedIdx] = useState(null)
 
-  const canFill = (doc) => !doc.isCv && doc.doc_type === 'upload'
+  const isTemplateDoc = (doc) => doc.doc_type === 'template'
+  const canFill = (doc) => !doc.isCv && (doc.doc_type === 'upload' || isTemplateDoc(doc))
 
   // Toggle mode for a doc (only for uploads)
   const toggleMode = async (idx, newMode) => {
@@ -137,8 +140,11 @@ export default function UnifiedSendDialog({
         const mode = docModes[i] || 'view'
 
         let body
-        if (mode === 'fill' && docTemplates[i]?.id) {
-          body = { ...baseBody, templateId: docTemplates[i].id, sendMode: 'sign', prefillMode: 'blank' }
+        const templateDocId = doc.doc_type === 'template' ? doc.link.replace('template:', '') : null
+        const uploadTemplateId = docTemplates[i]?.id
+
+        if (mode === 'fill' && (templateDocId || uploadTemplateId)) {
+          body = { ...baseBody, templateId: templateDocId || uploadTemplateId, sendMode: 'sign', prefillMode: 'blank' }
         } else {
           body = { ...baseBody, sourceUrl: doc.link, sourceTitle: doc.title || 'Dokument', sendMode: 'view' }
         }
@@ -279,6 +285,8 @@ export default function UnifiedSendDialog({
                         <User className="h-4 w-4 text-teal-500 shrink-0" />
                       ) : doc.doc_type === 'upload' ? (
                         <Upload className="h-4 w-4 text-blue-500 shrink-0" />
+                      ) : doc.doc_type === 'template' ? (
+                        <FileText className="h-4 w-4 text-violet-500 shrink-0" />
                       ) : (
                         <Link2 className="h-4 w-4 text-gray-400 shrink-0" />
                       )}
@@ -289,33 +297,42 @@ export default function UnifiedSendDialog({
 
                     {/* Mode toggle */}
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => fillable && toggleMode(i, 'view')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          mode === 'view'
-                            ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                            : fillable
-                              ? 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
-                              : 'bg-blue-100 text-blue-700 border border-blue-200'
-                        }`}
-                      >
-                        <Eye className="h-3 w-3" />Nur ansehen
-                      </button>
+                      {isTemplateDoc(doc) ? (
+                        // Template docs are always fill-mode
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-100 text-violet-700 border border-violet-200">
+                          <PenLine className="h-3 w-3" />Zum Ausfüllen
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => fillable && toggleMode(i, 'view')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              mode === 'view'
+                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                : fillable
+                                  ? 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
+                                  : 'bg-blue-100 text-blue-700 border border-blue-200'
+                            }`}
+                          >
+                            <Eye className="h-3 w-3" />Nur ansehen
+                          </button>
 
-                      <button
-                        onClick={() => fillable && toggleMode(i, 'fill')}
-                        disabled={!fillable}
-                        title={!fillable ? (doc.isCv ? 'Lebenslauf kann nur angesehen werden' : 'Externe Links können nur angesehen werden') : undefined}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          mode === 'fill'
-                            ? 'bg-violet-100 text-violet-700 border border-violet-200'
-                            : fillable
-                              ? 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
-                              : 'bg-gray-50 text-gray-300 border border-gray-100 cursor-not-allowed'
-                        }`}
-                      >
-                        <PenLine className="h-3 w-3" />Zum Ausfüllen
-                      </button>
+                          <button
+                            onClick={() => fillable && toggleMode(i, 'fill')}
+                            disabled={!fillable}
+                            title={!fillable ? (doc.isCv ? 'Lebenslauf kann nur angesehen werden' : 'Externe Links können nur angesehen werden') : undefined}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              mode === 'fill'
+                                ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                                : fillable
+                                  ? 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'
+                                  : 'bg-gray-50 text-gray-300 border border-gray-100 cursor-not-allowed'
+                            }`}
+                          >
+                            <PenLine className="h-3 w-3" />Zum Ausfüllen
+                          </button>
+                        </>
+                      )}
 
                       {/* Template creation status */}
                       {mode === 'fill' && (
