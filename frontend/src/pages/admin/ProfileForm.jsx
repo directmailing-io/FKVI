@@ -37,6 +37,8 @@ import {
 import VimeoPlayer from '@/components/VimeoPlayer'
 import DocSendDialog from '@/components/DocSendDialog'
 import AddDocumentModal from '@/components/AddDocumentModal'
+import CvPreviewModal from '@/components/CvPreviewModal'
+import UnifiedSendDialog from '@/components/UnifiedSendDialog'
 import { toast } from '@/hooks/use-toast'
 
 // ─── Field helper — defined OUTSIDE component to avoid focus-jumping bug ──────
@@ -572,6 +574,10 @@ export default function ProfileForm() {
   const [sendTemplateDialog, setSendTemplateDialog] = useState(false)
   const [sendDocInitial, setSendDocInitial] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showCvModal, setShowCvModal] = useState(false)
+  const [selectedDocIndices, setSelectedDocIndices] = useState(new Set())
+  const [cvSelected, setCvSelected] = useState(false)
+  const [showUnifiedSend, setShowUnifiedSend] = useState(false)
   const [deletingSendId, setDeletingSendId] = useState(null) // id being confirmed for deletion
   const [deletingSendBusy, setDeletingSendBusy] = useState(false)
   const [downloadingSendId, setDownloadingSendId] = useState(null)
@@ -2081,30 +2087,58 @@ export default function ProfileForm() {
             {/* ── Unified documents card ── */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-400" />
+                  Dokumente
+                  {(documents.length + (isEdit ? docSends.length : 0)) > 0 && (
+                    <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                      {documents.length + (isEdit ? docSends.length : 0)}
+                    </span>
+                  )}
+                  {(docSaving || (isEdit && docSendsLoading)) && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                </h3>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-gray-400" />
-                    Dokumente
-                    {(documents.length + (isEdit ? docSends.length : 0)) > 0 && (
-                      <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                        {documents.length + (isEdit ? docSends.length : 0)}
+                  {(selectedDocIndices.size > 0 || cvSelected) && (
+                    <>
+                      <span className="text-xs text-[#1a3a5c] font-medium">
+                        {selectedDocIndices.size + (cvSelected ? 1 : 0)} ausgewählt
                       </span>
-                    )}
-                    {(docSaving || (isEdit && docSendsLoading)) && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
-                  </h3>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-gray-500"
+                        onClick={() => { setSelectedDocIndices(new Set()); setCvSelected(false) }}
+                      >
+                        <X className="h-3 w-3 mr-1" />Auswahl
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-[#0d9488] hover:bg-[#0d9488]/90 text-white"
+                        onClick={() => setShowUnifiedSend(true)}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1.5" />Versenden ({selectedDocIndices.size + (cvSelected ? 1 : 0)})
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    size="sm"
+                    className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
+                    onClick={() => setShowAddModal(true)}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />Hinzufügen
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
-                  onClick={() => setShowAddModal(true)}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />Dokument hinzufügen
-                </Button>
               </div>
 
               <div className="divide-y divide-gray-50">
-                {/* ── Auto-Lebenslauf (always pinned) ── */}
-                <div className="flex items-center gap-3 px-6 py-3 bg-teal-50/40">
+                {/* ── Auto-Lebenslauf (selectable) ── */}
+                <div
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors group ${cvSelected ? 'bg-blue-50/60' : 'bg-teal-50/40 hover:bg-teal-50/70'}`}
+                  onClick={() => setCvSelected(v => !v)}
+                >
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${cvSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
+                    {cvSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                  </div>
                   <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
                     <User className="h-4 w-4 text-teal-600" />
                   </div>
@@ -2119,68 +2153,84 @@ export default function ProfileForm() {
                     <CheckCircle2 className="h-3 w-3" />Immer aktuell
                   </span>
                   <button
-                    onClick={() => setActiveTab('lebenslauf')}
+                    onClick={e => { e.stopPropagation(); setShowCvModal(true) }}
                     className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors shrink-0"
-                    title="Lebenslauf ansehen"
+                    title="Lebenslauf als PDF ansehen"
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </button>
                 </div>
 
-                {/* ── Gespeicherte Dokumente (links/uploads) ── */}
-                {documents.map((doc, idx) => (
-                  <div key={idx} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors group">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                      {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
-                      <p className="text-xs text-gray-400 truncate">
-                        {doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {doc.link && (
-                        <a href={doc.link} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors" title="Öffnen">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                      {isEdit && doc.link && (
-                        <button
-                          onClick={() => { setSendDocInitial({ sourceUrl: doc.link, sourceTitle: doc.title || '' }); setSendTemplateDialog(true) }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-[#0d9488] hover:bg-teal-50 transition-colors"
-                          title="Verschicken"
-                        >
-                          <Send className="h-3.5 w-3.5" />
+                {/* ── Gespeicherte Dokumente ── */}
+                {documents.map((doc, idx) => {
+                  const isSelected = selectedDocIndices.has(idx)
+                  const toggleSelect = () => {
+                    setSelectedDocIndices(prev => {
+                      const next = new Set(prev)
+                      isSelected ? next.delete(idx) : next.add(idx)
+                      return next
+                    })
+                  }
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
+                      onClick={toggleSelect}
+                    >
+                      {/* Checkbox */}
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
+                        {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                        {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+                        {doc.link && (
+                          <a href={doc.link} target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors" title="Öffnen">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        <button onClick={() => setEditingDoc({ idx, doc })}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Bearbeiten">
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
-                      )}
-                      <button onClick={() => setEditingDoc({ idx, doc })}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Bearbeiten">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => setDeletingDocIdx(idx)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Löschen">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        <button onClick={() => setDeletingDocIdx(idx)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Löschen">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
 
-                {/* ── Versendungen ── */}
+                {/* ── Versendungshistorie ── */}
+                {isEdit && docSends.length > 0 && (
+                  <div className="px-4 py-2 bg-gray-50/70 border-t border-gray-100">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versandhistorie</p>
+                  </div>
+                )}
                 {isEdit && docSends.map(send => {
                   const isSigned = send.status === 'submitted' || send.status === 'signed'
                   const isConfirmingDelete = deletingSendId === send.id
                   return (
-                    <div key={send.id} className={`flex items-center gap-3 px-6 py-3 transition-colors ${isSigned ? 'bg-green-50/30' : 'hover:bg-gray-50/50'}`}>
+                    <div key={send.id} className={`flex items-center gap-3 px-4 py-3 transition-colors ${isSigned ? 'bg-green-50/30' : 'hover:bg-gray-50/50'}`}>
+                      <div className="w-4 shrink-0" /> {/* spacer */}
                       <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
                         <Send className="h-4 w-4 text-violet-500" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm truncate">{send.template_name || send.bundle_title || '–'}</p>
                         <p className="text-xs text-gray-400">
-                          {send.signer_name}
-                          {isSigned && send.signed_at ? ` · ${new Date(send.signed_at).toLocaleDateString('de-DE')}` : ` · ${new Date(send.created_at).toLocaleDateString('de-DE')}`}
+                          {send.signer_name && <span>{send.signer_name} · </span>}
+                          Versendet {new Date(send.created_at).toLocaleDateString('de-DE')}
+                          {isSigned && send.signed_at ? ` · ${send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet'} ${new Date(send.signed_at).toLocaleDateString('de-DE')}` : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -2230,18 +2280,25 @@ export default function ProfileForm() {
                   )
                 })}
 
-                {/* ── Empty state (only if no docs and no sends) ── */}
+                {/* ── Empty state ── */}
                 {documents.length === 0 && (!isEdit || docSends.length === 0) && (
                   <div className="text-center py-10 text-gray-400">
                     <FileText className="h-8 w-8 mx-auto mb-2 text-gray-200" />
                     <p className="text-sm font-medium text-gray-500">Noch keine Dokumente hinzugefügt</p>
-                    <p className="text-xs mt-1">Klicke auf „Dokument hinzufügen" um loszulegen.</p>
+                    <p className="text-xs mt-1">Klicke auf „Hinzufügen" um loszulegen, dann Dokument(e) auswählen und versenden.</p>
                   </div>
                 )}
               </div>
 
+              {/* ── Send hint ── */}
+              {isEdit && documents.length === 0 && !cvSelected && selectedDocIndices.size === 0 && (
+                <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+                  <p className="text-xs text-gray-400">Dokumente auswählen und dann „Versenden" klicken, oder über „Hinzufügen" neue hinzufügen.</p>
+                </div>
+              )}
+
               {isEdit && docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
-                <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+                <div className="px-4 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
                   <Download className="h-3.5 w-3.5 shrink-0" />
                   Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
                 </div>
@@ -2269,7 +2326,23 @@ export default function ProfileForm() {
               />
             )}
 
-            {/* DocSendDialog */}
+            {/* UnifiedSendDialog */}
+            {showUnifiedSend && (selectedDocIndices.size > 0 || cvSelected) && (
+              <UnifiedSendDialog
+                docs={[
+                  ...(cvSelected ? [{ title: 'Lebenslauf', link: `cv:${id}`, doc_type: 'cv', isCv: true }] : []),
+                  ...[...selectedDocIndices].map(i => documents[i]).filter(Boolean),
+                ]}
+                profile={profile}
+                entityType="profile"
+                entityId={id}
+                session={session}
+                onClose={() => { setShowUnifiedSend(false); setSelectedDocIndices(new Set()); setCvSelected(false) }}
+                onSent={loadDocSends}
+              />
+            )}
+
+            {/* DocSendDialog for templates with form fields */}
             {sendTemplateDialog && (
               <DocSendDialog
                 entityType="profile"
@@ -2305,6 +2378,15 @@ export default function ProfileForm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CV preview modal */}
+      {showCvModal && (
+        <CvPreviewModal
+          profile={profile}
+          documents={documents}
+          onClose={() => setShowCvModal(false)}
+        />
+      )}
 
       {/* Reserve dialog */}
       <Dialog open={reserveDialog} onOpenChange={setReserveDialog}>

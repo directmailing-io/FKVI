@@ -15,6 +15,7 @@ import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building
 import { toast } from '@/hooks/use-toast'
 import DocSendDialog from '@/components/DocSendDialog'
 import AddDocumentModal from '@/components/AddDocumentModal'
+import UnifiedSendDialog from '@/components/UnifiedSendDialog'
 
 const COMPANY_TYPE_LABELS = {
   lead: 'Lead',
@@ -76,6 +77,8 @@ export default function CompanyDetailPage() {
   const [companyDocuments, setCompanyDocuments] = useState([])
   const [companyDocSaving, setCompanyDocSaving] = useState(false)
   const [deletingStoredDocIdx, setDeletingStoredDocIdx] = useState(null)
+  const [selectedDocIndices, setSelectedDocIndices] = useState(new Set())
+  const [showUnifiedSend, setShowUnifiedSend] = useState(false)
   const [deletingSendId, setDeletingSendId] = useState(null)
   const [deletingSendBusy, setDeletingSendBusy] = useState(false)
   const [downloadingSendId, setDownloadingSendId] = useState(null)
@@ -903,45 +906,71 @@ export default function CompanyDetailPage() {
                   )}
                   {(companyDocSaving || docSendsLoading) && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
                 </h2>
-                <Button size="sm" className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white" onClick={() => setShowAddModal(true)}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />Dokument hinzufügen
-                </Button>
+                <div className="flex items-center gap-2">
+                  {selectedDocIndices.size > 0 && (
+                    <>
+                      <span className="text-xs text-[#1a3a5c] font-medium">{selectedDocIndices.size} ausgewählt</span>
+                      <Button size="sm" variant="outline" className="text-gray-500" onClick={() => setSelectedDocIndices(new Set())}>
+                        <X className="h-3 w-3 mr-1" />Auswahl
+                      </Button>
+                      <Button size="sm" className="bg-[#0d9488] hover:bg-[#0d9488]/90 text-white" onClick={() => setShowUnifiedSend(true)}>
+                        <Send className="h-3.5 w-3.5 mr-1.5" />Versenden ({selectedDocIndices.size})
+                      </Button>
+                    </>
+                  )}
+                  <Button size="sm" className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white" onClick={() => setShowAddModal(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />Hinzufügen
+                  </Button>
+                </div>
               </div>
 
               <div className="divide-y divide-gray-50">
-                {/* Stored docs (links/uploads) */}
-                {companyDocuments.map((doc, idx) => (
-                  <div key={idx} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                      {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
-                      <p className="text-xs text-gray-400 truncate">{doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}</p>
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {doc.link && (
-                        <a href={doc.link} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors" title="Öffnen">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                      {doc.link && (
-                        <button
-                          onClick={() => { setSendDocInitial({ sourceUrl: doc.link, sourceTitle: doc.title || '' }); setShowSendDialog(true) }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-[#0d9488] hover:bg-teal-50 transition-colors"
-                          title="Verschicken"
-                        >
-                          <Send className="h-3.5 w-3.5" />
+                {/* Stored docs (links/uploads) — selectable */}
+                {companyDocuments.map((doc, idx) => {
+                  const isSelected = selectedDocIndices.has(idx)
+                  const toggleSelect = () => setSelectedDocIndices(prev => {
+                    const next = new Set(prev)
+                    isSelected ? next.delete(idx) : next.add(idx)
+                    return next
+                  })
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
+                      onClick={toggleSelect}
+                    >
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
+                        {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                        {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-blue-500" /> : <Link2 className="h-4 w-4 text-blue-500" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
+                        <p className="text-xs text-gray-400 truncate">{doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}</p>
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
+                        {doc.link && (
+                          <a href={doc.link} target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors" title="Öffnen">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        <button onClick={() => setDeletingStoredDocIdx(idx)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Löschen">
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
-                      )}
-                      <button onClick={() => setDeletingStoredDocIdx(idx)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Löschen">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      </div>
                     </div>
+                  )
+                })}
+
+                {/* Versandhistorie header */}
+                {(bundles.length > 0 || individualSends.length > 0) && (
+                  <div className="px-4 py-2 bg-gray-50/70 border-t border-gray-100">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versandhistorie</p>
                   </div>
-                ))}
+                )}
 
                 {/* Bundle rows */}
                 {bundles.map(bundle => {
@@ -1046,8 +1075,15 @@ export default function CompanyDetailPage() {
                 )}
               </div>
 
+              {/* Send hint */}
+              {companyDocuments.length === 0 && selectedDocIndices.size === 0 && (
+                <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+                  <p className="text-xs text-gray-400">Dokumente auswählen und dann „Versenden" klicken, oder über „Hinzufügen" neue hinzufügen.</p>
+                </div>
+              )}
+
               {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
-                <div className="px-6 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+                <div className="px-4 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
                   <Download className="h-3.5 w-3.5 shrink-0" />
                   Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
                 </div>
@@ -1056,12 +1092,31 @@ export default function CompanyDetailPage() {
           )
         })()}
 
+        {/* UnifiedSendDialog */}
+        {showUnifiedSend && selectedDocIndices.size > 0 && (
+          <UnifiedSendDialog
+            docs={[...selectedDocIndices].map(i => companyDocuments[i]).filter(Boolean)}
+            company={company}
+            entityType="company"
+            entityId={id}
+            session={session}
+            onClose={() => { setShowUnifiedSend(false); setSelectedDocIndices(new Set()) }}
+            onSent={loadDocSends}
+          />
+        )}
+
         {/* AddDocumentModal */}
         {showAddModal && (
           <AddDocumentModal
             profileId={id}
             session={session}
             entityType="company"
+            activeVermittlungen={reservations
+              .filter(r => r.profiles?.id)
+              .map(r => ({
+                profileId: r.profiles.id,
+                profileName: `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim(),
+              }))}
             onAddDoc={async (doc) => {
               const updated = [...companyDocuments, doc]
               setCompanyDocuments(updated)

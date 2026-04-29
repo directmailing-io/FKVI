@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 
-import { CheckCircle2, AlertCircle, Loader2, PenLine, FileText, ClipboardList } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, PenLine, FileText, ClipboardList, Eye } from 'lucide-react'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import SignatureCanvas from '@/components/SignatureCanvas'
+import CvDocument from '@/components/matching/CvDocument'
 
 // ─── PDF viewer with interactive checkbox overlays ──────────────────────────
 
@@ -308,6 +309,9 @@ export default function DokumentSignPage() {
   const [submitted, setSubmitted] = useState(false)
   const [mobileTab, setMobileTab] = useState('form') // 'form' | 'pdf'
   const [missingFields, setMissingFields] = useState([])
+  const [markingRead, setMarkingRead] = useState(false)
+  const [markedRead, setMarkedRead] = useState(false)
+  const [cvData, setCvData] = useState(null) // { profile, documents } for CV sends
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -331,6 +335,14 @@ export default function DokumentSignPage() {
         })
         setFieldValues(initial)
         if (pdfData.signedUrl) setPdfUrl(pdfData.signedUrl)
+
+        // If this is a CV send, load CV data
+        if (pageData.sendMode === 'view' && pageData.sourceUrl?.startsWith('cv:')) {
+          fetch(`/api/dokument/cv-data?token=${token}`)
+            .then(r => r.json())
+            .then(cvResult => { if (cvResult.profile) setCvData(cvResult) })
+            .catch(() => {})
+        }
       })
       .catch(() => setError('Dokument konnte nicht geladen werden.'))
       .finally(() => setLoading(false))
@@ -432,6 +444,124 @@ export default function DokumentSignPage() {
       </div>
     </div>
   )
+
+  // ── View-only: Gelesen bestätigen ─────────────────────────────────────────
+  const handleMarkRead = async () => {
+    setMarkingRead(true)
+    try {
+      const res = await fetch('/api/dokument/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      if (res.ok) setMarkedRead(true)
+    } catch {
+      // ignore
+    } finally {
+      setMarkingRead(false)
+    }
+  }
+
+  if (data?.sendMode === 'view') {
+    if (markedRead || data?.alreadySigned) return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-sm w-full bg-white rounded-2xl shadow-xl p-10 text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-[#0d9488]/10 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="h-10 w-10 text-[#0d9488]" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 text-2xl">Empfang bestätigt</p>
+            <p className="text-gray-500 mt-2 leading-relaxed">Vielen Dank! Der Erhalt des Dokuments wurde bestätigt.</p>
+          </div>
+          <p className="text-sm text-gray-400">Bei Fragen wende dich an FKVI.</p>
+        </div>
+      </div>
+    )
+
+    const docTitle = data?.templateName || data?.sourceTitle || 'Dokument'
+    const docUrl = data?.sourceUrl || pdfUrl
+
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        <header className="bg-white border-b border-gray-200 shrink-0 z-20">
+          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
+            <span className="font-black text-[#1a3a5c] text-xl tracking-tight shrink-0">FKVI</span>
+            {docTitle && (
+              <>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-500 text-sm truncate">{docTitle}</span>
+              </>
+            )}
+            <span className="ml-auto shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+              <Eye className="h-3 w-3" />Zur Ansicht
+            </span>
+          </div>
+        </header>
+
+        <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 py-6 gap-4">
+          {data?.signerName && (
+            <p className="text-sm text-gray-500">für: <strong>{data.signerName}</strong></p>
+          )}
+          {data?.message && (
+            <div className="rounded-xl bg-[#1a3a5c]/5 border border-[#1a3a5c]/15 p-4">
+              <p className="text-gray-700 text-sm leading-relaxed">{data.message}</p>
+            </div>
+          )}
+
+          {data?.sourceUrl?.startsWith('cv:') ? (
+            cvData?.profile ? (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-auto">
+                <div className="mx-auto" style={{ maxWidth: 794 }}>
+                  <CvDocument profile={cvData.profile} showRealName={true} documents={cvData.documents || []} />
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200 min-h-[40vh]">
+                <div className="text-center text-gray-400 space-y-2">
+                  <Loader2 className="h-8 w-8 mx-auto animate-spin text-gray-300" />
+                  <p className="text-sm">Lebenslauf wird geladen…</p>
+                </div>
+              </div>
+            )
+          ) : docUrl ? (
+            docUrl.startsWith('http') && !pdfUrl ? (
+              <iframe
+                src={docUrl}
+                className="flex-1 min-h-[60vh] rounded-xl border border-gray-200 bg-white w-full"
+                title={docTitle}
+              />
+            ) : (
+              <div className="flex-1 min-h-[60vh]">
+                <PdfViewer pdfUrl={pdfUrl || docUrl} fields={[]} fieldValues={{}} onToggle={() => {}} />
+              </div>
+            )
+          ) : (
+            <div className="flex-1 flex items-center justify-center bg-white rounded-xl border border-gray-200 min-h-[40vh]">
+              <div className="text-center text-gray-400 space-y-2">
+                <FileText className="h-10 w-10 mx-auto text-gray-200" />
+                <p className="text-sm">Dokument wird geladen…</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+          <button
+            onClick={handleMarkRead}
+            disabled={markingRead}
+            className="w-full h-14 rounded-2xl text-lg font-bold bg-[#0d9488] hover:bg-[#0d9488]/90 text-white flex items-center justify-center gap-3 transition-all"
+          >
+            {markingRead
+              ? <><Loader2 className="h-5 w-5 animate-spin" />Wird bestätigt…</>
+              : <><CheckCircle2 className="h-5 w-5" />Empfang bestätigen</>}
+          </button>
+          <p className="text-xs text-center text-gray-400 mt-2">
+            Mit dem Klick bestätigst du, dass du das Dokument gesehen hast.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   // ── Already signed ────────────────────────────────────────────────────────
   if (data?.alreadySigned) return (
