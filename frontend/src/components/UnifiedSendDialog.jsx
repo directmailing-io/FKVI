@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
-  Send, Check, Copy, Loader2, Mail, User, X, Eye, PenLine,
+  Send, Check, Copy, Loader2, Mail, User, Eye, PenLine,
   FileText, Link2, Upload, ExternalLink, Plus, Search,
   AlertCircle, CheckCircle2, ChevronLeft, ChevronRight,
-  PenSquare,
+  PenSquare, MessageSquare,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -124,12 +125,15 @@ export default function UnifiedSendDialog({
   // ── Step 3: recipient ─────────────────────────────────────────────────
   const [signerName, setSignerName] = useState(defaultName)
   const [signerEmail, setSignerEmail] = useState(defaultEmail)
-  const [message, setMessage] = useState('')
 
-  // ── Results ───────────────────────────────────────────────────────────
+  // ── Results + email ───────────────────────────────────────────────────
   const [sending, setSending] = useState(false)
-  const [results, setResults] = useState(null)
+  const [results, setResults] = useState(null) // [{title, signerUrl, sendId, mode}]
   const [copiedIdx, setCopiedIdx] = useState(null)
+  const [showCustomMsg, setShowCustomMsg] = useState(false)
+  const [customMessage, setCustomMessage] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
 
   // ── Helpers ───────────────────────────────────────────────────────────
   const isTemplateDoc = (doc) => doc.doc_type === 'template'
@@ -231,7 +235,7 @@ export default function UnifiedSendDialog({
     setLoadingPrefill(false)
   }
 
-  // ── Send ──────────────────────────────────────────────────────────────
+  // ── Generate links (no auto-email) ───────────────────────────────────
   const handleSend = async () => {
     if (!signerName.trim()) return
     setSending(true)
@@ -241,7 +245,7 @@ export default function UnifiedSendDialog({
       const baseBody = {
         signerName: signerName.trim(),
         signerEmail: signerEmail.trim() || null,
-        message: message.trim() || null,
+        skipEmail: true, // email sent separately via "Per Mail senden"
         recipientType: entityType === 'profile' ? 'fachkraft' : 'unternehmen',
         ...(entityType === 'profile' ? { profileId: entityId } : { companyId: entityId }),
       }
@@ -264,7 +268,7 @@ export default function UnifiedSendDialog({
         const res = await fetch('/api/admin/dokumente/send', { method: 'POST', headers: authHeader, body: JSON.stringify(body) })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Versand fehlgeschlagen')
-        sends.push({ title: doc.title || 'Dokument', signerUrl: data.signerUrl, mode })
+        sends.push({ title: doc.title || 'Dokument', signerUrl: data.signerUrl, sendId: data.sendId, mode })
       }
 
       for (const tplId of selectedLibraryIds) {
@@ -278,7 +282,7 @@ export default function UnifiedSendDialog({
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Versand fehlgeschlagen')
-        sends.push({ title: tpl?.name || 'Vorlage', signerUrl: data.signerUrl, mode: 'fill' })
+        sends.push({ title: tpl?.name || 'Vorlage', signerUrl: data.signerUrl, sendId: data.sendId, mode: 'fill' })
       }
 
       setResults(sends)
@@ -287,6 +291,33 @@ export default function UnifiedSendDialog({
       toast({ title: 'Versand fehlgeschlagen', description: err.message, variant: 'destructive' })
     } finally {
       setSending(false)
+    }
+  }
+
+  // ── Send email for generated links ────────────────────────────────────
+  const handleSendEmail = async () => {
+    if (!signerEmail.trim() || !results) return
+    setSendingEmail(true)
+    try {
+      const authHeader = { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }
+      for (const r of results) {
+        await fetch('/api/admin/dokumente/share-email', {
+          method: 'POST', headers: authHeader,
+          body: JSON.stringify({
+            recipientEmail: signerEmail.trim(),
+            recipientName: signerName.trim(),
+            documentTitle: r.title,
+            documentUrl: r.signerUrl,
+            customMessage: showCustomMsg && customMessage.trim() ? customMessage.trim() : null,
+          }),
+        })
+      }
+      setEmailSent(true)
+      toast({ title: 'E-Mail gesendet', description: `E-Mail an ${signerEmail} versendet.` })
+    } catch (err) {
+      toast({ title: 'E-Mail fehlgeschlagen', description: err.message, variant: 'destructive' })
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -308,18 +339,15 @@ export default function UnifiedSendDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
-            {results.length === 1 ? 'Versendung erstellt!' : `${results.length} Versendungen erstellt!`}
+            {results.length === 1 ? 'Link generiert!' : `${results.length} Links generiert!`}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-1">
-          <p className="text-sm text-gray-500">
-            {signerEmail
-              ? `E-Mail an ${signerEmail} gesendet.`
-              : 'Kopiere die Links und sende sie manuell.'}
-          </p>
-          <div className="space-y-2 max-h-72 overflow-y-auto">
+        <div className="space-y-3 py-1">
+
+          {/* Links */}
+          <div className="space-y-2 max-h-48 overflow-y-auto">
             {results.map((r, i) => (
-              <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-2.5">
                 <div className="flex items-center gap-2 mb-1.5">
                   {r.mode === 'fill'
                     ? <PenLine className="h-3.5 w-3.5 text-violet-500 shrink-0" />
@@ -331,14 +359,59 @@ export default function UnifiedSendDialog({
                 </div>
                 <div className="flex items-center gap-2">
                   <input readOnly value={r.signerUrl} className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-600 min-w-0" />
-                  <button onClick={() => copyUrl(r.signerUrl, i)} className="p-1.5 rounded-lg border border-gray-200 hover:border-[#1a3a5c] text-gray-400 hover:text-[#1a3a5c] transition-colors shrink-0">
+                  <button onClick={() => copyUrl(r.signerUrl, i)} className="p-1.5 rounded-lg border border-gray-200 hover:border-[#1a3a5c] text-gray-400 hover:text-[#1a3a5c] transition-colors shrink-0" title="Link kopieren">
                     {copiedIdx === i ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
                   </button>
                 </div>
               </div>
             ))}
           </div>
-          <Button className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90" onClick={onClose}>Fertig</Button>
+
+          {/* Email section */}
+          {signerEmail.trim() ? (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2.5 px-3 py-2.5 bg-gray-50 border-b border-gray-100">
+                <Mail className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                <span className="text-xs text-gray-700 flex-1 truncate">Per Mail an <strong>{signerEmail}</strong> senden</span>
+                {emailSent && <span className="text-xs text-green-600 font-medium flex items-center gap-1"><Check className="h-3 w-3" />Gesendet</span>}
+              </div>
+              <div className="p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-3.5 w-3.5 text-gray-400" />
+                    <span className="text-xs text-gray-600">Eigene Nachricht</span>
+                  </div>
+                  <Switch checked={showCustomMsg} onCheckedChange={setShowCustomMsg} />
+                </div>
+                {showCustomMsg ? (
+                  <Textarea
+                    value={customMessage}
+                    onChange={e => setCustomMessage(e.target.value)}
+                    placeholder="z.B. Bitte bis Freitag ausfüllen. Bei Fragen melden Sie sich gerne."
+                    rows={3}
+                    className="text-xs resize-none"
+                  />
+                ) : (
+                  <p className="text-[11px] text-gray-400 italic">Standardmailtext wird verwendet.</p>
+                )}
+                <Button
+                  onClick={handleSendEmail}
+                  disabled={sendingEmail || emailSent}
+                  className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
+                >
+                  {sendingEmail
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Wird gesendet…</>
+                    : emailSent
+                      ? <><Check className="h-3.5 w-3.5 mr-1.5" />E-Mail gesendet</>
+                      : <><Mail className="h-3.5 w-3.5 mr-1.5" />Per Mail verschicken</>}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 text-center">Kein E-Mail hinterlegt – Link manuell teilen.</p>
+          )}
+
+          <Button variant="outline" className="w-full" onClick={onClose}>Fertig</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -539,40 +612,52 @@ export default function UnifiedSendDialog({
                         </div>
                       ) : (
                         <div className="p-3 space-y-2.5">
-                          {fillableFields.map(field => {
-                            const isAdmin = field.audience === 'admin'
-                            const autoValue = (() => {
+                          {/* Auto-fill all button */}
+                          {(() => {
+                            const auto = buildProfilePrefill(profile)
+                            const autoFillable = fillableFields.filter(f => {
+                              const v = f.prefillKey ? auto[f.prefillKey] : auto[f.id]
+                              return v && !values[f.id]
+                            })
+                            return autoFillable.length > 0 ? (
+                              <button
+                                onClick={() => {
+                                  const next = { ...values }
+                                  autoFillable.forEach(f => { next[f.id] = f.prefillKey ? auto[f.prefillKey] : auto[f.id] })
+                                  setPrefillValues(prev => ({ ...prev, [item.key]: next }))
+                                }}
+                                className="text-[11px] text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
+                              >
+                                <Check className="h-3 w-3" />Alle {autoFillable.length} Felder aus Profil befüllen
+                              </button>
+                            ) : null
+                          })()}
+
+                          {/* 2-column compact grid */}
+                          <div className="grid grid-cols-2 gap-2">
+                            {fillableFields.map(field => {
                               const auto = buildProfilePrefill(profile)
-                              return field.prefillKey ? auto[field.prefillKey] : auto[field.id]
-                            })()
-                            return (
-                              <div key={field.id} className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <Label className="text-xs text-gray-600 flex-1">{field.label || field.id}</Label>
-                                  {isAdmin && (
-                                    <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">FKVI</span>
-                                  )}
-                                  {autoValue && !values[field.id] && (
-                                    <button
-                                      onClick={() => setPrefillValues(prev => ({ ...prev, [item.key]: { ...prev[item.key], [field.id]: autoValue } }))}
-                                      className="text-[10px] text-teal-600 hover:underline"
-                                    >
-                                      Auto-fill
-                                    </button>
-                                  )}
+                              const autoValue = field.prefillKey ? auto[field.prefillKey] : auto[field.id]
+                              const filled = !!(values[field.id] || '').trim()
+                              return (
+                                <div key={field.id} className="space-y-0.5">
+                                  <div className="flex items-center gap-1">
+                                    <Label className="text-[11px] text-gray-500 flex-1 truncate">{field.label || field.id}</Label>
+                                    {filled && <Check className="h-2.5 w-2.5 text-teal-500 shrink-0" />}
+                                  </div>
+                                  <Input
+                                    value={values[field.id] || ''}
+                                    onChange={e => setPrefillValues(prev => ({
+                                      ...prev,
+                                      [item.key]: { ...(prev[item.key] || {}), [field.id]: e.target.value }
+                                    }))}
+                                    placeholder={autoValue ? autoValue : '–'}
+                                    className="h-7 text-xs"
+                                  />
                                 </div>
-                                <Input
-                                  value={values[field.id] || ''}
-                                  onChange={e => setPrefillValues(prev => ({
-                                    ...prev,
-                                    [item.key]: { ...(prev[item.key] || {}), [field.id]: e.target.value }
-                                  }))}
-                                  placeholder={autoValue ? `Auto: ${autoValue}` : 'Leer lassen = Empfänger füllt aus'}
-                                  className="h-8 text-xs"
-                                />
-                              </div>
-                            )
-                          })}
+                              )
+                            })}
+                          </div>
                           {sigFields.length > 0 && (
                             <div className="rounded-lg border border-dashed border-gray-200 overflow-hidden">
                               <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
@@ -646,17 +731,6 @@ export default function UnifiedSendDialog({
                   <Input value={signerEmail} onChange={e => setSignerEmail(e.target.value)} placeholder="email@beispiel.de" type="email" className="pl-9" />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-sm">Nachricht <span className="text-gray-400 font-normal">(optional, in der E-Mail)</span></Label>
-                <Textarea
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  placeholder="z.B. Bitte bis Freitag ausfüllen. Bei Fragen melden Sie sich gerne."
-                  rows={3}
-                  className="text-sm resize-none"
-                />
-              </div>
-
               {/* Summary */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Zusammenfassung</p>
@@ -718,7 +792,7 @@ export default function UnifiedSendDialog({
               >
                 {sending
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Wird gesendet…</>
-                  : <><Send className="h-3.5 w-3.5 mr-1.5" />Link{totalCount > 1 ? 's' : ''} generieren</>}
+                  : <><Send className="h-3.5 w-3.5 mr-1.5" />{totalCount > 1 ? 'Links generieren' : 'Link generieren'}</>}
               </Button>
             )}
           </div>

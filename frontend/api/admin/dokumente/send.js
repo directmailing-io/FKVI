@@ -176,19 +176,67 @@ export default withHandler(async (req, res) => {
     prefillMode = 'blank',
     prefillFieldIds: requestedPrefillFieldIds,
     recipientType = 'fachkraft',
+    sendMode = 'sign',   // 'sign' | 'view'
+    sourceUrl = null,    // für URL-basierte Ansichts-Versendungen
+    sourceTitle = null,
+    skipEmail = false,   // wenn true: E-Mail nicht automatisch versenden
   } = req.body || {}
 
-  if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
+  if (!templateId && !sourceUrl) return res.status(400).json({ error: 'templateId oder sourceUrl ist erforderlich' })
   if (!signerName) return res.status(400).json({ error: 'signerName ist erforderlich' })
 
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + expiresInDays)
 
+  // --- View-only URL send (kein Template) ---
+  if (!templateId && sourceUrl) {
+    const { data: send, error: insertError } = await supabaseAdmin
+      .from('document_sends')
+      .insert({
+        template_id: null,
+        profile_id: profileId || null,
+        company_id: companyId || null,
+        signer_name: signerName,
+        signer_email: signerEmail || null,
+        message: message || null,
+        prefill_data: {},
+        expires_at: (() => { const d = new Date(); d.setDate(d.getDate() + expiresInDays); return d.toISOString() })(),
+        sent_by: user.id,
+        status: 'pending',
+        prefill_mode: 'blank',
+        prefilled_field_ids: [],
+        recipient_type: recipientType,
+        send_mode: 'view',
+        source_url: sourceUrl,
+      })
+      .select('id, token')
+      .single()
+
+    if (insertError || !send) {
+      return res.status(500).json({ error: 'Versendung konnte nicht erstellt werden' })
+    }
+
+    await supabaseAdmin.from('document_audit_log').insert({
+      document_send_id: send.id,
+      event_type: 'created',
+      ip_address: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || null,
+      user_agent: req.headers['user-agent'] || null,
+    })
+
+    const signerUrl = `${PLATFORM_URL}/dokument/${send.token}`
+
+    if (!skipEmail && signerEmail && process.env.RESEND_API_KEY) {
+      try { await sendEmail({ signerName, signerEmail, signerUrl, message }) } catch {}
+    }
+
+    return res.json({ sendId: send.id, token: send.token, signerUrl })
+  }
+
   // --- Prefilled PDF generation ---
   let prefilledStoragePath = null
   let finalPrefillFieldIds = []
 
-  if (prefillMode === 'prefilled') {
+  if (prefillMode === 'prefilled' && sendMode === 'sign') {
     try {
       // Load template to get storage_path and fields
       const { data: template, error: tplError } = await supabaseAdmin
@@ -285,6 +333,7 @@ export default withHandler(async (req, res) => {
       prefill_mode: prefillMode === 'prefilled' && finalPrefillFieldIds.length > 0 ? 'prefilled' : 'blank',
       prefilled_field_ids: finalPrefillFieldIds.length > 0 ? finalPrefillFieldIds : [],
       recipient_type: recipientType || 'fachkraft',
+      send_mode: sendMode === 'view' ? 'view' : 'sign',
     })
     .select('id, token')
     .single()
@@ -336,8 +385,8 @@ export default withHandler(async (req, res) => {
 
   const signerUrl = `${PLATFORM_URL}/dokument/${send.token}`
 
-  // Send email if signerEmail and RESEND_API_KEY are set
-  if (signerEmail && process.env.RESEND_API_KEY) {
+  // Send email if signerEmail and RESEND_API_KEY are set (unless skipEmail=true)
+  if (!skipEmail && signerEmail && process.env.RESEND_API_KEY) {
     try {
       await sendEmail({ signerName, signerEmail, signerUrl, message })
     } catch (emailErr) {
