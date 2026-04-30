@@ -235,57 +235,52 @@ export default function UnifiedSendDialog({
     setLoadingPrefill(false)
   }
 
-  // ── Generate links (no auto-email) ───────────────────────────────────
+  // ── Generate bundle (one link for all docs) ──────────────────────────
   const handleSend = async () => {
     if (!signerName.trim()) return
     setSending(true)
     try {
-      const sends = []
       const authHeader = { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }
-      const baseBody = {
-        signerName: signerName.trim(),
-        signerEmail: signerEmail.trim() || null,
-        skipEmail: true, // email sent separately via "Per Mail senden"
-        recipientType: entityType === 'profile' ? 'fachkraft' : 'unternehmen',
-        ...(entityType === 'profile' ? { profileId: entityId } : { companyId: entityId }),
-      }
+      const docsList = []
 
       for (let i = 0; i < docs.length; i++) {
         const doc = docs[i]
         const mode = docModes[i] || 'view'
-        let body
-
         if (mode === 'fill') {
           const templateId = isTemplateDoc(doc) ? doc.link.replace('template:', '') : docTemplates[i]?.id
+          if (!templateId) continue
           const key = `doc-${i}`
           const fillItem = fillDocsData.find(f => f.key === key)
           const payload = buildPrefillPayload(fillItem, prefillValues[key])
-          body = { ...baseBody, templateId, sendMode: 'sign', ...payload }
+          docsList.push({ type: 'template', templateId, sendMode: 'sign', ...payload })
         } else {
-          body = { ...baseBody, sourceUrl: doc.link, sourceTitle: doc.title || 'Dokument', sendMode: 'view' }
+          docsList.push({ type: 'view', sourceUrl: doc.link, sourceTitle: doc.title || 'Dokument' })
         }
-
-        const res = await fetch('/api/admin/dokumente/send', { method: 'POST', headers: authHeader, body: JSON.stringify(body) })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || data.error || 'Versand fehlgeschlagen')
-        sends.push({ title: doc.title || 'Dokument', signerUrl: data.signerUrl, sendId: data.sendId, mode })
       }
 
       for (const tplId of selectedLibraryIds) {
-        const tpl = libraryTemplates.find(t => t.id === tplId)
         const key = `lib-${tplId}`
         const fillItem = fillDocsData.find(f => f.key === key)
         const payload = buildPrefillPayload(fillItem, prefillValues[key])
-        const res = await fetch('/api/admin/dokumente/send', {
-          method: 'POST', headers: authHeader,
-          body: JSON.stringify({ ...baseBody, templateId: tplId, sendMode: 'sign', ...payload }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.detail || data.error || 'Versand fehlgeschlagen')
-        sends.push({ title: tpl?.name || 'Vorlage', signerUrl: data.signerUrl, sendId: data.sendId, mode: 'fill' })
+        docsList.push({ type: 'template', templateId: tplId, sendMode: 'sign', ...payload })
       }
 
-      setResults(sends)
+      const res = await fetch('/api/admin/dokumente/bundle-create', {
+        method: 'POST', headers: authHeader,
+        body: JSON.stringify({
+          docsList,
+          signerName: signerName.trim(),
+          signerEmail: signerEmail.trim() || null,
+          skipEmail: true,
+          recipientType: entityType === 'profile' ? 'fachkraft' : 'unternehmen',
+          ...(entityType === 'profile' ? { profileId: entityId } : { companyId: entityId }),
+          title: `Unterlagen für ${signerName.trim()}`,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Bundle-Erstellung fehlgeschlagen')
+
+      setResults({ bundleUrl: data.bundleUrl, docCount: docsList.length })
       onSent?.()
     } catch (err) {
       toast({ title: 'Versand fehlgeschlagen', description: err.message, variant: 'destructive' })
@@ -300,18 +295,16 @@ export default function UnifiedSendDialog({
     setSendingEmail(true)
     try {
       const authHeader = { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }
-      for (const r of results) {
-        await fetch('/api/admin/dokumente/share-email', {
-          method: 'POST', headers: authHeader,
-          body: JSON.stringify({
-            recipientEmail: signerEmail.trim(),
-            recipientName: signerName.trim(),
-            documentTitle: r.title,
-            documentUrl: r.signerUrl,
-            customMessage: showCustomMsg && customMessage.trim() ? customMessage.trim() : null,
-          }),
-        })
-      }
+      await fetch('/api/admin/dokumente/share-email', {
+        method: 'POST', headers: authHeader,
+        body: JSON.stringify({
+          recipientEmail: signerEmail.trim(),
+          recipientName: signerName.trim(),
+          documentTitle: `Unterlagen für ${signerName.trim()}`,
+          documentUrl: results.bundleUrl,
+          customMessage: showCustomMsg && customMessage.trim() ? customMessage.trim() : null,
+        }),
+      })
       setEmailSent(true)
       toast({ title: 'E-Mail gesendet', description: `E-Mail an ${signerEmail} versendet.` })
     } catch (err) {
@@ -339,32 +332,27 @@ export default function UnifiedSendDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
-            {results.length === 1 ? 'Link generiert!' : `${results.length} Links generiert!`}
+            Link generiert!
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-1">
+          <p className="text-xs text-gray-500">
+            {results.docCount} {results.docCount === 1 ? 'Dokument' : 'Dokumente'} — Empfänger öffnet eine Übersicht und kann alle Dokumente von dort aus ansehen / ausfüllen.
+          </p>
 
-          {/* Links */}
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {results.map((r, i) => (
-              <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-2.5">
-                <div className="flex items-center gap-2 mb-1.5">
-                  {r.mode === 'fill'
-                    ? <PenLine className="h-3.5 w-3.5 text-violet-500 shrink-0" />
-                    : <Eye className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                  <p className="text-xs font-medium text-gray-700 truncate flex-1">{r.title}</p>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${r.mode === 'fill' ? 'bg-violet-50 text-violet-600' : 'bg-blue-50 text-blue-600'}`}>
-                    {r.mode === 'fill' ? 'Ausfüllen' : 'Ansehen'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input readOnly value={r.signerUrl} className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-600 min-w-0" />
-                  <button onClick={() => copyUrl(r.signerUrl, i)} className="p-1.5 rounded-lg border border-gray-200 hover:border-[#1a3a5c] text-gray-400 hover:text-[#1a3a5c] transition-colors shrink-0" title="Link kopieren">
-                    {copiedIdx === i ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </div>
-            ))}
+          {/* Single bundle link */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Übersichts-Link</p>
+            <div className="flex items-center gap-2">
+              <input readOnly value={results.bundleUrl} className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1.5 text-gray-600 min-w-0" />
+              <button onClick={() => copyUrl(results.bundleUrl, 0)} className="p-1.5 rounded-lg border border-gray-200 hover:border-[#1a3a5c] text-gray-400 hover:text-[#1a3a5c] transition-colors shrink-0" title="Link kopieren">
+                {copiedIdx === 0 ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+              <a href={results.bundleUrl} target="_blank" rel="noopener noreferrer"
+                className="p-1.5 rounded-lg border border-gray-200 hover:border-[#1a3a5c] text-gray-400 hover:text-[#1a3a5c] transition-colors shrink-0" title="Link öffnen">
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
           </div>
 
           {/* Email section */}
@@ -394,16 +382,10 @@ export default function UnifiedSendDialog({
                 ) : (
                   <p className="text-[11px] text-gray-400 italic">Standardmailtext wird verwendet.</p>
                 )}
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={sendingEmail || emailSent}
-                  className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
-                >
-                  {sendingEmail
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Wird gesendet…</>
-                    : emailSent
-                      ? <><Check className="h-3.5 w-3.5 mr-1.5" />E-Mail gesendet</>
-                      : <><Mail className="h-3.5 w-3.5 mr-1.5" />Per Mail verschicken</>}
+                <Button onClick={handleSendEmail} disabled={sendingEmail || emailSent} className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
+                  {sendingEmail ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Wird gesendet…</>
+                    : emailSent ? <><Check className="h-3.5 w-3.5 mr-1.5" />E-Mail gesendet</>
+                    : <><Mail className="h-3.5 w-3.5 mr-1.5" />Per Mail verschicken</>}
                 </Button>
               </div>
             </div>

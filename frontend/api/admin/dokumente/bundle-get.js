@@ -15,7 +15,7 @@ export default withHandler(async (req, res) => {
   // Load bundle
   const { data: bundle, error: bundleErr } = await supabaseAdmin
     .from('document_bundles')
-    .select('id, token, title, message, expires_at, created_at')
+    .select('id, token, title, message, expires_at, created_at, attachments')
     .eq('token', token)
     .single()
 
@@ -27,7 +27,7 @@ export default withHandler(async (req, res) => {
   // Load sends with template names
   const { data: sends, error: sendsErr } = await supabaseAdmin
     .from('document_sends')
-    .select('id, token, status, signed_at, created_at, signer_name, document_templates(name)')
+    .select('id, token, status, signed_at, created_at, signer_name, send_mode, source_url, document_templates(name)')
     .eq('bundle_id', bundle.id)
     .order('created_at')
 
@@ -39,10 +39,12 @@ export default withHandler(async (req, res) => {
   const documents = (sends || []).map(s => ({
     id: s.id,
     token: s.token,
-    templateName: s.document_templates?.name || 'Dokument',
+    templateName: s.document_templates?.name || (s.source_url?.startsWith('cv:') ? 'Lebenslauf' : s.source_url ? 'Dokument' : 'Dokument'),
     status: s.status,
     signedAt: s.signed_at,
     signerName: s.signer_name,
+    sendMode: s.send_mode || 'sign',
+    sourceUrl: s.source_url || null,
   }))
 
   return res.json({
@@ -54,5 +56,6 @@ export default withHandler(async (req, res) => {
       expiresAt: bundle.expires_at,
     },
     documents,
+    attachments: bundle.attachments || [],
   })
 })

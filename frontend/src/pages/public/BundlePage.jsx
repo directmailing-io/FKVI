@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { CheckCircle2, FileText, Clock, ChevronRight, Loader2, Package } from 'lucide-react'
+import { CheckCircle2, FileText, Clock, ChevronRight, Loader2, Package, Paperclip, ExternalLink } from 'lucide-react'
+
+const DOC_TYPE_LABELS = {
+  lebenslauf: 'Lebenslauf', reisepass: 'Reisepass', zeugnis: 'Zeugnis',
+  urkunde: 'Urkunde', anerkennung: 'Anerkennung', sprachzeugnis: 'Sprachnachweis', andere: 'Sonstiges',
+}
 
 function StatusBadge({ status }) {
   if (status === 'submitted' || status === 'signed') {
@@ -67,11 +72,13 @@ export default function BundlePage() {
     )
   }
 
-  const { bundle, documents } = data
-  const signedCount = documents.filter(d => d.status === 'submitted' || d.status === 'signed').length
-  const total = documents.length
-  const allDone = signedCount === total
-  const progress = total > 0 ? Math.round((signedCount / total) * 100) : 0
+  const { bundle, documents, attachments = [] } = data
+  const fillDocs = documents.filter(d => d.sendMode !== 'view')
+  const viewDocs = documents.filter(d => d.sendMode === 'view')
+  const signedCount = fillDocs.filter(d => d.status === 'submitted' || d.status === 'signed').length
+  const total = fillDocs.length
+  const allDone = total === 0 || signedCount === total
+  const progress = total > 0 ? Math.round((signedCount / total) * 100) : 100
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -113,9 +120,9 @@ export default function BundlePage() {
       </div>
 
       {/* Document cards */}
-      <div className="max-w-xl mx-auto px-4 py-6 space-y-3">
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
 
-        {allDone && (
+        {allDone && total > 0 && (
           <div className="rounded-xl bg-green-50 border border-green-200 p-4 flex items-center gap-3 mb-4">
             <CheckCircle2 className="h-6 w-6 text-green-600 shrink-0" />
             <div>
@@ -125,49 +132,94 @@ export default function BundlePage() {
           </div>
         )}
 
-        {documents.map((doc, idx) => {
-          const isDone = doc.status === 'submitted' || doc.status === 'signed'
-          return (
-            <div
-              key={doc.id}
-              className={`bg-white rounded-xl border transition-all ${
-                isDone ? 'border-green-200 bg-green-50/30' : 'border-gray-200 hover:border-[#1a3a5c]/30 hover:shadow-sm'
-              }`}
-            >
-              <div className="p-4 flex items-center gap-4">
-                {/* Number / Check */}
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-                  isDone ? 'bg-green-500 text-white' : 'bg-[#1a3a5c]/10 text-[#1a3a5c]'
-                }`}>
-                  {isDone ? <CheckCircle2 className="h-4.5 w-4.5" /> : idx + 1}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm truncate ${isDone ? 'text-gray-500 line-through decoration-green-400' : 'text-gray-900'}`}>
-                    {doc.templateName}
-                  </p>
-                  <div className="mt-1">
-                    <StatusBadge status={doc.status} />
+        {/* Section: Docs to fill/sign */}
+        {fillDocs.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Zum Ausfüllen &amp; Unterzeichnen</p>
+            {fillDocs.map((doc, idx) => {
+              const isDone = doc.status === 'submitted' || doc.status === 'signed'
+              return (
+                <div key={doc.id} className={`bg-white rounded-xl border transition-all ${isDone ? 'border-green-200 bg-green-50/30' : 'border-gray-200 hover:border-[#1a3a5c]/30 hover:shadow-sm'}`}>
+                  <div className="p-4 flex items-center gap-4">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${isDone ? 'bg-green-500 text-white' : 'bg-[#1a3a5c]/10 text-[#1a3a5c]'}`}>
+                      {isDone ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-semibold text-sm truncate ${isDone ? 'text-gray-500 line-through decoration-green-400' : 'text-gray-900'}`}>{doc.templateName}</p>
+                      <div className="mt-1"><StatusBadge status={doc.status} /></div>
+                    </div>
+                    {isDone ? (
+                      <span className="text-xs text-green-600 font-medium shrink-0">Erledigt ✓</span>
+                    ) : (
+                      <button onClick={() => navigate(`/dokument/${doc.token}?bundle=${token}`)}
+                        className="flex items-center gap-1.5 bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shrink-0">
+                        Ausfüllen <ChevronRight className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
+              )
+            })}
+          </div>
+        )}
 
-                {/* Action */}
-                {isDone ? (
-                  <span className="text-xs text-green-600 font-medium shrink-0">Erledigt ✓</span>
-                ) : (
-                  <button
-                    onClick={() => navigate(`/dokument/${doc.token}?bundle=${token}`)}
-                    className="flex items-center gap-1.5 bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shrink-0"
-                  >
-                    Öffnen
-                    <ChevronRight className="h-4 w-4" />
+        {/* Section: View-only docs */}
+        {viewDocs.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">Zum Ansehen</p>
+            {viewDocs.map((doc) => (
+              <div key={doc.id} className="bg-white rounded-xl border border-gray-200 hover:border-[#1a3a5c]/30 hover:shadow-sm transition-all">
+                <div className="p-4 flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                    <FileText className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{doc.templateName}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Zum Ansehen</p>
+                  </div>
+                  <button onClick={() => navigate(`/dokument/${doc.token}`)}
+                    className="flex items-center gap-1.5 border border-[#1a3a5c] text-[#1a3a5c] hover:bg-[#1a3a5c] hover:text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shrink-0">
+                    Ansehen <ExternalLink className="h-3.5 w-3.5" />
                   </button>
-                )}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            ))}
+          </div>
+        )}
+
+        {/* Section: Attachments (view only) */}
+        {attachments.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 flex items-center gap-1.5">
+              <Paperclip className="h-3 w-3" />Beiliegende Dokumente
+            </p>
+            {attachments.map((att) => (
+              <div key={att.id} className="bg-white rounded-xl border border-gray-200">
+                <div className="p-4 flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 truncate">{att.title}</p>
+                    {(att.doc_type || att.profile_name) && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {[DOC_TYPE_LABELS[att.doc_type] || att.doc_type, att.profile_name].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  {att.url ? (
+                    <a href={att.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-[#1a3a5c] hover:text-[#1a3a5c]/80 text-sm font-semibold shrink-0">
+                      Öffnen <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-400 shrink-0">Kein Link</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 pt-4">
