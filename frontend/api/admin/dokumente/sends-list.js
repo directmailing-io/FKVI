@@ -31,10 +31,10 @@ export default withHandler(async (req, res) => {
   let query = supabaseAdmin
     .from('document_sends')
     .select(`
-      id, token, signer_name, signer_email, status, bundle_id,
-      created_at, signed_at, expires_at,
+      id, token, template_id, signer_name, signer_email, status, bundle_id,
+      created_at, signed_at, submitted_at, expires_at,
       recipient_type, parent_send_id, send_mode, source_url, message,
-      open_count, first_opened_at, last_opened_at,
+      open_count, first_opened_at, last_opened_at, signed_storage_path,
       document_templates ( name ),
       document_bundles ( id, token, title )
     `)
@@ -60,6 +60,17 @@ export default withHandler(async (req, res) => {
     return res.status(500).json({ error: 'Versendungen konnten nicht geladen werden' })
   }
 
+  // Fetch parent send info for chain sends (forward workflow)
+  const parentIds = [...new Set((sends || []).map(s => s.parent_send_id).filter(Boolean))]
+  const parentMap = {}
+  if (parentIds.length > 0) {
+    const { data: parents } = await supabaseAdmin
+      .from('document_sends')
+      .select('id, signer_name, submitted_at, signed_at, status, created_at, first_opened_at, open_count')
+      .in('id', parentIds)
+    ;(parents || []).forEach(p => { parentMap[p.id] = p })
+  }
+
   // Build base URL for signer links
   const host = req.headers['x-forwarded-host'] || req.headers.host || ''
   const proto = req.headers['x-forwarded-proto'] || 'https'
@@ -76,6 +87,8 @@ export default withHandler(async (req, res) => {
     document_bundles: undefined,
     // Derived title for display (template name or source_url title or fallback)
     display_title: s.document_templates?.name || (s.source_url?.startsWith('cv:') ? 'Lebenslauf' : s.source_url ? 'Dokument (Link)' : '–'),
+    // Parent send data for chain history (FK's submission info when this is a forwarded company send)
+    parent_send: s.parent_send_id ? (parentMap[s.parent_send_id] || null) : null,
   }))
 
   return res.json({ sends: mapped })

@@ -38,6 +38,27 @@ function buildProfilePrefill(profile) {
   }
 }
 
+// ── Company auto-fill map ──────────────────────────────────────────────────
+function buildCompanyPrefill(company) {
+  if (!company) return {}
+  const name = company.company_name || company.name || ''
+  return {
+    'company.name': name,
+    'company.company_name': name,
+    'company.contact_person': `${company.first_name || ''} ${company.last_name || ''}`.trim(),
+    'company.first_name': company.first_name || '',
+    'company.last_name': company.last_name || '',
+    'company.email': company.email || '',
+    'company.phone': company.phone || '',
+    'company.address': company.address || '',
+    'company.postal_code': company.postal_code || '',
+    'company.city': company.city || '',
+    'company.country': company.country || '',
+    'signer.name': name,
+    today: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+  }
+}
+
 function buildPrefillPayload(fillItem, values) {
   const fields = fillItem?.fields || []
   const prefillData = {}
@@ -189,14 +210,17 @@ export default function UnifiedSendDialog({
   )
 
   // ── Step 1 → 2 (load template fields) ────────────────────────────────
+  const recipientAudience = entityType === 'company' ? 'unternehmen' : 'fachkraft'
+
   const proceedFromModes = async () => {
     if (!hasFillDocs) { setStep('recipient'); return }
     setStep('prefill')
     setLoadingPrefill(true)
     const items = []
-    const auto = buildProfilePrefill(profile)
+    const auto = entityType === 'company' ? buildCompanyPrefill(company) : buildProfilePrefill(profile)
 
     for (let i = 0; i < docs.length; i++) {
+      if (isSendRef(docs[i])) continue // forward docs skip prefill
       if ((docModes[i] || 'view') !== 'fill') continue
       const doc = docs[i]
       const templateId = isTemplateDoc(doc) ? doc.link.replace('template:', '') : docTemplates[i]?.id
@@ -206,7 +230,12 @@ export default function UnifiedSendDialog({
           headers: { Authorization: `Bearer ${session?.access_token}` },
         })
         const data = await res.json()
-        const fields = data.template?.fields || []
+        // Filter fields to those matching the recipient audience
+        const allFields = data.template?.fields || []
+        const fields = allFields.filter(f => {
+          const aud = f.audience || 'fachkraft'
+          return aud === recipientAudience
+        })
         const key = `doc-${i}`
         items.push({ key, templateId, fields, name: doc.title || 'Dokument' })
         const init = {}
@@ -223,7 +252,11 @@ export default function UnifiedSendDialog({
     for (const tplId of selectedLibraryIds) {
       const tpl = libraryTemplates.find(t => t.id === tplId)
       const key = `lib-${tplId}`
-      const fields = tpl?.fields || []
+      const allFields = tpl?.fields || []
+      const fields = allFields.filter(f => {
+        const aud = f.audience || 'fachkraft'
+        return aud === recipientAudience
+      })
       items.push({ key, templateId: tplId, fields, name: tpl?.name || 'Vorlage' })
       const init = {}
       for (const f of fields) {

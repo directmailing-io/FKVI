@@ -402,8 +402,11 @@ export default function DokumentSignPage() {
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
+  const hasSignatureField = (data?.fields || []).some(f => f.type === 'signature')
+
   const handleSubmit = async () => {
-    if (!signatureDataUrl || submitting) return
+    if (submitting) return
+    if (hasSignatureField && !signatureDataUrl) return
 
     // Validate required fields
     const missing = inputFields.filter(f => {
@@ -422,16 +425,20 @@ export default function DokumentSignPage() {
 
     setSubmitting(true)
     try {
-      const blob = await fetch(signatureDataUrl).then(r => r.blob())
-      const urlRes = await fetch('/api/dokument/signature-upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      })
-      const { signedUrl, signaturePath } = await urlRes.json()
-      if (!signedUrl) throw new Error('Upload-URL nicht verfügbar.')
-      const putRes = await fetch(signedUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': 'image/png' } })
-      if (!putRes.ok) throw new Error('Signatur konnte nicht hochgeladen werden.')
+      let signaturePath = null
+      if (hasSignatureField && signatureDataUrl) {
+        const blob = await fetch(signatureDataUrl).then(r => r.blob())
+        const urlRes = await fetch('/api/dokument/signature-upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        })
+        const { signedUrl, signaturePath: uploadedPath } = await urlRes.json()
+        if (!signedUrl) throw new Error('Upload-URL nicht verfügbar.')
+        const putRes = await fetch(signedUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': 'image/png' } })
+        if (!putRes.ok) throw new Error('Signatur konnte nicht hochgeladen werden.')
+        signaturePath = uploadedPath
+      }
       const submitRes = await fetch('/api/dokument/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -671,7 +678,7 @@ export default function DokumentSignPage() {
   )
 
   // Compute whether all required fields + signature are filled
-  const allRequiredFilled = signatureDataUrl && inputFields.every(f => {
+  const allRequiredFilled = (hasSignatureField ? !!signatureDataUrl : true) && inputFields.every(f => {
     if (f.required === false) return true
     const val = fieldValues[f.id]
     if (f.type === 'checkbox') return f.multiple ? (Array.isArray(val) && val.length > 0) : !!val
@@ -779,24 +786,26 @@ export default function DokumentSignPage() {
         </div>
       )}
 
-      {/* Signature */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <PenLine className="h-5 w-5 text-[#0d9488]" />
-          <span className="text-base font-bold text-gray-800">Ihre Unterschrift</span>
-        </div>
-        <p className="text-sm text-gray-400">
-          Unterschreiben Sie mit dem Finger oder der Maus im Feld unten.
-        </p>
-        <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden">
-          <SignatureCanvas onSignatureChange={setSignatureDataUrl} disabled={submitting} />
-        </div>
-        {!signatureDataUrl && (
-          <p className="text-xs text-center text-gray-400">
-            Noch keine Unterschrift — bitte im Feld oben unterzeichnen
+      {/* Signature — only if template has signature fields */}
+      {hasSignatureField && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <PenLine className="h-5 w-5 text-[#0d9488]" />
+            <span className="text-base font-bold text-gray-800">Ihre Unterschrift</span>
+          </div>
+          <p className="text-sm text-gray-400">
+            Unterschreiben Sie mit dem Finger oder der Maus im Feld unten.
           </p>
-        )}
-      </div>
+          <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden">
+            <SignatureCanvas onSignatureChange={setSignatureDataUrl} disabled={submitting} />
+          </div>
+          {!signatureDataUrl && (
+            <p className="text-xs text-center text-gray-400">
+              Noch keine Unterschrift — bitte im Feld oben unterzeichnen
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 
@@ -836,7 +845,9 @@ export default function DokumentSignPage() {
       </button>
       {allRequiredFilled && !submitting && (
         <p className="text-xs text-center text-gray-400 mt-2">
-          Mit dem Absenden bestätigen Sie Ihre Unterschrift und stimmen dem Dokument zu.
+          {hasSignatureField
+            ? 'Mit dem Absenden bestätigen Sie Ihre Unterschrift und stimmen dem Dokument zu.'
+            : 'Mit dem Absenden bestätigen Sie Ihre Angaben und stimmen dem Dokument zu.'}
         </p>
       )}
     </div>

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil } from 'lucide-react'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil, History } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import DocSendDialog from '@/components/DocSendDialog'
 import AddDocumentModal from '@/components/AddDocumentModal'
@@ -82,6 +82,8 @@ export default function CompanyDetailPage() {
   const [deletingSendId, setDeletingSendId] = useState(null)
   const [deletingSendBusy, setDeletingSendBusy] = useState(false)
   const [downloadingSendId, setDownloadingSendId] = useState(null)
+  const [expandedSendIds, setExpandedSendIds] = useState(new Set())
+  const toggleSendHistory = (id) => setExpandedSendIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const [deletingBundleId, setDeletingBundleId] = useState(null)
   const [deletingBundleBusy, setDeletingBundleBusy] = useState(false)
   const [copiedBundleId, setCopiedBundleId] = useState(null)
@@ -1290,7 +1292,9 @@ export default function CompanyDetailPage() {
                   {docSends.map(send => {
                     const isSigned = send.status === 'submitted' || send.status === 'signed'
                     const isRevoked = send.status === 'revoked'
+                    const isHistoryOpen = expandedSendIds.has(send.id)
                     return (
+                      <>
                       <tr key={send.id} className={`transition-colors ${isSigned ? 'bg-green-50/20' : 'hover:bg-gray-50/40'}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
@@ -1359,6 +1363,11 @@ export default function CompanyDetailPage() {
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </a>
                             )}
+                            <button onClick={() => toggleSendHistory(send.id)}
+                              className={`p-1.5 rounded-lg transition-colors inline-flex ${isHistoryOpen ? 'text-[#1a3a5c] bg-blue-50' : 'text-gray-300 hover:text-[#1a3a5c] hover:bg-blue-50'}`}
+                              title="Historie anzeigen">
+                              <History className="h-3.5 w-3.5" />
+                            </button>
                             <button onClick={() => setDeletingSendId(send.id)}
                               className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
                               <Trash2 className="h-3.5 w-3.5" />
@@ -1366,6 +1375,70 @@ export default function CompanyDetailPage() {
                           </div>
                         </td>
                       </tr>
+                      {isHistoryOpen && (
+                        <tr key={`${send.id}-history`} className="bg-gray-50/70">
+                          <td colSpan={6} className="px-6 py-3">
+                            <div className="flex items-start gap-6 flex-wrap">
+                              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider w-full mb-1">Dokumenten-Historie</p>
+                              <div className="flex items-start gap-2 min-w-[120px]">
+                                <div className="w-5 h-5 rounded-full bg-[#1a3a5c]/10 flex items-center justify-center shrink-0 mt-0.5">
+                                  <Send className="h-2.5 w-2.5 text-[#1a3a5c]" />
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold text-gray-600">Versendet</p>
+                                  <p className="text-[11px] text-gray-400">{new Date(send.created_at).toLocaleDateString('de-DE')} {new Date(send.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</p>
+                                  {send.signer_name && <p className="text-[11px] text-gray-400">an {send.signer_name}</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2 min-w-[120px]">
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${send.first_opened_at ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                                  <Eye className={`h-2.5 w-2.5 ${send.first_opened_at ? 'text-blue-600' : 'text-gray-300'}`} />
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold text-gray-600">Geöffnet</p>
+                                  {send.first_opened_at ? (
+                                    <>
+                                      <p className="text-[11px] text-blue-600">{new Date(send.first_opened_at).toLocaleDateString('de-DE')} {new Date(send.first_opened_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</p>
+                                      {send.open_count > 1 && <p className="text-[11px] text-gray-400">{send.open_count}× geöffnet</p>}
+                                    </>
+                                  ) : <p className="text-[11px] text-gray-300">Noch nicht geöffnet</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2 min-w-[120px]">
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isSigned ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                  <CheckCircle2 className={`h-2.5 w-2.5 ${isSigned ? 'text-green-600' : 'text-gray-300'}`} />
+                                </div>
+                                <div>
+                                  <p className="text-[11px] font-semibold text-gray-600">Ausgefüllt</p>
+                                  {isSigned ? (
+                                    <>
+                                      <p className="text-[11px] text-green-600 font-medium">{new Date(send.signed_at || send.submitted_at).toLocaleDateString('de-DE')} {new Date(send.signed_at || send.submitted_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</p>
+                                      {send.signer_name && <p className="text-[11px] text-gray-400">von {send.signer_name}</p>}
+                                    </>
+                                  ) : <p className="text-[11px] text-gray-300">Noch ausstehend</p>}
+                                </div>
+                              </div>
+                              {send.parent_send && (
+                                <div className="flex items-start gap-2 min-w-[120px]">
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${send.parent_send.status === 'submitted' || send.parent_send.status === 'signed' ? 'bg-teal-100' : 'bg-gray-100'}`}>
+                                    <User className={`h-2.5 w-2.5 ${send.parent_send.status === 'submitted' || send.parent_send.status === 'signed' ? 'text-teal-600' : 'text-gray-300'}`} />
+                                  </div>
+                                  <div>
+                                    <p className="text-[11px] font-semibold text-gray-600">Von FK ausgefüllt</p>
+                                    {(send.parent_send.status === 'submitted' || send.parent_send.status === 'signed') ? (
+                                      <>
+                                        <p className="text-[11px] text-teal-600">{new Date(send.parent_send.signed_at || send.parent_send.submitted_at).toLocaleDateString('de-DE')} {new Date(send.parent_send.signed_at || send.parent_send.submitted_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</p>
+                                        {send.parent_send.signer_name && <p className="text-[11px] text-gray-400">{send.parent_send.signer_name}</p>}
+                                      </>
+                                    ) : <p className="text-[11px] text-gray-300">Noch nicht ausgefüllt</p>}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </>
                     )
                   })}
                 </tbody>
