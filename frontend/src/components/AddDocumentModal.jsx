@@ -217,24 +217,43 @@ export default function AddDocumentModal({
     return () => clearTimeout(timer)
   }, [fkSearch, mode])
 
-  // Load FK docs when FK selected
+  // Load FK docs when FK selected — Lebenslauf + signed document_sends
   useEffect(() => {
     if (!selectedFk) { setFkDocs([]); return }
     setFkDocsLoading(true)
-    fetch(`/api/admin/profile-docs/list?profileId=${selectedFk.id}`, {
+    const fkName = [selectedFk.first_name, selectedFk.last_name].filter(Boolean).join(' ') || 'Fachkraft'
+    fetch(`/api/admin/dokumente/sends-list?profileId=${selectedFk.id}`, {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     })
       .then(r => r.json())
-      .then(d => { setFkDocs(d.docs || []); setFkDocsLoading(false) })
+      .then(d => {
+        const signed = (d.sends || []).filter(s => s.status === 'submitted' || s.status === 'signed')
+        const lebenslauf = {
+          _key: 'cv',
+          title: 'Lebenslauf',
+          link: `cv:${selectedFk.id}`,
+          doc_type: 'cv_ref',
+          description: `Von ${fkName}`,
+        }
+        const sendDocs = signed.map(s => ({
+          _key: s.id,
+          title: s.template_name || s.display_title || 'Dokument',
+          link: `send:${s.id}`,
+          doc_type: 'send_ref',
+          description: `Von ${fkName} · unterzeichnet`,
+        }))
+        setFkDocs([lebenslauf, ...sendDocs])
+        setFkDocsLoading(false)
+      })
       .catch(() => setFkDocsLoading(false))
   }, [selectedFk])
 
   const handleCopyFkDoc = (doc) => {
     onAddDoc({
-      title: doc.title || 'Dokument',
-      link: doc.link || '',
-      doc_type: 'fk_copy',
-      description: `Von ${selectedFk.first_name || ''} ${selectedFk.last_name || ''}`.trim(),
+      title: doc.title,
+      link: doc.link,
+      doc_type: doc.doc_type,
+      description: doc.description,
       is_internal: false,
     })
     onClose()
@@ -242,9 +261,9 @@ export default function AddDocumentModal({
 
   const handleCopyCompanyDoc = (doc) => {
     onAddDoc({
-      title: doc.template_name || 'Dokument',
-      link: doc.signer_url || '',
-      doc_type: 'company_copy',
+      title: doc.template_name || doc.display_title || 'Dokument',
+      link: `send:${doc.id}`,
+      doc_type: 'send_ref',
       description: `Von ${selectedCompany.company_name || selectedCompany.name || ''}`,
       is_internal: false,
     })
@@ -508,22 +527,26 @@ export default function AddDocumentModal({
                     <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
                   </div>
                 ) : fkDocs.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">Keine Dokumente vorhanden.</p>
+                  <p className="text-sm text-gray-400 text-center py-4">Keine unterzeichneten Dokumente vorhanden.</p>
                 ) : (
                   <div className="space-y-1.5 max-h-48 overflow-y-auto">
                     {fkDocs.map(doc => (
                       <button
-                        key={doc.id}
+                        key={doc._key}
                         type="button"
                         onClick={() => handleCopyFkDoc(doc)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-[#1a3a5c] bg-white text-left transition-colors"
                       >
-                        <FileText className="h-4 w-4 text-gray-400 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">{doc.title || '—'}</p>
-                          <p className="text-xs text-gray-400">{doc.doc_type || 'Dokument'}</p>
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${doc.doc_type === 'cv_ref' ? 'bg-teal-50' : 'bg-green-50'}`}>
+                          {doc.doc_type === 'cv_ref'
+                            ? <User className="h-3.5 w-3.5 text-teal-500" />
+                            : <FileText className="h-3.5 w-3.5 text-green-600" />}
                         </div>
-                        <Check className="h-4 w-4 text-teal-500 shrink-0 opacity-0 group-hover:opacity-100" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{doc.title}</p>
+                          <p className="text-xs text-gray-400">{doc.doc_type === 'cv_ref' ? 'Lebenslauf' : 'Unterzeichnetes Dokument'}</p>
+                        </div>
+                        <Check className="h-4 w-4 text-teal-500 shrink-0" />
                       </button>
                     ))}
                   </div>

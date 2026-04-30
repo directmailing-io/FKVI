@@ -927,12 +927,29 @@ export default function CompanyDetailPage() {
               <div className="divide-y divide-gray-50">
                 {/* Stored docs (links/uploads) — selectable */}
                 {companyDocuments.map((doc, idx) => {
+                  const isSendRef = doc.doc_type === 'send_ref'
+                  const isCvRef = doc.doc_type === 'cv_ref'
+                  const sendId = isSendRef ? doc.link?.replace('send:', '') : null
+                  const cvProfileId = isCvRef ? doc.link?.replace('cv:', '') : null
+
                   const isSelected = selectedDocIndices.has(idx)
                   const toggleSelect = () => setSelectedDocIndices(prev => {
                     const next = new Set(prev)
                     isSelected ? next.delete(idx) : next.add(idx)
                     return next
                   })
+
+                  // Determine icon
+                  let iconEl
+                  if (isCvRef) iconEl = <User className="h-4 w-4 text-teal-500" />
+                  else if (isSendRef) iconEl = <FileText className="h-4 w-4 text-green-600" />
+                  else if (doc.doc_type === 'upload') iconEl = <Upload className="h-4 w-4 text-blue-500" />
+                  else iconEl = <Link2 className="h-4 w-4 text-blue-500" />
+
+                  const iconBg = isCvRef ? 'bg-teal-50' : isSendRef ? 'bg-green-50' : 'bg-blue-50'
+
+                  const subtitle = doc.description || (isSendRef ? 'Signiertes Dokument (FK)' : isCvRef ? 'Lebenslauf (FK)' : doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')
+
                   return (
                     <div
                       key={idx}
@@ -942,15 +959,38 @@ export default function CompanyDetailPage() {
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
                         {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
                       </div>
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                        {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-blue-500" /> : <Link2 className="h-4 w-4 text-blue-500" />}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                        {iconEl}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
-                        <p className="text-xs text-gray-400 truncate">{doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}</p>
+                        <p className="text-xs text-gray-400 truncate">{subtitle}</p>
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
-                        {doc.link && (
+                        {isSendRef && sendId && (
+                          <button
+                            onClick={() => handleDownloadSend(sendId)}
+                            disabled={downloadingSendId === sendId}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                            title="Signiertes PDF herunterladen"
+                          >
+                            {downloadingSendId === sendId
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <Download className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                        {isCvRef && cvProfileId && (
+                          <a
+                            href={`/admin/profiles/${cvProfileId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+                            title="Lebenslauf öffnen"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        {!isSendRef && !isCvRef && doc.link && (
                           <a href={doc.link} target="_blank" rel="noopener noreferrer"
                             className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors" title="Öffnen">
                             <ExternalLink className="h-3.5 w-3.5" />

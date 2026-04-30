@@ -600,6 +600,16 @@ export default function ProfileForm() {
     if (isEdit) { fetchProfile(); loadDocSends() }
   }, [id, session])
 
+  // Auto-refresh Versandhistorie every 15s when there are pending/opened sends
+  useEffect(() => {
+    if (!isEdit) return
+    const interval = setInterval(() => {
+      const hasPending = docSends.some(s => s.status === 'pending' || s.status === 'opened')
+      if (hasPending) loadDocSends()
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [isEdit, docSends])
+
   useEffect(() => {
     if (!reserveFor) return
     supabase.from('companies').select('id, company_name').eq('id', reserveFor).single()
@@ -2177,32 +2187,80 @@ export default function ProfileForm() {
                       return next
                     })
                   }
+                  // Find latest signed send for this template doc
+                  const templateId = doc.doc_type === 'template' && doc.link?.startsWith('template:')
+                    ? doc.link.replace('template:', '')
+                    : null
+                  const signedSend = templateId
+                    ? docSends.find(s => s.template_id === templateId && (s.status === 'submitted' || s.status === 'signed'))
+                    : null
+                  const pendingSend = templateId
+                    ? docSends.find(s => s.template_id === templateId && (s.status === 'pending' || s.status === 'opened'))
+                    : null
+                  const isSendRef = doc.doc_type === 'send_ref'
+                  const sendRefId = isSendRef ? doc.link?.replace('send:', '') : null
+
+                  // Determine icon
+                  const iconBg = signedSend ? 'bg-green-100' : isSendRef ? 'bg-green-50' : doc.doc_type === 'template' ? 'bg-violet-50' : 'bg-blue-50'
+                  const iconEl = signedSend
+                    ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    : isSendRef ? <FileText className="h-4 w-4 text-green-600" />
+                    : doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" />
+                    : doc.doc_type === 'template' ? <FileText className="h-4 w-4 text-violet-500" />
+                    : <Link2 className="h-4 w-4 text-fkvi-blue" />
+
+                  const subtitleEl = signedSend
+                    ? <span className="text-green-600 font-medium">Unterzeichnet – {new Date(signedSend.signed_at || signedSend.submitted_at).toLocaleDateString('de-DE')} {new Date(signedSend.signed_at || signedSend.submitted_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                    : pendingSend
+                    ? <span className="text-amber-600">{pendingSend.status === 'opened' ? 'Geöffnet, noch nicht ausgefüllt' : 'Versendet, noch ausstehend'}</span>
+                    : isSendRef
+                    ? <span className="text-green-600">Signiertes Dokument</span>
+                    : doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : doc.doc_type === 'template' ? 'Vorlage' : 'Externer Link')
+
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
+                      className={`flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : (signedSend || isSendRef) ? 'bg-green-50/30 hover:bg-green-50/50' : 'hover:bg-gray-50/50'}`}
                       onClick={toggleSelect}
                     >
                       {/* Checkbox */}
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
                         {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
                       </div>
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${doc.doc_type === 'template' ? 'bg-violet-50' : 'bg-blue-50'}`}>
-                        {doc.doc_type === 'upload' ? <Upload className="h-4 w-4 text-fkvi-blue" /> : doc.doc_type === 'template' ? <FileText className="h-4 w-4 text-violet-500" /> : <Link2 className="h-4 w-4 text-fkvi-blue" />}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                        {iconEl}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 text-sm truncate">{doc.title || <span className="text-gray-400 italic">Kein Titel</span>}</p>
-                        <p className="text-xs text-gray-400 truncate">
-                          {doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')}
-                        </p>
+                        <p className="text-xs text-gray-400 truncate">{subtitleEl}</p>
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
-                        {doc.link && (
+                        {signedSend ? (
+                          <button
+                            onClick={() => handleDownloadSend(signedSend.id)}
+                            disabled={downloadingSendId === signedSend.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-green-700 bg-green-100 hover:bg-green-200 transition-colors text-xs font-medium"
+                            title="Unterzeichnetes PDF herunterladen"
+                          >
+                            {downloadingSendId === signedSend.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            PDF
+                          </button>
+                        ) : isSendRef && sendRefId ? (
+                          <button
+                            onClick={() => handleDownloadSend(sendRefId)}
+                            disabled={downloadingSendId === sendRefId}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-green-700 bg-green-100 hover:bg-green-200 transition-colors text-xs font-medium"
+                            title="Signiertes PDF herunterladen"
+                          >
+                            {downloadingSendId === sendRefId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            PDF
+                          </button>
+                        ) : doc.link && !doc.link.startsWith('template:') ? (
                           <a href={doc.link} target="_blank" rel="noopener noreferrer"
                             className="p-1.5 rounded-lg text-gray-400 hover:text-fkvi-blue hover:bg-blue-50 transition-colors" title="Öffnen">
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
-                        )}
+                        ) : null}
                         <button onClick={() => setEditingDoc({ idx, doc })}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Bearbeiten">
                           <Pencil className="h-3.5 w-3.5" />
@@ -2300,8 +2358,8 @@ export default function ProfileForm() {
                   )}
                   {docSendsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
                 </h3>
-                <button onClick={loadDocSends} className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1">
-                  <Loader2 className="h-3 w-3" />Aktualisieren
+                <button onClick={loadDocSends} disabled={docSendsLoading} className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1 disabled:opacity-50">
+                  <Loader2 className={`h-3 w-3 ${docSendsLoading ? 'animate-spin' : ''}`} />Aktualisieren
                 </button>
               </div>
 
@@ -2317,10 +2375,9 @@ export default function ProfileForm() {
                     <thead>
                       <tr className="bg-gray-50/80 border-b border-gray-100">
                         <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Dokument</th>
-                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Empfänger</th>
                         <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versendet</th>
                         <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Geöffnet</th>
-                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Ausgefüllt</th>
                         <th className="px-4 py-2.5" />
                       </tr>
                     </thead>
@@ -2330,57 +2387,47 @@ export default function ProfileForm() {
                         const isRevoked = send.status === 'revoked'
                         const isConfirmingDelete = deletingSendId === send.id
                         return (
-                          <tr key={send.id} className={`transition-colors ${isSigned ? 'bg-green-50/20' : 'hover:bg-gray-50/40'}`}>
+                          <tr key={send.id} className={`transition-colors ${isSigned ? 'bg-green-50/30' : 'hover:bg-gray-50/40'}`}>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                                  <FileText className="h-3.5 w-3.5 text-violet-500" />
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isSigned ? 'bg-green-100' : 'bg-violet-50'}`}>
+                                  <FileText className={`h-3.5 w-3.5 ${isSigned ? 'text-green-600' : 'text-violet-500'}`} />
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="font-medium text-gray-800 truncate max-w-[180px]">{send.display_title || send.template_name || send.bundle_title || '–'}</p>
-                                  {send.send_mode === 'view' && (
-                                    <span className="text-[10px] text-gray-400">Nur ansehen</span>
-                                  )}
+                                  <p className="font-medium text-gray-800 truncate max-w-[200px]">{send.display_title || send.template_name || send.bundle_title || '–'}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    {send.signer_name && <span className="text-[11px] text-gray-400">{send.signer_name}</span>}
+                                    {send.send_mode === 'view' && <span className="text-[10px] text-gray-300 bg-gray-100 px-1.5 py-0.5 rounded">Ansehen</span>}
+                                    {isRevoked && <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Widerrufen</span>}
+                                  </div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <p className="text-gray-800 font-medium text-xs">{send.signer_name || '–'}</p>
-                              {send.signer_email && <p className="text-gray-400 text-[11px] truncate max-w-[160px]">{send.signer_email}</p>}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <p className="text-xs text-gray-700">{new Date(send.created_at).toLocaleDateString('de-DE')}</p>
+                              <p className="text-[11px] text-gray-400">{new Date(send.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</p>
                             </td>
-                            <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                              {new Date(send.created_at).toLocaleDateString('de-DE')}<br />
-                              <span className="text-gray-400">{new Date(send.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              {send.open_count > 0 ? (
-                                <div className="text-xs">
-                                  <span className="font-medium text-blue-700">{send.open_count}×</span>
-                                  {send.last_opened_at && (
-                                    <p className="text-gray-400 text-[11px]">
-                                      zuletzt {new Date(send.last_opened_at).toLocaleDateString('de-DE')}
-                                      {' '}{new Date(send.last_opened_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                  )}
-                                </div>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {send.first_opened_at ? (
+                                <>
+                                  <p className="text-xs text-blue-700">{new Date(send.first_opened_at).toLocaleDateString('de-DE')}</p>
+                                  <p className="text-[11px] text-blue-400">{new Date(send.first_opened_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
+                                    {send.open_count > 1 && <span className="ml-1 text-gray-400">({send.open_count}×)</span>}
+                                  </p>
+                                </>
                               ) : (
                                 <span className="text-xs text-gray-300">–</span>
                               )}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 whitespace-nowrap">
                               {isSigned ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  {send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet'}
-                                  {send.signed_at && (
-                                    <span className="text-green-500 font-normal ml-0.5">{new Date(send.signed_at).toLocaleDateString('de-DE')}</span>
-                                  )}
-                                </span>
-                              ) : isRevoked ? (
-                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Widerrufen</span>
+                                <>
+                                  <p className="text-xs text-green-700 font-medium">{new Date(send.signed_at || send.submitted_at).toLocaleDateString('de-DE')}</p>
+                                  <p className="text-[11px] text-green-500">{new Date(send.signed_at || send.submitted_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</p>
+                                </>
                               ) : send.status === 'opened' ? (
                                 <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Geöffnet</span>
-                              ) : (
+                              ) : isRevoked ? null : (
                                 <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Ausstehend</span>
                               )}
                             </td>
