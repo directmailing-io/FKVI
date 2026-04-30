@@ -2103,7 +2103,7 @@ export default function ProfileForm() {
             )}
 
             {/* ── Unified documents card ── */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-200">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <FileText className="h-4 w-4 text-gray-400" />
@@ -2219,12 +2219,27 @@ export default function ProfileForm() {
                     ? <span className="text-green-600">Signiertes Dokument</span>
                     : doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : doc.doc_type === 'template' ? 'Vorlage' : 'Externer Link')
 
+                  // Build tooltip content
+                  const tooltipLines = []
+                  if (signedSend) {
+                    const d = new Date(signedSend.signed_at || signedSend.submitted_at)
+                    tooltipLines.push(`Ausgefüllt: ${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`)
+                    if (signedSend.signer_name) tooltipLines.push(`Von: ${signedSend.signer_name}`)
+                  }
+
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : (signedSend || isSendRef) ? 'bg-green-50/30 hover:bg-green-50/50' : 'hover:bg-gray-50/50'}`}
+                      className={`relative flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : (signedSend || isSendRef) ? 'bg-green-50/30 hover:bg-green-50/50' : 'hover:bg-gray-50/50'}`}
                       onClick={toggleSelect}
                     >
+                      {/* Hover tooltip */}
+                      {tooltipLines.length > 0 && (
+                        <div className="absolute left-12 bottom-full mb-1.5 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                          {tooltipLines.map((line, i) => <p key={i}>{line}</p>)}
+                          <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+                        </div>
+                      )}
                       {/* Checkbox */}
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
                         {isSelected && <Check className="h-2.5 w-2.5 text-white" />}

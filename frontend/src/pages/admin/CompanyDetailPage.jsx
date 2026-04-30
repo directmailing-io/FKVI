@@ -898,7 +898,7 @@ export default function CompanyDetailPage() {
           const totalCount = companyDocuments.length
 
           return (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-200">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                 <h2 className="font-semibold text-gray-900 flex items-center gap-2">
                   <FileText className="h-4 w-4 text-gray-400" />
@@ -934,6 +934,23 @@ export default function CompanyDetailPage() {
                   const sendId = isSendRef ? doc.link?.replace('send:', '') : null
                   const cvProfileId = isCvRef ? doc.link?.replace('cv:', '') : null
 
+                  // Find send history for tooltip
+                  // For send_ref: find company send forwarded from this sendId OR the direct send
+                  const relatedSend = isSendRef && sendId
+                    ? (docSends.find(s => s.parent_send_id === sendId) || docSends.find(s => s.id === sendId))
+                    : null
+                  const tooltipLines = []
+                  if (relatedSend && (relatedSend.status === 'submitted' || relatedSend.status === 'signed')) {
+                    const d = new Date(relatedSend.signed_at || relatedSend.submitted_at)
+                    tooltipLines.push(`Ausgefüllt: ${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`)
+                    if (relatedSend.signer_name) tooltipLines.push(`Von: ${relatedSend.signer_name}`)
+                    if (relatedSend.parent_send && (relatedSend.parent_send.status === 'submitted' || relatedSend.parent_send.status === 'signed')) {
+                      const pd = new Date(relatedSend.parent_send.signed_at || relatedSend.parent_send.submitted_at)
+                      tooltipLines.push(`FK ausgefüllt: ${pd.toLocaleDateString('de-DE')} ${pd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`)
+                      if (relatedSend.parent_send.signer_name) tooltipLines.push(`Von: ${relatedSend.parent_send.signer_name}`)
+                    }
+                  }
+
                   const isSelected = selectedDocIndices.has(idx)
                   const toggleSelect = () => setSelectedDocIndices(prev => {
                     const next = new Set(prev)
@@ -955,9 +972,16 @@ export default function CompanyDetailPage() {
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
+                      className={`relative flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
                       onClick={toggleSelect}
                     >
+                      {/* Hover tooltip */}
+                      {tooltipLines.length > 0 && (
+                        <div className="absolute left-12 bottom-full mb-1.5 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                          {tooltipLines.map((line, i) => <p key={i}>{line}</p>)}
+                          <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+                        </div>
+                      )}
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-[#1a3a5c] border-[#1a3a5c]' : 'border-gray-300 group-hover:border-[#1a3a5c]/40'}`}>
                         {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
                       </div>
