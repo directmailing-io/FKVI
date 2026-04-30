@@ -267,7 +267,7 @@ export default function UnifiedSendDialog({
 
         const res = await fetch('/api/admin/dokumente/send', { method: 'POST', headers: authHeader, body: JSON.stringify(body) })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Versand fehlgeschlagen')
+        if (!res.ok) throw new Error(data.detail || data.error || 'Versand fehlgeschlagen')
         sends.push({ title: doc.title || 'Dokument', signerUrl: data.signerUrl, sendId: data.sendId, mode })
       }
 
@@ -281,7 +281,7 @@ export default function UnifiedSendDialog({
           body: JSON.stringify({ ...baseBody, templateId: tplId, sendMode: 'sign', ...payload }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Versand fehlgeschlagen')
+        if (!res.ok) throw new Error(data.detail || data.error || 'Versand fehlgeschlagen')
         sends.push({ title: tpl?.name || 'Vorlage', signerUrl: data.signerUrl, sendId: data.sendId, mode: 'fill' })
       }
 

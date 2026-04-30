@@ -213,7 +213,8 @@ export default withHandler(async (req, res) => {
       .single()
 
     if (insertError || !send) {
-      return res.status(500).json({ error: 'Versendung konnte nicht erstellt werden' })
+      console.error('dokumente/send view-only insert error:', insertError)
+      return res.status(500).json({ error: 'Versendung konnte nicht erstellt werden', detail: insertError?.message || null })
     }
 
     await supabaseAdmin.from('document_audit_log').insert({
@@ -340,7 +341,7 @@ export default withHandler(async (req, res) => {
 
   if (insertError || !send) {
     console.error('dokumente/send insert error:', insertError)
-    return res.status(500).json({ error: 'Versendung konnte nicht erstellt werden' })
+    return res.status(500).json({ error: 'Versendung konnte nicht erstellt werden', detail: insertError?.message || null })
   }
 
   // Upload prefilled PDF now that we have the sendId
