@@ -106,7 +106,7 @@ const TEST_PROFILES = [
     personal_skills: ['Teamfähigkeit', 'Belastbarkeit', 'Einfühlungsvermögen', 'Präzision', 'Eigeninitiative'],
     work_experience: [
       { id: '1', company: 'Makati Medical Center', position: 'Staff Nurse – ICU', department: 'Intensivstation', employment_type: 'Vollzeit', start_date: '2013-07', end_date: '2019-12', is_current: false, description: 'Betreuung kritisch kranker Patienten auf einer 20-Bett-Intensivstation. Beatmungsmanagement, invasives Monitoring, Notfallversorgung.' },
-      { id: '2', company: 'St. Luke's Medical Center', position: 'Senior Staff Nurse – Cardiac ICU', department: 'Kardiologische Intensivstation', employment_type: 'Vollzeit', start_date: '2020-01', end_date: '', is_current: true, description: 'Leitung von Pflegeteams (4 Mitarbeitende), postoperative Herzchirurgie-Betreuung, ECMO-Monitoring.' },
+      { id: '2', company: "St. Luke's Medical Center", position: 'Senior Staff Nurse – Cardiac ICU', department: 'Kardiologische Intensivstation', employment_type: 'Vollzeit', start_date: '2020-01', end_date: '', is_current: true, description: 'Leitung von Pflegeteams (4 Mitarbeitende), postoperative Herzchirurgie-Betreuung, ECMO-Monitoring.' },
     ],
     education_history: [
       { id: '1', institution: 'University of Santo Tomas', degree: 'Bachelor of Science in Nursing', field: 'Krankenpflege', start_date: '2009-06', end_date: '2013-04', notes: 'Abschluss mit Auszeichnung (Magna Cum Laude)' },
@@ -332,7 +332,7 @@ const TEST_PROFILES = [
     ],
     personal_skills: ['Belastbarkeit', 'Schnelle Auffassungsgabe', 'Teamfähigkeit', 'Ruhige Arbeitsweise'],
     work_experience: [
-      { id: '1', company: 'Iashvili Children's Central Hospital', position: 'Anästhesietechnischer Assistent', department: 'Kinderanästhesie', employment_type: 'Vollzeit', start_date: '2019-09', end_date: '2023-03', is_current: false, description: 'Vorbereitung und Überwachung von Kinderanästhesien. Atemwegsmanagement, Aufwachraumbetreuung.' },
+      { id: '1', company: "Iashvili Children's Central Hospital", position: 'Anästhesietechnischer Assistent', department: 'Kinderanästhesie', employment_type: 'Vollzeit', start_date: '2019-09', end_date: '2023-03', is_current: false, description: 'Vorbereitung und Überwachung von Kinderanästhesien. Atemwegsmanagement, Aufwachraumbetreuung.' },
       { id: '2', company: 'Aversi-Rational Clinic', position: 'ATA', department: 'Allgemeinanästhesie / OP', employment_type: 'Vollzeit', start_date: '2023-04', end_date: '', is_current: true, description: 'Betreuung von Patienten in allen Anästhesieformen. Regionalanästhesie-Assistenz, PACU-Überwachung.' },
     ],
     education_history: [
