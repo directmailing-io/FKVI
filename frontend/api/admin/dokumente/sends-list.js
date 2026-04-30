@@ -71,6 +71,17 @@ export default withHandler(async (req, res) => {
     ;(parents || []).forEach(p => { parentMap[p.id] = p })
   }
 
+  // Fetch child sends (company sends that were forwarded from these FK sends)
+  const sendIds = (sends || []).map(s => s.id)
+  const childMap = {}
+  if (sendIds.length > 0) {
+    const { data: children } = await supabaseAdmin
+      .from('document_sends')
+      .select('id, signer_name, submitted_at, signed_at, status, parent_send_id, recipient_type')
+      .in('parent_send_id', sendIds)
+    ;(children || []).forEach(c => { childMap[c.parent_send_id] = c })
+  }
+
   // Build base URL for signer links
   const host = req.headers['x-forwarded-host'] || req.headers.host || ''
   const proto = req.headers['x-forwarded-proto'] || 'https'
@@ -89,6 +100,8 @@ export default withHandler(async (req, res) => {
     display_title: s.document_templates?.name || (s.source_url?.startsWith('cv:') ? 'Lebenslauf' : s.source_url ? 'Dokument (Link)' : '–'),
     // Parent send data for chain history (FK's submission info when this is a forwarded company send)
     parent_send: s.parent_send_id ? (parentMap[s.parent_send_id] || null) : null,
+    // Child send data (company send that was forwarded from this FK send)
+    child_send: childMap[s.id] || null,
   }))
 
   return res.json({ sends: mapped })

@@ -2220,11 +2220,17 @@ export default function ProfileForm() {
                     : doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : doc.doc_type === 'template' ? 'Vorlage' : 'Externer Link')
 
                   // Build tooltip content
+                  const childSend = signedSend?.child_send || null
                   const tooltipLines = []
                   if (signedSend) {
                     const d = new Date(signedSend.signed_at || signedSend.submitted_at)
-                    tooltipLines.push(`Ausgefüllt: ${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`)
+                    tooltipLines.push(`Fachkraft ausgefüllt: ${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`)
                     if (signedSend.signer_name) tooltipLines.push(`Von: ${signedSend.signer_name}`)
+                  }
+                  if (childSend && (childSend.status === 'submitted' || childSend.status === 'signed')) {
+                    const dc = new Date(childSend.signed_at || childSend.submitted_at)
+                    tooltipLines.push(`Unternehmen ausgefüllt: ${dc.toLocaleDateString('de-DE')} ${dc.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`)
+                    if (childSend.signer_name) tooltipLines.push(`Von: ${childSend.signer_name}`)
                   }
 
                   return (
