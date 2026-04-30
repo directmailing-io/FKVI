@@ -33,7 +33,8 @@ export default withHandler(async (req, res) => {
     .select(`
       id, token, signer_name, signer_email, status, bundle_id,
       created_at, signed_at, expires_at,
-      recipient_type, parent_send_id,
+      recipient_type, parent_send_id, send_mode, source_url, message,
+      open_count, first_opened_at, last_opened_at,
       document_templates ( name ),
       document_bundles ( id, token, title )
     `)
@@ -73,6 +74,8 @@ export default withHandler(async (req, res) => {
     bundle_token: s.document_bundles?.token || null,
     document_templates: undefined,
     document_bundles: undefined,
+    // Derived title for display (template name or source_url title or fallback)
+    display_title: s.document_templates?.name || (s.source_url?.startsWith('cv:') ? 'Lebenslauf' : s.source_url ? 'Dokument (Link)' : '–'),
   }))
 
   return res.json({ sends: mapped })

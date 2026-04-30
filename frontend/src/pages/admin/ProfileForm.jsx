@@ -1463,12 +1463,18 @@ export default function ProfileForm() {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="personal">Person</TabsTrigger>
             <TabsTrigger value="lebenslauf">Lebenslauf</TabsTrigger>
             <TabsTrigger value="experience">Erfahrung</TabsTrigger>
             <TabsTrigger value="media">Medien</TabsTrigger>
             <TabsTrigger value="documents">Dokumente</TabsTrigger>
+            <TabsTrigger value="versandhistorie" className="relative">
+              Versandhistorie
+              {isEdit && docSends.length > 0 && (
+                <span className="ml-1.5 bg-violet-100 text-violet-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{docSends.length}</span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           {/* ── TAB: Person ────────────────────────────────────────────── */}
@@ -2090,9 +2096,9 @@ export default function ProfileForm() {
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <FileText className="h-4 w-4 text-gray-400" />
                   Dokumente
-                  {(documents.length + (isEdit ? docSends.length : 0)) > 0 && (
+                  {documents.length > 0 && (
                     <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                      {documents.length + (isEdit ? docSends.length : 0)}
+                      {documents.length}
                     </span>
                   )}
                   {(docSaving || (isEdit && docSendsLoading)) && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
@@ -2210,78 +2216,9 @@ export default function ProfileForm() {
                   )
                 })}
 
-                {/* ── Versendungshistorie ── */}
-                {isEdit && docSends.length > 0 && (
-                  <div className="px-4 py-2 bg-gray-50/70 border-t border-gray-100">
-                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versandhistorie</p>
-                  </div>
-                )}
-                {isEdit && docSends.map(send => {
-                  const isSigned = send.status === 'submitted' || send.status === 'signed'
-                  const isConfirmingDelete = deletingSendId === send.id
-                  return (
-                    <div key={send.id} className={`flex items-center gap-3 px-4 py-3 transition-colors ${isSigned ? 'bg-green-50/30' : 'hover:bg-gray-50/50'}`}>
-                      <div className="w-4 shrink-0" /> {/* spacer */}
-                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                        <Send className="h-4 w-4 text-violet-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 text-sm truncate">{send.template_name || send.bundle_title || '–'}</p>
-                        <p className="text-xs text-gray-400">
-                          {send.signer_name && <span>{send.signer_name} · </span>}
-                          Versendet {new Date(send.created_at).toLocaleDateString('de-DE')}
-                          {isSigned && send.signed_at ? ` · ${send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet'} ${new Date(send.signed_at).toLocaleDateString('de-DE')}` : ''}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isSigned ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full font-medium">
-                            <CheckCircle2 className="h-3 w-3" />
-                            {send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet'}
-                          </span>
-                        ) : send.status === 'opened' ? (
-                          <span className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">Geöffnet</span>
-                        ) : send.status === 'revoked' ? (
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Widerrufen</span>
-                        ) : (
-                          <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">Ausstehend</span>
-                        )}
-                        {isConfirmingDelete ? (
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleDeleteSend(send.id)} disabled={deletingSendBusy}
-                              className="text-xs text-red-600 font-semibold hover:text-red-700 disabled:opacity-50">
-                              {deletingSendBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Löschen'}
-                            </button>
-                            <span className="text-gray-300">|</span>
-                            <button onClick={() => setDeletingSendId(null)} className="text-xs text-gray-500 hover:text-gray-700">Abbruch</button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-0.5">
-                            {isSigned && send.send_mode !== 'view' && (
-                              <button onClick={() => handleDownloadSend(send.id)} disabled={downloadingSendId === send.id}
-                                className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex" title="PDF herunterladen">
-                                {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                              </button>
-                            )}
-                            {!isSigned && send.signer_url && (
-                              <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link öffnen">
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                            )}
-                            <button onClick={() => setDeletingSendId(send.id)}
-                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
 
                 {/* ── Empty state ── */}
-                {documents.length === 0 && (!isEdit || docSends.length === 0) && (
+                {documents.length === 0 && (
                   <div className="text-center py-10 text-gray-400">
                     <FileText className="h-8 w-8 mx-auto mb-2 text-gray-200" />
                     <p className="text-sm font-medium text-gray-500">Noch keine Dokumente hinzugefügt</p>
@@ -2297,12 +2234,6 @@ export default function ProfileForm() {
                 </div>
               )}
 
-              {isEdit && docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
-                <div className="px-4 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
-                  <Download className="h-3.5 w-3.5 shrink-0" />
-                  Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
-                </div>
-              )}
             </div>
 
             {!isEdit && documents.length > 0 && (
@@ -2355,6 +2286,152 @@ export default function ProfileForm() {
                 onSent={loadDocSends}
               />
             )}
+          </TabsContent>
+
+          {/* ── TAB: Versandhistorie ─────────────────────────────────── */}
+          <TabsContent value="versandhistorie" className="space-y-4 mt-6">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                  <Send className="h-4 w-4 text-gray-400" />
+                  Versandhistorie
+                  {docSends.length > 0 && (
+                    <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
+                  )}
+                  {docSendsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                </h3>
+                <button onClick={loadDocSends} className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1">
+                  <Loader2 className="h-3 w-3" />Aktualisieren
+                </button>
+              </div>
+
+              {docSends.length === 0 && !docSendsLoading ? (
+                <div className="text-center py-12 text-gray-400">
+                  <Send className="h-8 w-8 mx-auto mb-2 text-gray-200" />
+                  <p className="text-sm font-medium text-gray-500">Noch keine Dokumente versendet</p>
+                  <p className="text-xs mt-1">Versendete Dokumente erscheinen hier mit Öffnungs- und Ausfüll-Status.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50/80 border-b border-gray-100">
+                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Dokument</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Empfänger</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versendet</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Geöffnet</th>
+                        <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-2.5" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {docSends.map(send => {
+                        const isSigned = send.status === 'submitted' || send.status === 'signed'
+                        const isRevoked = send.status === 'revoked'
+                        const isConfirmingDelete = deletingSendId === send.id
+                        return (
+                          <tr key={send.id} className={`transition-colors ${isSigned ? 'bg-green-50/20' : 'hover:bg-gray-50/40'}`}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                                  <FileText className="h-3.5 w-3.5 text-violet-500" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-gray-800 truncate max-w-[180px]">{send.display_title || send.template_name || send.bundle_title || '–'}</p>
+                                  {send.send_mode === 'view' && (
+                                    <span className="text-[10px] text-gray-400">Nur ansehen</span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-gray-800 font-medium text-xs">{send.signer_name || '–'}</p>
+                              {send.signer_email && <p className="text-gray-400 text-[11px] truncate max-w-[160px]">{send.signer_email}</p>}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                              {new Date(send.created_at).toLocaleDateString('de-DE')}<br />
+                              <span className="text-gray-400">{new Date(send.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {send.open_count > 0 ? (
+                                <div className="text-xs">
+                                  <span className="font-medium text-blue-700">{send.open_count}×</span>
+                                  {send.last_opened_at && (
+                                    <p className="text-gray-400 text-[11px]">
+                                      zuletzt {new Date(send.last_opened_at).toLocaleDateString('de-DE')}
+                                      {' '}{new Date(send.last_opened_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-300">–</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {isSigned ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  {send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet'}
+                                  {send.signed_at && (
+                                    <span className="text-green-500 font-normal ml-0.5">{new Date(send.signed_at).toLocaleDateString('de-DE')}</span>
+                                  )}
+                                </span>
+                              ) : isRevoked ? (
+                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Widerrufen</span>
+                              ) : send.status === 'opened' ? (
+                                <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Geöffnet</span>
+                              ) : (
+                                <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Ausstehend</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-0.5 justify-end">
+                                {isConfirmingDelete ? (
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => handleDeleteSend(send.id)} disabled={deletingSendBusy}
+                                      className="text-xs text-red-600 font-semibold hover:text-red-700 disabled:opacity-50">
+                                      {deletingSendBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Löschen'}
+                                    </button>
+                                    <span className="text-gray-300 text-xs">|</span>
+                                    <button onClick={() => setDeletingSendId(null)} className="text-xs text-gray-500 hover:text-gray-700">Nein</button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    {isSigned && send.send_mode !== 'view' && (
+                                      <button onClick={() => handleDownloadSend(send.id)} disabled={downloadingSendId === send.id}
+                                        className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex" title="PDF herunterladen">
+                                        {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                                      </button>
+                                    )}
+                                    {!isSigned && send.signer_url && (
+                                      <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
+                                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link öffnen">
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                      </a>
+                                    )}
+                                    <button onClick={() => setDeletingSendId(send.id)}
+                                      className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
+                <div className="px-4 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                  Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

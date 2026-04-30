@@ -513,7 +513,8 @@ export default function CompanyDetailPage() {
         {[
           { id: 'stammdaten', label: 'Stammdaten' },
           { id: 'notizen', label: 'Notizen' },
-          { id: 'dokumente', label: `Dokumente${(docSends.length + companyDocuments.length) > 0 ? ` (${docSends.length + companyDocuments.length})` : ''}` },
+          { id: 'dokumente', label: `Dokumente${companyDocuments.length > 0 ? ` (${companyDocuments.length})` : ''}` },
+          { id: 'versandhistorie', label: `Versandhistorie${docSends.length > 0 ? ` (${docSends.length})` : ''}` },
           { id: 'vermittlungen', label: `Vermittlungen${reservations.length > 0 ? ` (${reservations.length})` : ''}` },
         ].map(tab => (
           <button
@@ -882,7 +883,7 @@ export default function CompanyDetailPage() {
 
         {/* Unified documents card */}
         {(() => {
-          const individualSends = docSends.filter(s => !s.bundle_id)
+          const individualSends = []
           const bundleMap = {}
           docSends.filter(s => s.bundle_id).forEach(s => {
             if (!bundleMap[s.bundle_id]) bundleMap[s.bundle_id] = {
@@ -892,8 +893,7 @@ export default function CompanyDetailPage() {
             bundleMap[s.bundle_id].sends.push(s)
           })
           const bundles = Object.values(bundleMap)
-          const totalSends = bundles.length + individualSends.length
-          const totalCount = companyDocuments.length + totalSends
+          const totalCount = companyDocuments.length
 
           return (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -965,105 +965,6 @@ export default function CompanyDetailPage() {
                   )
                 })}
 
-                {/* Versandhistorie header */}
-                {(bundles.length > 0 || individualSends.length > 0) && (
-                  <div className="px-4 py-2 bg-gray-50/70 border-t border-gray-100">
-                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versandhistorie</p>
-                  </div>
-                )}
-
-                {/* Bundle rows */}
-                {bundles.map(bundle => {
-                  const signedCount = bundle.sends.filter(s => s.status === 'submitted' || s.status === 'signed').length
-                  const allSigned = signedCount === bundle.sends.length
-                  const anySigned = signedCount > 0
-                  return (
-                    <div key={bundle.id} className="flex items-start gap-3 px-6 py-3 hover:bg-gray-50/40 transition-colors">
-                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
-                        <Package className="h-4 w-4 text-violet-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{bundle.title || `Paket · ${bundle.sends.length} Dokumente`}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {new Date(bundle.created_at).toLocaleDateString('de-DE')}
-                          {bundle.signer_name ? ` · ${bundle.signer_name}` : ''}
-                        </p>
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {bundle.sends.map(s => {
-                            const isSigned = s.status === 'submitted' || s.status === 'signed'
-                            return (
-                              <span key={s.id} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${isSigned ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                {isSigned && <Check className="h-2.5 w-2.5" />}{s.template_name || '–'}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${allSigned ? 'bg-green-50 text-green-700 border-green-200' : anySigned ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                          {signedCount}/{bundle.sends.length} ✓
-                        </span>
-                        {bundle.url && (
-                          <button onClick={() => copyBundleUrl(bundle.id, bundle.url)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link kopieren">
-                            {copiedBundleId === bundle.id ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Link2 className="h-3.5 w-3.5" />}
-                          </button>
-                        )}
-                        {bundle.sends.filter(s => s.status === 'submitted' || s.status === 'signed').map(s => (
-                          <button key={s.id} onClick={() => handleDownloadSend(s.id)} disabled={downloadingSendId === s.id}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title={s.template_name}>
-                            {downloadingSendId === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                          </button>
-                        ))}
-                        <button onClick={() => setDeletingBundleId(bundle.id)}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {/* Individual send rows */}
-                {individualSends.map(send => {
-                  const isSigned = send.status === 'submitted' || send.status === 'signed'
-                  const isRevoked = send.status === 'revoked'
-                  return (
-                    <div key={send.id} className={`flex items-center gap-3 px-6 py-3 transition-colors ${isSigned ? 'bg-green-50/30' : 'hover:bg-gray-50/50'}`}>
-                      <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                        <Send className="h-4 w-4 text-violet-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{send.template_name || '–'}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {new Date(send.created_at).toLocaleDateString('de-DE')}
-                          {send.signer_name ? ` · ${send.signer_name}` : ''}
-                        </p>
-                      </div>
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${isSigned ? 'bg-green-100 text-green-700' : isRevoked ? 'bg-red-50 text-red-600' : send.status === 'opened' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}`}>
-                        {isSigned ? (send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet') : isRevoked ? 'Widerrufen' : send.status === 'opened' ? 'Geöffnet' : 'Ausstehend'}
-                      </span>
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        {isSigned && send.send_mode !== 'view' && (
-                          <button onClick={() => handleDownloadSend(send.id)} disabled={downloadingSendId === send.id}
-                            className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex" title="PDF herunterladen">
-                            {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                          </button>
-                        )}
-                        {!isSigned && send.signer_url && (
-                          <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link öffnen">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                        <button onClick={() => setDeletingSendId(send.id)}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
 
                 {/* Empty state */}
                 {totalCount === 0 && !docSendsLoading && (
@@ -1082,12 +983,6 @@ export default function CompanyDetailPage() {
                 </div>
               )}
 
-              {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
-                <div className="px-4 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
-                  <Download className="h-3.5 w-3.5 shrink-0" />
-                  Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
-                </div>
-              )}
             </div>
           )
         })()}
@@ -1311,6 +1206,140 @@ export default function CompanyDetailPage() {
               <p className="text-sm font-medium">Noch keine Vermittlungen vorhanden.</p>
             </div>
           )}
+      </div>
+      )}
+
+      {/* Tab: Versandhistorie */}
+      {activeTab === 'versandhistorie' && (
+      <div className="space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+              <Send className="h-4 w-4 text-gray-400" />
+              Versandhistorie
+              {docSends.length > 0 && (
+                <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
+              )}
+              {docSendsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+            </h3>
+            <button onClick={loadDocSends} className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1">
+              <Loader2 className="h-3 w-3" />Aktualisieren
+            </button>
+          </div>
+
+          {docSends.length === 0 && !docSendsLoading ? (
+            <div className="text-center py-12 text-gray-400">
+              <Send className="h-8 w-8 mx-auto mb-2 text-gray-200" />
+              <p className="text-sm font-medium text-gray-500">Noch keine Dokumente versendet</p>
+              <p className="text-xs mt-1">Versendete Dokumente erscheinen hier mit Öffnungs- und Ausfüll-Status.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50/80 border-b border-gray-100">
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Dokument</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Empfänger</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versendet</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Geöffnet</th>
+                    <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {docSends.map(send => {
+                    const isSigned = send.status === 'submitted' || send.status === 'signed'
+                    const isRevoked = send.status === 'revoked'
+                    return (
+                      <tr key={send.id} className={`transition-colors ${isSigned ? 'bg-green-50/20' : 'hover:bg-gray-50/40'}`}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                              <FileText className="h-3.5 w-3.5 text-violet-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-800 truncate max-w-[180px]">{send.display_title || send.template_name || send.bundle_title || '–'}</p>
+                              {send.send_mode === 'view' && (
+                                <span className="text-[10px] text-gray-400">Nur ansehen</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-gray-800 font-medium text-xs">{send.signer_name || '–'}</p>
+                          {send.signer_email && <p className="text-gray-400 text-[11px] truncate max-w-[160px]">{send.signer_email}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                          {new Date(send.created_at).toLocaleDateString('de-DE')}<br />
+                          <span className="text-gray-400">{new Date(send.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {send.open_count > 0 ? (
+                            <div className="text-xs">
+                              <span className="font-medium text-blue-700">{send.open_count}×</span>
+                              {send.last_opened_at && (
+                                <p className="text-gray-400 text-[11px]">
+                                  zuletzt {new Date(send.last_opened_at).toLocaleDateString('de-DE')}
+                                  {' '}{new Date(send.last_opened_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-300">–</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {isSigned ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {send.send_mode === 'view' ? 'Gelesen' : 'Unterzeichnet'}
+                              {send.signed_at && (
+                                <span className="text-green-500 font-normal ml-0.5">{new Date(send.signed_at).toLocaleDateString('de-DE')}</span>
+                              )}
+                            </span>
+                          ) : isRevoked ? (
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Widerrufen</span>
+                          ) : send.status === 'opened' ? (
+                            <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">Geöffnet</span>
+                          ) : (
+                            <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Ausstehend</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-0.5 justify-end">
+                            {isSigned && send.send_mode !== 'view' && (
+                              <button onClick={() => handleDownloadSend(send.id)} disabled={downloadingSendId === send.id}
+                                className="p-1.5 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 transition-colors inline-flex" title="PDF herunterladen">
+                                {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                              </button>
+                            )}
+                            {!isSigned && send.signer_url && (
+                              <a href={send.signer_url} target="_blank" rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors inline-flex" title="Link öffnen">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            <button onClick={() => setDeletingSendId(send.id)}
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors inline-flex" title="Löschen">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {docSends.some(s => s.status === 'submitted' || s.status === 'signed') && (
+            <div className="px-4 py-3 border-t border-gray-100 bg-green-50/50 flex items-center gap-2 text-xs text-green-700">
+              <Download className="h-3.5 w-3.5 shrink-0" />
+              Unterzeichnete Dokumente sind auch im <strong className="mx-1">Postfach</strong> verfügbar.
+            </div>
+          )}
+        </div>
       </div>
       )}
 
