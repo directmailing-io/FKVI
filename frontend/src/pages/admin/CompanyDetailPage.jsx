@@ -372,17 +372,40 @@ export default function CompanyDetailPage() {
     try {
       const res = await fetch('/api/admin/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ companyId: id }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Fehler')
-      toast({ title: 'Freigegeben', description: 'Das Unternehmen wurde freigeschaltet.' })
+      const desc = data.emailSent
+        ? `Unternehmen freigeschaltet. Zugangslink wurde an ${company?.email} gesendet.`
+        : `Freigeschaltet. E-Mail konnte nicht gesendet werden: ${data.emailError || '–'}`
+      toast({ title: 'Freigegeben', description: desc })
       fetchCompany()
     } catch (err) {
       toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {
       setApproving(false)
+    }
+  }
+
+  // Resend access link for approved company
+  const [resendingLink, setResendingLink] = useState(false)
+  const handleResendLink = async () => {
+    setResendingLink(true)
+    try {
+      const res = await fetch('/api/admin/resend-access-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ companyId: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler')
+      toast({ title: 'Link gesendet', description: `Zugangslink wurde erneut an ${company?.email} gesendet.` })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setResendingLink(false)
     }
   }
 
@@ -498,6 +521,19 @@ export default function CompanyDetailPage() {
                 Ablehnen
               </Button>
             </>
+          )}
+          {company.status === 'approved' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={handleResendLink}
+              disabled={resendingLink}
+              title="Neuen Zugangslink per E-Mail senden"
+            >
+              {resendingLink ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
+              Zugangslink senden
+            </Button>
           )}
           <Button
             size="sm"
