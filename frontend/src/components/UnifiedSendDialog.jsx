@@ -42,7 +42,6 @@ function buildPrefillPayload(fillItem, values) {
   const prefillData = {}
   const prefillFieldIds = []
   for (const field of fields) {
-    if (field.type === 'signature') continue
     const val = values?.[field.id]
     if (val && String(val).trim()) {
       prefillData[field.id] = val
@@ -513,6 +512,7 @@ export default function UnifiedSendDialog({
                   const fillableFields = (item.fields || []).filter(f => f.type !== 'signature')
                   const sigFields = (item.fields || []).filter(f => f.type === 'signature')
                   const values = prefillValues[item.key] || {}
+                  const anySigPrefilled = sigFields.some(f => values[f.id]?.trim())
 
                   return (
                     <div key={item.key} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -574,11 +574,48 @@ export default function UnifiedSendDialog({
                             )
                           })}
                           {sigFields.length > 0 && (
-                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                              <PenLine className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                              <span className="text-xs text-gray-500">
-                                {sigFields.length} Signaturfeld{sigFields.length > 1 ? 'er' : ''} – wird vom Empfänger ausgefüllt
-                              </span>
+                            <div className="rounded-lg border border-dashed border-gray-200 overflow-hidden">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50">
+                                <PenLine className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                <span className="text-xs text-gray-500 flex-1">
+                                  {sigFields.length} Signaturfeld{sigFields.length > 1 ? 'er' : ''} – wird vom Empfänger ausgefüllt
+                                </span>
+                                <button
+                                  onClick={() => setPrefillValues(prev => {
+                                    const cur = prev[item.key] || {}
+                                    const hasAny = sigFields.some(f => cur[f.id] !== undefined)
+                                    if (hasAny) {
+                                      const next = { ...cur }
+                                      sigFields.forEach(f => delete next[f.id])
+                                      return { ...prev, [item.key]: next }
+                                    }
+                                    const next = { ...cur }
+                                    sigFields.forEach(f => { if (!next[f.id]) next[f.id] = '' })
+                                    return { ...prev, [item.key]: next }
+                                  })}
+                                  className="text-[10px] text-violet-600 hover:underline shrink-0"
+                                >
+                                  {sigFields.some(f => values[f.id] !== undefined) ? 'Einklappen' : 'Vorausfüllen'}
+                                </button>
+                              </div>
+                              {sigFields.some(f => values[f.id] !== undefined) && (
+                                <div className="p-3 space-y-2.5 bg-white border-t border-dashed border-gray-200">
+                                  {sigFields.map(field => (
+                                    <div key={field.id} className="space-y-1">
+                                      <Label className="text-xs text-gray-600">{field.label || 'Signatur'}</Label>
+                                      <Input
+                                        value={values[field.id] || ''}
+                                        onChange={e => setPrefillValues(prev => ({
+                                          ...prev,
+                                          [item.key]: { ...(prev[item.key] || {}), [field.id]: e.target.value }
+                                        }))}
+                                        placeholder="Leer lassen = Empfänger zeichnet/füllt aus"
+                                        className="h-8 text-xs"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
