@@ -25,6 +25,7 @@ export default withHandler(async (req, res) => {
         template_id,
         prefill_mode,
         prefilled_storage_path,
+        parent_send_id,
         document_templates (
           storage_path,
           fields
@@ -286,6 +287,15 @@ export default withHandler(async (req, res) => {
       return res.status(500).json({ error: 'Status konnte nicht aktualisiert werden' })
     }
 
+    // 8b. If this is a forwarded send, update the parent's signed_storage_path
+    // so the FK also sees the final fully-signed PDF
+    if (send.parent_send_id) {
+      await supabaseAdmin
+        .from('document_sends')
+        .update({ signed_storage_path: signedPath, updated_at: now })
+        .eq('id', send.parent_send_id)
+    }
+
     // 9. Insert audit log
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || null
     const userAgent = req.headers['user-agent'] || null
@@ -306,8 +316,16 @@ export default withHandler(async (req, res) => {
         .catch((err) => console.warn('dokument/submit signature cleanup warning:', err))
     }
 
-    // 11. Return success
-    return res.json({ success: true })
+    // 11. Generate signed URL for download
+    let downloadUrl = null
+    try {
+      const { data: urlData } = await supabaseAdmin.storage
+        .from('signed-documents')
+        .createSignedUrl(signedPath, 3600)
+      if (urlData) downloadUrl = urlData.signedUrl
+    } catch {} // non-fatal
+
+    return res.json({ success: true, downloadUrl })
 
   } catch (err) {
     console.error('dokument/submit unexpected error:', err)

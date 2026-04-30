@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 
-import { CheckCircle2, AlertCircle, Loader2, PenLine, FileText, ClipboardList, Eye } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Loader2, PenLine, FileText, ClipboardList, Eye, Download, Printer } from 'lucide-react'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,7 @@ import CvDocument from '@/components/matching/CvDocument'
 
 // ─── PDF viewer with interactive checkbox overlays ──────────────────────────
 
-function PdfViewer({ pdfUrl, fields, fieldValues, onToggle }) {
+function PdfViewer({ pdfUrl, fields, fieldValues, onToggle, prefilledFieldIds = [], prefilledFields = [], prefillData = {} }) {
   const renderTasksRef = useRef([])
   const canvasRefs = useRef([])
 
@@ -118,6 +118,15 @@ function PdfViewer({ pdfUrl, fields, fieldValues, onToggle }) {
   )
 
   const checkboxFields = (fields || []).filter(f => f.type === 'checkbox' && Array.isArray(f.options))
+  // Pre-filled text/date/initials fields with their resolved values for overlay rendering.
+  // Use prefilledFields (includes admin-audience fields) + prefillData for value lookup.
+  const prefilledTextFields = prefilledFields
+    .filter(f => f.type === 'text' || f.type === 'date' || f.type === 'initials')
+    .map(f => {
+      const value = prefillData[f.prefillKey] ?? prefillData[f.id] ?? fieldValues?.[f.id] ?? ''
+      return { ...f, resolvedValue: String(value) }
+    })
+    .filter(f => f.resolvedValue)
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -129,17 +138,49 @@ function PdfViewer({ pdfUrl, fields, fieldValues, onToggle }) {
             .filter(opt => opt.page === pageNum && opt.x !== undefined)
             .map(opt => ({ ...opt, field }))
         )
+        // Pre-filled text fields on this page
+        const pageTextFields = prefilledTextFields.filter(f => (f.page || 1) === pageNum)
 
         return (
           <div
             key={idx}
             className="relative w-full bg-white shadow-md rounded-lg overflow-hidden"
-            style={{ paddingBottom: `${(aspect.height / aspect.width) * 100}%` }}
+            style={{ paddingBottom: `${(aspect.height / aspect.width) * 100}%`, containerType: 'size' }}
           >
             <canvas
               ref={el => { canvasRefs.current[idx] = el }}
               style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
             />
+
+            {/* Pre-filled text value overlays */}
+            {pageTextFields.map(f => (
+              <div
+                key={f.id}
+                style={{
+                  position: 'absolute',
+                  left: `${f.x}%`,
+                  top: `${f.y}%`,
+                  width: `${f.width}%`,
+                  height: `${f.height}%`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingLeft: '0.3%',
+                  paddingRight: '0.3%',
+                  overflow: 'hidden',
+                  pointerEvents: 'none',
+                  // font-size: 65% of field height, using container query height unit
+                  fontSize: `${f.height * 0.65}cqh`,
+                  lineHeight: 1,
+                  color: '#000',
+                  whiteSpace: 'nowrap',
+                  fontFamily: 'Helvetica, Arial, sans-serif',
+                }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                  {f.resolvedValue}
+                </span>
+              </div>
+            ))}
 
             {/* Interactive checkbox boxes overlaid on PDF */}
             {pageOptions.map(opt => {
@@ -312,6 +353,7 @@ export default function DokumentSignPage() {
   const [markingRead, setMarkingRead] = useState(false)
   const [markedRead, setMarkedRead] = useState(false)
   const [cvData, setCvData] = useState(null) // { profile, documents } for CV sends
+  const [downloadUrl, setDownloadUrl] = useState(null)
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -397,6 +439,7 @@ export default function DokumentSignPage() {
       })
       const submitData = await submitRes.json()
       if (!submitRes.ok) throw new Error(submitData.error || 'Einreichung fehlgeschlagen.')
+      if (submitData.downloadUrl) setDownloadUrl(submitData.downloadUrl)
       setSubmitted(true)
       // If part of a bundle, redirect back to bundle overview after short delay
       if (bundleToken) {
@@ -481,9 +524,12 @@ export default function DokumentSignPage() {
     const docTitle = data?.templateName || data?.sourceTitle || 'Dokument'
     const docUrl = data?.sourceUrl || pdfUrl
 
+    const isCv = data?.sourceUrl?.startsWith('cv:')
+
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
-        <header className="bg-white border-b border-gray-200 shrink-0 z-20">
+        {isCv && <style>{`@media print { .cv-no-print { display: none !important; } body { background: white !important; } @page { margin: 10mm; size: A4; } }`}</style>}
+        <header className="cv-no-print bg-white border-b border-gray-200 shrink-0 z-20">
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
             <span className="font-black text-[#1a3a5c] text-xl tracking-tight shrink-0">FKVI</span>
             {docTitle && (
@@ -492,18 +538,28 @@ export default function DokumentSignPage() {
                 <span className="text-gray-500 text-sm truncate">{docTitle}</span>
               </>
             )}
-            <span className="ml-auto shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-              <Eye className="h-3 w-3" />Zur Ansicht
-            </span>
+            <div className="ml-auto flex items-center gap-2">
+              {isCv && (
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#1a3a5c] text-white hover:bg-[#1a3a5c]/90 transition-colors"
+                >
+                  <Printer className="h-3.5 w-3.5" />Als PDF speichern
+                </button>
+              )}
+              <span className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                <Eye className="h-3 w-3" />Zur Ansicht
+              </span>
+            </div>
           </div>
         </header>
 
         <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full px-4 py-6 gap-4">
           {data?.signerName && (
-            <p className="text-sm text-gray-500">für: <strong>{data.signerName}</strong></p>
+            <p className="cv-no-print text-sm text-gray-500">für: <strong>{data.signerName}</strong></p>
           )}
           {data?.message && (
-            <div className="rounded-xl bg-[#1a3a5c]/5 border border-[#1a3a5c]/15 p-4">
+            <div className="cv-no-print rounded-xl bg-[#1a3a5c]/5 border border-[#1a3a5c]/15 p-4">
               <p className="text-gray-700 text-sm leading-relaxed">{data.message}</p>
             </div>
           )}
@@ -545,7 +601,7 @@ export default function DokumentSignPage() {
           )}
         </div>
 
-        <div className="shrink-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <div className="cv-no-print shrink-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
           <button
             onClick={handleMarkRead}
             disabled={markingRead}
@@ -592,6 +648,17 @@ export default function DokumentSignPage() {
             Ihr Dokument wurde erfolgreich unterzeichnet und eingereicht.
           </p>
         </div>
+        {downloadUrl && (
+          <a
+            href={downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white font-semibold text-sm transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Unterzeichnetes Dokument herunterladen
+          </a>
+        )}
         <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 text-sm text-gray-500 text-left space-y-1">
           <p className="font-semibold text-gray-700">Ihre Ansprechperson bei FKVI:</p>
           <p>Fachkraft Vermittlung International GmbH &amp; Co. KG</p>
@@ -646,8 +713,21 @@ export default function DokumentSignPage() {
         </div>
       )}
 
+      {/* Forwarded banner */}
+      {data?.isForwarded && (
+        <div className="rounded-xl bg-green-50 border border-green-100 p-3.5 flex items-start gap-2.5">
+          <svg className="h-4 w-4 text-green-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm text-green-700 leading-snug">
+            <span className="font-semibold">Dieses Dokument wurde bereits teilweise ausgefüllt.</span>
+            {' '}Bitte füllen Sie die noch offenen Felder aus und unterzeichnen Sie.
+          </p>
+        </div>
+      )}
+
       {/* Prefill info banner */}
-      {isPrefillMode && (
+      {isPrefillMode && !data?.isForwarded && (
         <div className="rounded-xl bg-blue-50 border border-blue-100 p-3.5 flex items-start gap-2.5">
           <svg className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -824,6 +904,9 @@ export default function DokumentSignPage() {
                 fields={data?.fields}
                 fieldValues={fieldValues}
                 onToggle={handlePdfToggle}
+                prefilledFieldIds={prefilledFieldIds}
+                prefilledFields={data?.prefilledFields}
+                prefillData={data?.prefillData}
               />
             </div>
           )}

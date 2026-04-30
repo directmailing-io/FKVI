@@ -137,10 +137,12 @@ export default function UnifiedSendDialog({
 
   // ── Helpers ───────────────────────────────────────────────────────────
   const isTemplateDoc = (doc) => doc.doc_type === 'template'
-  const canFill = (doc) => !doc.isCv && (doc.doc_type === 'upload' || isTemplateDoc(doc))
+  const isSendRef = (doc) => doc.doc_type === 'send_ref'
+  const canFill = (doc) => !doc.isCv && !isSendRef(doc) && (doc.doc_type === 'upload' || isTemplateDoc(doc))
 
+  // send_ref docs are always "forwarded" — don't count them as fill docs for the prefill step
   const hasFillDocs =
-    docs.some((doc, i) => (docModes[i] || 'view') === 'fill') || selectedLibraryIds.size > 0
+    docs.some((doc, i) => !isSendRef(doc) && (docModes[i] || 'view') === 'fill') || selectedLibraryIds.size > 0
 
   // ── Mode toggle (upload→template creation) ────────────────────────────
   const toggleMode = async (idx, newMode) => {
@@ -246,7 +248,14 @@ export default function UnifiedSendDialog({
       for (let i = 0; i < docs.length; i++) {
         const doc = docs[i]
         const mode = docModes[i] || 'view'
-        if (mode === 'fill') {
+
+        if (isSendRef(doc)) {
+          // Forward the FK's signed document to the company
+          const sourceSendId = doc.link?.replace('send:', '')
+          if (sourceSendId) {
+            docsList.push({ type: 'forward', sourceSendId, sourceTitle: doc.title || 'Dokument' })
+          }
+        } else if (mode === 'fill') {
           const templateId = isTemplateDoc(doc) ? doc.link.replace('template:', '') : docTemplates[i]?.id
           if (!templateId) continue
           const key = `doc-${i}`
@@ -436,15 +445,24 @@ export default function UnifiedSendDialog({
                       <div className="flex items-center gap-2">
                         {doc.isCv
                           ? <User className="h-4 w-4 text-teal-500 shrink-0" />
-                          : doc.doc_type === 'upload'
-                            ? <Upload className="h-4 w-4 text-blue-500 shrink-0" />
-                            : isTemplate
-                              ? <FileText className="h-4 w-4 text-violet-500 shrink-0" />
-                              : <Link2 className="h-4 w-4 text-gray-400 shrink-0" />}
+                          : isSendRef(doc)
+                            ? <FileText className="h-4 w-4 text-green-600 shrink-0" />
+                            : doc.doc_type === 'upload'
+                              ? <Upload className="h-4 w-4 text-blue-500 shrink-0" />
+                              : isTemplate
+                                ? <FileText className="h-4 w-4 text-violet-500 shrink-0" />
+                                : <Link2 className="h-4 w-4 text-gray-400 shrink-0" />}
                         <span className="text-sm font-medium text-gray-800 flex-1 truncate">{doc.title || 'Dokument'}</span>
                       </div>
 
-                      {isTemplate ? (
+                      {isSendRef(doc) ? (
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-100 text-green-700 border border-green-200">
+                            <PenLine className="h-3 w-3" />Weiterleiten zum Ausfüllen
+                          </span>
+                          <span className="text-xs text-gray-400">FK-Felder bereits ausgefüllt</span>
+                        </div>
+                      ) : isTemplate ? (
                         <div className="flex items-center gap-1.5">
                           <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-100 text-violet-700 border border-violet-200">
                             <PenLine className="h-3 w-3" />Zum Ausfüllen
@@ -716,17 +734,27 @@ export default function UnifiedSendDialog({
               {/* Summary */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Zusammenfassung</p>
-                {docs.map((doc, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    {(docModes[i] || 'view') === 'fill'
-                      ? <PenLine className="h-3 w-3 text-violet-500 shrink-0" />
-                      : <Eye className="h-3 w-3 text-blue-500 shrink-0" />}
-                    <span className="text-gray-700 truncate flex-1">{doc.title || 'Dokument'}</span>
-                    <span className={`text-[10px] font-medium px-1.5 rounded ${(docModes[i] || 'view') === 'fill' ? 'bg-violet-50 text-violet-600' : 'bg-blue-50 text-blue-600'}`}>
-                      {(docModes[i] || 'view') === 'fill' ? 'Ausfüllen' : 'Ansehen'}
-                    </span>
-                  </div>
-                ))}
+                {docs.map((doc, i) => {
+                  const mode = docModes[i] || 'view'
+                  const isForward = isSendRef(doc)
+                  return (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      {isForward
+                        ? <PenLine className="h-3 w-3 text-green-600 shrink-0" />
+                        : mode === 'fill'
+                          ? <PenLine className="h-3 w-3 text-violet-500 shrink-0" />
+                          : <Eye className="h-3 w-3 text-blue-500 shrink-0" />}
+                      <span className="text-gray-700 truncate flex-1">{doc.title || 'Dokument'}</span>
+                      <span className={`text-[10px] font-medium px-1.5 rounded ${
+                        isForward ? 'bg-green-50 text-green-600'
+                        : mode === 'fill' ? 'bg-violet-50 text-violet-600'
+                        : 'bg-blue-50 text-blue-600'
+                      }`}>
+                        {isForward ? 'Weiterleiten' : mode === 'fill' ? 'Ausfüllen' : 'Ansehen'}
+                      </span>
+                    </div>
+                  )
+                })}
                 {[...selectedLibraryIds].map(id => {
                   const tpl = libraryTemplates.find(t => t.id === id)
                   return (
