@@ -15,8 +15,9 @@ import {
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
-// Steps that trigger an automatic email to the company
-const EMAIL_TRIGGER_STEPS = new Set([2, 4, 8, 9])
+// Steps that trigger an AUTOMATIC email via update-reservation (no dialog)
+// Step 4 is handled separately via ZusageDialog → create-link API
+const EMAIL_TRIGGER_STEPS = new Set([2, 8, 9])
 
 // ─── Step dot ─────────────────────────────────────────────────────────────────
 function StepDot({ step, current }) {
@@ -221,29 +222,29 @@ function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
     setUploadFiles(prev => prev.filter((_, i) => i !== idx))
   }
 
-  const handleSkip = () => { onClose(); onConfirm() }
+  const handleSkip = () => { onClose(); onConfirm({ emailSent: false }) }
 
   const handleSend = async () => {
     setSending(true)
     try {
       const c = reservation.companies
+      if (!c?.email) throw new Error('Kein E-Mail für dieses Unternehmen hinterlegt')
       const res = await fetch('/api/admin/company-docs/create-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({
           reservationId: reservation.id,
           profileId: reservation.profile_id,
-          companyEmail: c?.email,
-          companyName: c?.company_name,
+          companyEmail: c.email,
+          companyName: c.company_name,
           documents: selectedDocs,
           expiresInDays: parseInt(expiresInDays, 10),
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Fehler beim Senden')
-      toast({ title: 'E-Mail gesendet', description: `Zusage-E-Mail an ${c?.email} versendet.` })
       onClose()
-      onConfirm()
+      onConfirm({ emailSent: true })
     } catch (err) {
       toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {
@@ -511,7 +512,10 @@ export default function VermittlungDetailPage() {
     }
   }
 
-  const handleAdvance = async () => {
+  // emailSent = true  → came from ZusageDialog with email
+  // emailSent = false → came from ZusageDialog without email
+  // emailSent = null  → normal advance (auto-email via update-reservation)
+  const handleAdvance = async ({ emailSent = null } = {}) => {
     if (!reservation) return
     const newStatus = reservation.process_status + 1
     if (newStatus > 11) return
@@ -528,14 +532,18 @@ export default function VermittlungDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      const emailSent = EMAIL_TRIGGER_STEPS.has(newStatus)
-      toast({
-        title: `Weiter zu Schritt ${newStatus}`,
-        description: emailSent
-          ? `${PROCESS_STATUS_LABELS[newStatus]} — E-Mail wurde automatisch an das Unternehmen gesendet.`
-          : PROCESS_STATUS_LABELS[newStatus],
-        variant: 'success',
-      })
+      // For step 4 the email is handled by ZusageDialog → use its result
+      // For other email-trigger steps, show the auto-send notice
+      const autoEmail = emailSent === null && EMAIL_TRIGGER_STEPS.has(newStatus)
+      const desc = emailSent === true
+        ? `${PROCESS_STATUS_LABELS[newStatus]} — Zusage-E-Mail mit Dokumenten-Link gesendet.`
+        : emailSent === false
+          ? `${PROCESS_STATUS_LABELS[newStatus]} — Ohne E-Mail weitergeführt.`
+          : autoEmail
+            ? `${PROCESS_STATUS_LABELS[newStatus]} — E-Mail automatisch an das Unternehmen gesendet.`
+            : PROCESS_STATUS_LABELS[newStatus]
+
+      toast({ title: `Weiter zu Schritt ${newStatus}`, description: desc, variant: 'success' })
       setNote('')
       await fetchData()
     } catch (err) {
@@ -790,9 +798,9 @@ export default function VermittlungDetailPage() {
 
                   {/* Email hint */}
                   {nextStep === 4 ? (
-                    <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                    <div className="flex items-start gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 text-xs text-teal-700">
                       <Send className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                      <span>Bei Schritt 4 wählst du Dokumente aus, die per E-Mail mit einem sicheren Link an {c?.email || 'das Unternehmen'} gesendet werden.</span>
+                      <span>Du wirst gefragt, ob und welche Dokumente per sicherem Link an <strong>{c?.email || 'das Unternehmen'}</strong> gesendet werden sollen.</span>
                     </div>
                   ) : nextEmailTrigger ? (
                     <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
@@ -847,7 +855,7 @@ export default function VermittlungDetailPage() {
         onClose={() => setZusageDialog(false)}
         reservation={reservation}
         session={session}
-        onConfirm={handleAdvance}
+        onConfirm={({ emailSent }) => handleAdvance({ emailSent })}
       />
 
       {/* Stop confirmation */}
