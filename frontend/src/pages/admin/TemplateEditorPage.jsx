@@ -18,24 +18,17 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// Fachkraft = grün, Unternehmen = blau — gilt für alle Feldtypen
+const AUD = {
+  fachkraft:   { border: 'border-green-500', bg: 'bg-green-50',  text: 'text-green-700', ring: 'ring-green-400', labelBorder: 'border-green-200', labelIcon: 'text-green-500', labelText: 'text-green-700', dashedSelected: 'border-green-500 bg-green-50/60',  dashedNormal: 'border-green-400 bg-green-50/20 hover:bg-green-50/40',  optionSelected: 'border-green-500 bg-green-100', optionNormal: 'border-green-400 bg-green-50 hover:bg-green-100', optionInner: 'border-green-500', optionLabel: 'text-green-600' },
+  unternehmen: { border: 'border-blue-500',  bg: 'bg-blue-50',   text: 'text-blue-700',  ring: 'ring-blue-400',  labelBorder: 'border-blue-200',  labelIcon: 'text-blue-500',  labelText: 'text-blue-700',  dashedSelected: 'border-blue-500 bg-blue-50/60',   dashedNormal: 'border-blue-400 bg-blue-50/20 hover:bg-blue-50/40',   optionSelected: 'border-blue-500 bg-blue-100',   optionNormal: 'border-blue-400 bg-blue-50 hover:bg-blue-100',   optionInner: 'border-blue-500',  optionLabel: 'text-blue-600'  },
+}
+
 const FIELD_TYPES = [
-  { key: 'text', label: 'Text', icon: Type,
-    // FK: helles Pastell  |  UN: gesättigter, dunklerer Ton
-    fachkraft:   { border: 'border-blue-400',   bg: 'bg-blue-50',   text: 'text-blue-600',   ring: 'ring-blue-300',   labelBorder: 'border-blue-200',   labelIcon: 'text-blue-400',   labelText: 'text-blue-500',   dashedSelected: 'border-blue-400 bg-blue-50/50',   dashedNormal: 'border-blue-300 bg-blue-50/20 hover:bg-blue-50/40',   optionSelected: 'border-blue-400 bg-blue-100',   optionNormal: 'border-blue-300 bg-blue-50 hover:bg-blue-100',   optionInner: 'border-blue-400',   optionLabel: 'text-blue-500'   },
-    unternehmen: { border: 'border-blue-700',   bg: 'bg-blue-100',  text: 'text-blue-900',   ring: 'ring-blue-600',   labelBorder: 'border-blue-400',   labelIcon: 'text-blue-700',   labelText: 'text-blue-800',   dashedSelected: 'border-blue-700 bg-blue-100/70',  dashedNormal: 'border-blue-500 bg-blue-100/30 hover:bg-blue-100/60',  optionSelected: 'border-blue-700 bg-blue-200',   optionNormal: 'border-blue-500 bg-blue-100 hover:bg-blue-200',   optionInner: 'border-blue-600',   optionLabel: 'text-blue-700'   },
-  },
-  { key: 'checkbox', label: 'Checkbox', icon: CheckSquare,
-    fachkraft:   { border: 'border-orange-400', bg: 'bg-orange-50', text: 'text-orange-600', ring: 'ring-orange-300', labelBorder: 'border-orange-200', labelIcon: 'text-orange-400', labelText: 'text-orange-500', dashedSelected: 'border-orange-400 bg-orange-50/50', dashedNormal: 'border-orange-300 bg-orange-50/20 hover:bg-orange-50/40', optionSelected: 'border-orange-400 bg-orange-100', optionNormal: 'border-orange-300 bg-orange-50 hover:bg-orange-100', optionInner: 'border-orange-400', optionLabel: 'text-orange-500' },
-    unternehmen: { border: 'border-orange-700', bg: 'bg-orange-100', text: 'text-orange-900', ring: 'ring-orange-600', labelBorder: 'border-orange-400', labelIcon: 'text-orange-700', labelText: 'text-orange-800', dashedSelected: 'border-orange-700 bg-orange-100/70', dashedNormal: 'border-orange-500 bg-orange-100/30 hover:bg-orange-100/60', optionSelected: 'border-orange-700 bg-orange-200', optionNormal: 'border-orange-500 bg-orange-100 hover:bg-orange-200', optionInner: 'border-orange-600', optionLabel: 'text-orange-700' },
-  },
-  { key: 'signature', label: 'Unterschrift', icon: PenLine,
-    fachkraft:   { border: 'border-purple-400', bg: 'bg-purple-50', text: 'text-purple-600', ring: 'ring-purple-300', labelBorder: 'border-purple-200', labelIcon: 'text-purple-400', labelText: 'text-purple-500', dashedSelected: 'border-purple-400 bg-purple-50/50', dashedNormal: 'border-purple-300 bg-purple-50/20 hover:bg-purple-50/40', optionSelected: 'border-purple-400 bg-purple-100', optionNormal: 'border-purple-300 bg-purple-50 hover:bg-purple-100', optionInner: 'border-purple-400', optionLabel: 'text-purple-500' },
-    unternehmen: { border: 'border-purple-700', bg: 'bg-purple-100', text: 'text-purple-900', ring: 'ring-purple-600', labelBorder: 'border-purple-400', labelIcon: 'text-purple-700', labelText: 'text-purple-800', dashedSelected: 'border-purple-700 bg-purple-100/70', dashedNormal: 'border-purple-500 bg-purple-100/30 hover:bg-purple-100/60', optionSelected: 'border-purple-700 bg-purple-200', optionNormal: 'border-purple-500 bg-purple-100 hover:bg-purple-200', optionInner: 'border-purple-600', optionLabel: 'text-purple-700' },
-  },
-  { key: 'date', label: 'Datum', icon: Calendar,
-    fachkraft:   { border: 'border-green-400',  bg: 'bg-green-50',  text: 'text-green-600',  ring: 'ring-green-300',  labelBorder: 'border-green-200',  labelIcon: 'text-green-400',  labelText: 'text-green-500',  dashedSelected: 'border-green-400 bg-green-50/50',  dashedNormal: 'border-green-300 bg-green-50/20 hover:bg-green-50/40',  optionSelected: 'border-green-400 bg-green-100',  optionNormal: 'border-green-300 bg-green-50 hover:bg-green-100',  optionInner: 'border-green-400',  optionLabel: 'text-green-500'  },
-    unternehmen: { border: 'border-green-700',  bg: 'bg-green-100', text: 'text-green-900',  ring: 'ring-green-600',  labelBorder: 'border-green-400',  labelIcon: 'text-green-700',  labelText: 'text-green-800',  dashedSelected: 'border-green-700 bg-green-100/70',  dashedNormal: 'border-green-500 bg-green-100/30 hover:bg-green-100/60',  optionSelected: 'border-green-700 bg-green-200',  optionNormal: 'border-green-500 bg-green-100 hover:bg-green-200',  optionInner: 'border-green-600',  optionLabel: 'text-green-700'  },
-  },
+  { key: 'text',      label: 'Text',         icon: Type,        fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
+  { key: 'checkbox',  label: 'Checkbox',     icon: CheckSquare, fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
+  { key: 'signature', label: 'Unterschrift', icon: PenLine,     fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
+  { key: 'date',      label: 'Datum',        icon: Calendar,    fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
 ]
 
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
