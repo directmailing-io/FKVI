@@ -9,7 +9,7 @@ import {
   Send, Check, Copy, Loader2, Mail, User, Eye, PenLine,
   FileText, Link2, Upload, ExternalLink, Plus, Search,
   AlertCircle, CheckCircle2, ChevronLeft, ChevronRight,
-  PenSquare, MessageSquare,
+  PenSquare, MessageSquare, Info,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -79,7 +79,7 @@ function buildPrefillPayload(fillItem, values) {
 }
 
 // ── Step indicator ────────────────────────────────────────────────────────
-const STEPS = ['Modus', 'Vorausfüllen', 'Empfänger']
+const STEPS = ['Modus', 'Vorausfüllen', 'Zugangsdaten']
 function StepBar({ step }) {
   const idx = { modes: 0, prefill: 1, recipient: 2 }[step] ?? 0
   return (
@@ -449,8 +449,8 @@ export default function UnifiedSendDialog({
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Send className="h-4 w-4 text-[#1a3a5c]" />
-            {totalCount === 1 ? 'Dokument versenden' : `${totalCount} Dokumente versenden`}
+            <Link2 className="h-4 w-4 text-[#1a3a5c]" />
+            Link erstellen
           </DialogTitle>
         </DialogHeader>
 
@@ -750,6 +750,13 @@ export default function UnifiedSendDialog({
           ════════════════════════════════════════════════════════════ */}
           {step === 'recipient' && (
             <div className="space-y-4">
+              {/* Info notice */}
+              <div className="flex items-start gap-2.5 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Es wird <strong>kein E-Mail automatisch verschickt.</strong> Nach dem Erstellen erhältst du den Link — und kannst ihn dann optional per Mail weiterleiten.
+                </p>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-sm">Name <span className="text-red-500">*</span></Label>
                 <div className="relative">
@@ -758,7 +765,7 @@ export default function UnifiedSendDialog({
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">E-Mail <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <Label className="text-sm">E-Mail <span className="text-gray-400 font-normal">(für späteren Versand)</span></Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                   <Input value={signerEmail} onChange={e => setSignerEmail(e.target.value)} placeholder="email@beispiel.de" type="email" className="pl-9" />
@@ -834,8 +841,8 @@ export default function UnifiedSendDialog({
                 className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
               >
                 {sending
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Wird gesendet…</>
-                  : <><Send className="h-3.5 w-3.5 mr-1.5" />{totalCount > 1 ? 'Links generieren' : 'Link generieren'}</>}
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Wird erstellt…</>
+                  : <><Link2 className="h-3.5 w-3.5 mr-1.5" />{totalCount > 1 ? 'Links erstellen' : 'Link erstellen'}</>}
               </Button>
             )}
           </div>
