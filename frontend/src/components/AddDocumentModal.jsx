@@ -3,36 +3,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Link2, Upload, FileText, Building2, User, ChevronLeft, Loader2, Check, Search, X } from 'lucide-react'
+import { Upload, FileText, Building2, User, ChevronLeft, Loader2, Check, Search, X } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const MODES = [
-  {
-    id: 'link',
-    icon: Link2,
-    label: 'Link einfügen',
-    desc: 'Google Drive, Dropbox, Webseite',
-    color: 'bg-blue-50 text-blue-600 border-blue-200',
-  },
   {
     id: 'upload',
     icon: Upload,
     label: 'Datei hochladen',
     desc: 'PDF, Word oder andere Dateien',
-    color: 'bg-green-50 text-green-600 border-green-200',
+    color: 'bg-blue-50 text-blue-600 border-blue-200',
   },
   {
     id: 'template',
     icon: FileText,
     label: 'Aus Vorlage',
-    desc: 'Vorlage auswählen & hinzufügen',
+    desc: 'Vorlage auswählen & signieren',
     color: 'bg-violet-50 text-violet-600 border-violet-200',
   },
   {
     id: 'company',
     icon: Building2,
     label: 'Aus Unternehmen',
-    desc: 'Dokument von Firmenprofil übernehmen',
+    desc: 'Dokument vom Firmenprofil',
     color: 'bg-amber-50 text-amber-600 border-amber-200',
     onlyFor: 'profile',
   },
@@ -40,7 +33,7 @@ const MODES = [
     id: 'fachkraft',
     icon: User,
     label: 'Aus Fachkraft',
-    desc: 'Dokumente einer Fachkraft übernehmen',
+    desc: 'Dokumente einer Fachkraft',
     color: 'bg-teal-50 text-teal-600 border-teal-200',
     onlyFor: 'company',
   },
@@ -56,11 +49,6 @@ export default function AddDocumentModal({
   onClose,
 }) {
   const [mode, setMode] = useState(null)
-
-  // Link form
-  const [linkTitle, setLinkTitle] = useState('')
-  const [linkUrl, setLinkUrl] = useState('')
-  const [savingLink, setSavingLink] = useState(false)
 
   // Upload form
   const [uploadTitle, setUploadTitle] = useState('')
@@ -127,13 +115,6 @@ export default function AddDocumentModal({
       })
       .catch(() => setCompanyDocsLoading(false))
   }, [selectedCompany])
-
-  const handleSaveLink = async () => {
-    if (!linkTitle.trim() || !linkUrl.trim()) return
-    setSavingLink(true)
-    onAddDoc({ title: linkTitle.trim(), link: linkUrl.trim(), doc_type: '', description: '', is_internal: false })
-    onClose()
-  }
 
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0]
@@ -297,9 +278,9 @@ export default function AddDocumentModal({
           </DialogTitle>
         </DialogHeader>
 
-        {/* ── Auswahl ── */}
+        {/* ── Auswahl: 3 Karten nebeneinander ── */}
         {!mode && (
-          <div className="grid grid-cols-2 gap-3 py-1">
+          <div className="grid grid-cols-3 gap-2.5 py-1">
             {MODES.filter(m => !m.onlyFor || m.onlyFor === entityType).map(m => {
               const Icon = m.icon
               return (
@@ -307,59 +288,18 @@ export default function AddDocumentModal({
                   key={m.id}
                   type="button"
                   onClick={() => setMode(m.id)}
-                  className="flex flex-col items-start gap-2 p-4 rounded-xl border-2 border-gray-200 hover:border-gray-300 bg-white text-left transition-all hover:shadow-sm active:scale-[0.98]"
+                  className="flex flex-col items-center text-center gap-2.5 p-4 rounded-xl border-2 border-gray-200 hover:border-gray-300 bg-white transition-all hover:shadow-sm active:scale-[0.98]"
                 >
-                  <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${m.color}`}>
-                    <Icon className="h-[18px] w-[18px]" />
+                  <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${m.color}`}>
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{m.label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 leading-snug">{m.desc}</p>
+                    <p className="text-xs font-semibold text-gray-800 leading-tight">{m.label}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{m.desc}</p>
                   </div>
                 </button>
               )
             })}
-          </div>
-        )}
-
-        {/* ── Link ── */}
-        {mode === 'link' && (
-          <div className="space-y-4 py-1">
-            <div className="space-y-1.5">
-              <Label>Titel <span className="text-red-500">*</span></Label>
-              <Input
-                value={linkTitle}
-                onChange={e => setLinkTitle(e.target.value)}
-                placeholder="z.B. Zeugnis 2023, Lebenslauf"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Link <span className="text-red-500">*</span></Label>
-              <Input
-                value={linkUrl}
-                onChange={e => setLinkUrl(e.target.value)}
-                placeholder="https://drive.google.com/..."
-                type="url"
-              />
-              {(linkUrl.includes('drive.google.com') || linkUrl.includes('docs.google.com') || linkUrl.includes('dropbox.com')) && (
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
-                  <span className="shrink-0 mt-0.5">ℹ</span>
-                  Externe Links können nur <strong>eingesehen</strong>, aber nicht digital ausgefüllt oder signiert werden. Für ausfüllbare Dokumente bitte die Datei hochladen.
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2 justify-end pt-1">
-              <Button variant="outline" onClick={onClose}>Abbrechen</Button>
-              <Button
-                onClick={handleSaveLink}
-                disabled={!linkTitle.trim() || !linkUrl.trim() || savingLink}
-                className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
-              >
-                {savingLink ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                Speichern
-              </Button>
-            </div>
           </div>
         )}
 

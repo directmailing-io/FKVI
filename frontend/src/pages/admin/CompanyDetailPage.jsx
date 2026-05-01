@@ -1003,7 +1003,7 @@ export default function CompanyDetailPage() {
 
                   const iconBg = isCvRef ? 'bg-teal-50' : isSendRef ? 'bg-green-50' : 'bg-blue-50'
 
-                  const subtitle = doc.description || (isSendRef ? 'Signiertes Dokument (FK)' : isCvRef ? 'Lebenslauf (FK)' : doc.doc_type === 'upload' ? 'Hochgeladen' : 'Externer Link')
+                  const subtitle = doc.description || (isSendRef ? 'Signiertes Dokument (FK)' : isCvRef ? 'Lebenslauf (FK)' : 'Hochgeladen')
 
                   return (
                     <div

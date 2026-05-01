@@ -595,9 +595,6 @@ function DocEditDialog({ doc, onSave, onClose }) {
               </Select>
             </Field>
           </div>
-          <Field label="Link (Google Drive, Dropbox, o.ä.)" required>
-            <Input value={form.link} onChange={e => set('link', e.target.value)} placeholder="https://drive.google.com/..." type="url" />
-          </Field>
           <Field label="Beschreibung">
             <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Kurze Beschreibung (optional)..." rows={2} />
           </Field>
@@ -616,7 +613,7 @@ function DocEditDialog({ doc, onSave, onClose }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Abbrechen</Button>
-          <Button onClick={() => onSave(form)} disabled={!form.link?.trim()}>
+          <Button onClick={() => onSave(form)} disabled={!form.title?.trim()}>
             <Save className="h-3.5 w-3.5 mr-1.5" />Speichern
           </Button>
         </DialogFooter>
@@ -2550,7 +2547,7 @@ export default function ProfileForm() {
                     ? <span className="text-amber-600">{pendingSend.status === 'opened' ? 'Geöffnet, noch nicht ausgefüllt' : 'Versendet, noch ausstehend'}</span>
                     : isSendRef
                     ? <span className="text-green-600">Signiertes Dokument</span>
-                    : doc.description || (doc.doc_type === 'upload' ? 'Hochgeladen' : doc.doc_type === 'template' ? 'Vorlage' : 'Externer Link')
+                    : doc.description || (doc.doc_type === 'template' ? 'Vorlage' : 'Hochgeladen')
 
                   // Build tooltip content
                   const childSend = signedSend?.child_send || null
