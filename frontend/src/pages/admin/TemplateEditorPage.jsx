@@ -19,10 +19,22 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FIELD_TYPES = [
-  { key: 'text',      label: 'Text',        icon: Type,        border: 'border-blue-500',   bg: 'bg-blue-50',   text: 'text-blue-700',   ring: 'ring-blue-400'   },
-  { key: 'checkbox',  label: 'Checkbox',    icon: CheckSquare, border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400' },
-  { key: 'signature', label: 'Unterschrift', icon: PenLine,    border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400' },
-  { key: 'date',      label: 'Datum',       icon: Calendar,    border: 'border-green-500',  bg: 'bg-green-50',  text: 'text-green-700',  ring: 'ring-green-400'  },
+  { key: 'text', label: 'Text', icon: Type,
+    fachkraft:   { border: 'border-blue-500',   bg: 'bg-blue-50',   text: 'text-blue-700',   ring: 'ring-blue-400',   labelBorder: 'border-blue-200',   labelIcon: 'text-blue-500',   labelText: 'text-blue-600'   },
+    unternehmen: { border: 'border-indigo-500', bg: 'bg-indigo-50', text: 'text-indigo-700', ring: 'ring-indigo-400', labelBorder: 'border-indigo-200', labelIcon: 'text-indigo-500', labelText: 'text-indigo-600' },
+  },
+  { key: 'checkbox', label: 'Checkbox', icon: CheckSquare,
+    fachkraft:   { border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400', labelBorder: 'border-orange-200', labelIcon: 'text-orange-500', labelText: 'text-orange-600', dashedSelected: 'border-orange-500 bg-orange-50/50', dashedNormal: 'border-orange-300 bg-orange-50/20 hover:bg-orange-50/40', optionSelected: 'border-orange-500 bg-orange-100', optionNormal: 'border-orange-300 bg-orange-50 hover:bg-orange-100', optionInner: 'border-orange-400', optionLabel: 'text-orange-600' },
+    unternehmen: { border: 'border-amber-500',  bg: 'bg-amber-50',  text: 'text-amber-700',  ring: 'ring-amber-400',  labelBorder: 'border-amber-200',  labelIcon: 'text-amber-500',  labelText: 'text-amber-600',  dashedSelected: 'border-amber-500 bg-amber-50/50',  dashedNormal: 'border-amber-300 bg-amber-50/20 hover:bg-amber-50/40',  optionSelected: 'border-amber-500 bg-amber-100',  optionNormal: 'border-amber-300 bg-amber-50 hover:bg-amber-100',  optionInner: 'border-amber-400',  optionLabel: 'text-amber-600'  },
+  },
+  { key: 'signature', label: 'Unterschrift', icon: PenLine,
+    fachkraft:   { border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400', labelBorder: 'border-purple-200', labelIcon: 'text-purple-500', labelText: 'text-purple-600' },
+    unternehmen: { border: 'border-violet-500', bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-400', labelBorder: 'border-violet-200', labelIcon: 'text-violet-500', labelText: 'text-violet-600' },
+  },
+  { key: 'date', label: 'Datum', icon: Calendar,
+    fachkraft:   { border: 'border-green-500',  bg: 'bg-green-50',  text: 'text-green-700',  ring: 'ring-green-400',  labelBorder: 'border-green-200',  labelIcon: 'text-green-500',  labelText: 'text-green-600'  },
+    unternehmen: { border: 'border-teal-500',   bg: 'bg-teal-50',   text: 'text-teal-700',   ring: 'ring-teal-400',   labelBorder: 'border-teal-200',   labelIcon: 'text-teal-500',   labelText: 'text-teal-600'   },
+  },
 ]
 
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
@@ -70,7 +82,11 @@ const PREFILL_GROUPS = [
   { group: '📅 Allgemein', options: [{ value: 'today', label: 'Heutiges Datum' }, { value: 'signer.name', label: 'Unterzeichner Name' }] },
 ]
 
-function cfg(type) { return FIELD_TYPE_MAP[type] || FIELD_TYPES[0] }
+function cfg(type, audience = 'fachkraft') {
+  const t = FIELD_TYPE_MAP[type] || FIELD_TYPES[0]
+  const colors = t[audience] || t.fachkraft
+  return { ...colors, icon: t.icon, label: t.label, key: t.key }
+}
 
 // ─── Inline naming popup (Portal) ─────────────────────────────────────────────
 // Appears directly on-canvas after field is drawn, pre-focused
@@ -157,7 +173,7 @@ function OptionNamePopup({ x, y, label, onChange, onDone }) {
 // ─── Field overlay on canvas ──────────────────────────────────────────────────
 
 function FieldOverlay({ field, isSelected, onClick, onDelete }) {
-  const c = cfg(field.type)
+  const c = cfg(field.type, field.audience)
   const Icon = c.icon
 
   const style = {
@@ -173,12 +189,12 @@ function FieldOverlay({ field, isSelected, onClick, onDelete }) {
         style={style}
         onClick={e => { e.stopPropagation(); onClick(field.id) }}
         className={`cursor-pointer border-2 border-dashed rounded transition-all ${
-          isSelected ? 'border-orange-500 bg-orange-50/50' : 'border-orange-300 bg-orange-50/20 hover:bg-orange-50/40'
+          isSelected ? c.dashedSelected : c.dashedNormal
         }`}
       >
-        <div className="absolute -top-5 left-0 flex items-center gap-1 bg-white/90 rounded px-1.5 py-0.5 border border-orange-200 shadow-sm">
-          <Icon className="h-2.5 w-2.5 text-orange-500 shrink-0" />
-          <span className="text-[9px] font-semibold text-orange-600 whitespace-nowrap truncate max-w-[100px]">
+        <div className={`absolute -top-5 left-0 flex items-center gap-1 bg-white/90 rounded px-1.5 py-0.5 border ${c.labelBorder} shadow-sm`}>
+          <Icon className={`h-2.5 w-2.5 ${c.labelIcon} shrink-0`} />
+          <span className={`text-[9px] font-semibold ${c.labelText} whitespace-nowrap truncate max-w-[100px]`}>
             {field.label || 'Checkbox-Gruppe'}
           </span>
         </div>
@@ -204,12 +220,6 @@ function FieldOverlay({ field, isSelected, onClick, onDelete }) {
         <Icon className="h-3 w-3 shrink-0 opacity-60" />
         {field.label && <span className="text-[10px] font-medium truncate leading-none">{field.label}</span>}
       </div>
-      {/* Audience badge — only for Unternehmen fields */}
-      {field.audience === 'unternehmen' && (
-        <span className="absolute -bottom-0.5 -right-0.5 text-[7px] font-bold px-0.5 rounded leading-none bg-emerald-500 text-white">
-          UN
-        </span>
-      )}
       {isSelected && (
         <button
           onClick={e => { e.stopPropagation(); onDelete(field.id) }}
@@ -223,6 +233,7 @@ function FieldOverlay({ field, isSelected, onClick, onDelete }) {
 // ─── Option marker (positioned checkbox option on canvas) ─────────────────────
 
 function OptionMarker({ option, field, isGroupSelected, onClick }) {
+  const c = cfg(field.type, field.audience)
   return (
     <div
       style={{
@@ -233,13 +244,13 @@ function OptionMarker({ option, field, isGroupSelected, onClick }) {
       }}
       onClick={e => { e.stopPropagation(); onClick(field.id) }}
       className={`cursor-pointer border-2 rounded flex items-center justify-center transition-all ${
-        isGroupSelected ? 'border-orange-500 bg-orange-100' : 'border-orange-300 bg-orange-50 hover:bg-orange-100'
+        isGroupSelected ? c.optionSelected : c.optionNormal
       }`}
       title={option.label}
     >
-      <div className={`w-3/5 h-3/5 border-2 border-orange-400 bg-white ${field.multiple ? 'rounded-sm' : 'rounded-full'}`} />
+      <div className={`w-3/5 h-3/5 border-2 ${c.optionInner} bg-white ${field.multiple ? 'rounded-sm' : 'rounded-full'}`} />
       {option.label && (
-        <span className="absolute -bottom-4 left-0 text-[8px] text-orange-600 whitespace-nowrap bg-white/80 px-0.5 rounded">
+        <span className={`absolute -bottom-4 left-0 text-[8px] ${c.optionLabel} whitespace-nowrap bg-white/80 px-0.5 rounded`}>
           {option.label}
         </span>
       )}
@@ -259,9 +270,9 @@ function FieldProperties({ field, onChange, onDelete }) {
     )
   }
 
-  const c = cfg(field.type)
-  const Icon = c.icon
   const audience = field.audience || 'fachkraft'
+  const c = cfg(field.type, audience)
+  const Icon = c.icon
   const prefillOptions = audience === 'unternehmen' ? PREFILL_UNTERNEHMEN : PREFILL_FACHKRAFT
   const prefillActive = !!(field.prefillKey)
 
@@ -924,7 +935,7 @@ export default function TemplateEditorPage() {
                 ) : (
                   <ul className="space-y-0.5">
                     {fields.map((f, i) => {
-                      const c = cfg(f.type)
+                      const c = cfg(f.type, f.audience)
                       const Icon = c.icon
                       return (
                         <li key={f.id}>
