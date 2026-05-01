@@ -513,7 +513,7 @@ export default function DemoPage() {
 
           {/* ── Real profile cards ───────────────────────────────────── */}
           {loading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <Skeleton className="h-44 rounded-none" />
@@ -527,7 +527,7 @@ export default function DemoPage() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {profiles.map(profile => (
                 <ProfileCard
                   key={profile.id}
@@ -557,7 +557,7 @@ export default function DemoPage() {
                 style={{ maxHeight: '190px' }}
                 aria-hidden="true"
               >
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pointer-events-none select-none">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 pointer-events-none select-none">
                   {DUMMY_PROFILES.map(p => (
                     <DummyCard key={p.id} profile={p} />
                   ))}
