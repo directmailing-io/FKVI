@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Upload, FileText, Building2, User, ChevronLeft, Loader2, Check, Search, X } from 'lucide-react'
+import { Upload, FileText, Building2, User, ChevronLeft, Loader2, Check, Search, X, Eye, PenLine } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const MODES = [
@@ -55,6 +55,10 @@ export default function AddDocumentModal({
   const [uploading, setUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const fileInputRef = useRef(null)
+
+  // Post-upload: choose view mode
+  const [uploadedDoc, setUploadedDoc] = useState(null) // { title, downloadUrl }
+  const [convertingToTemplate, setConvertingToTemplate] = useState(false)
 
   // Template picker
   const [templates, setTemplates] = useState([])
@@ -165,18 +169,54 @@ export default function AddDocumentModal({
       }
       const { downloadUrl } = await resolveRes.json()
 
-      onAddDoc({
-        title: uploadTitle.trim() || selectedFile.name,
-        link: downloadUrl,
-        doc_type: 'upload',
-        description: '',
-        is_internal: false,
-      })
-      onClose()
+      setUploadedDoc({ title: uploadTitle.trim() || selectedFile.name, downloadUrl })
     } catch (err) {
       toast({ title: 'Upload fehlgeschlagen', description: err.message, variant: 'destructive' })
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleSaveAsView = () => {
+    onAddDoc({
+      title: uploadedDoc.title,
+      link: uploadedDoc.downloadUrl,
+      doc_type: 'upload',
+      description: '',
+      is_internal: false,
+    })
+    onClose()
+  }
+
+  const handleConvertToTemplate = async () => {
+    setConvertingToTemplate(true)
+    try {
+      const res = await fetch('/api/admin/profile-docs/to-template', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ sourceUrl: uploadedDoc.downloadUrl, title: uploadedDoc.title }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Konvertierung fehlgeschlagen')
+      }
+      const { templateId } = await res.json()
+      onAddDoc({
+        title: uploadedDoc.title,
+        link: `template:${templateId}`,
+        doc_type: 'template',
+        description: '',
+        is_internal: false,
+      })
+      onClose()
+      window.open(`/admin/dokumente/editor/${templateId}`, '_blank')
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setConvertingToTemplate(false)
     }
   }
 
@@ -266,21 +306,25 @@ export default function AddDocumentModal({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            {mode && (
+            {(mode || uploadedDoc) && (
               <button
-                onClick={() => setMode(null)}
+                onClick={() => { if (uploadedDoc) { setUploadedDoc(null) } else { setMode(null) } }}
                 className="p-1 rounded-lg hover:bg-gray-100 transition-colors mr-1"
               >
                 <ChevronLeft className="h-4 w-4 text-gray-500" />
               </button>
             )}
-            {mode ? (MODES.find(m => m.id === mode)?.label ?? 'Dokument hinzufügen') : 'Dokument hinzufügen'}
+            {uploadedDoc
+              ? 'Verwendungszweck'
+              : mode
+                ? (MODES.find(m => m.id === mode)?.label ?? 'Dokument hinzufügen')
+                : 'Dokument hinzufügen'}
           </DialogTitle>
         </DialogHeader>
 
-        {/* ── Auswahl: 3 Karten nebeneinander ── */}
-        {!mode && (
-          <div className="grid grid-cols-3 gap-2.5 py-1">
+        {/* ── Auswahl: vertikale Liste ── */}
+        {!mode && !uploadedDoc && (
+          <div className="flex flex-col gap-2 py-1">
             {MODES.filter(m => !m.onlyFor || m.onlyFor === entityType).map(m => {
               const Icon = m.icon
               return (
@@ -288,23 +332,64 @@ export default function AddDocumentModal({
                   key={m.id}
                   type="button"
                   onClick={() => setMode(m.id)}
-                  className="flex flex-col items-center text-center gap-2.5 p-4 rounded-xl border-2 border-gray-200 hover:border-gray-300 bg-white transition-all hover:shadow-sm active:scale-[0.98]"
+                  className="flex items-center gap-4 px-4 py-3.5 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 bg-white text-left transition-all active:scale-[0.99] group"
                 >
-                  <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${m.color}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${m.color}`}>
                     <Icon className="h-5 w-5" />
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-800 leading-tight">{m.label}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{m.desc}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">{m.label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{m.desc}</p>
                   </div>
+                  <ChevronLeft className="h-4 w-4 text-gray-300 rotate-180 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
               )
             })}
           </div>
         )}
 
+        {/* ── Post-upload: Verwendungszweck ── */}
+        {uploadedDoc && (
+          <div className="space-y-3 py-1">
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm mb-1">
+              <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+              <span className="font-medium text-blue-800 truncate">{uploadedDoc.title}</span>
+            </div>
+            <p className="text-xs text-gray-500 px-0.5">Wie soll das Dokument verwendet werden?</p>
+            <button
+              type="button"
+              onClick={handleSaveAsView}
+              className="flex items-center gap-4 w-full px-4 py-3.5 rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 bg-white text-left transition-all active:scale-[0.99] group"
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-blue-50 text-blue-600">
+                <Eye className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800">Nur ansehen</p>
+                <p className="text-xs text-gray-400 mt-0.5">Dokument zum Lesen & Herunterladen</p>
+              </div>
+              <ChevronLeft className="h-4 w-4 text-gray-300 rotate-180 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+            <button
+              type="button"
+              onClick={handleConvertToTemplate}
+              disabled={convertingToTemplate}
+              className="flex items-center gap-4 w-full px-4 py-3.5 rounded-xl border border-gray-200 hover:border-violet-300 hover:bg-violet-50/40 bg-white text-left transition-all active:scale-[0.99] group disabled:opacity-60 disabled:pointer-events-none"
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-violet-50 text-violet-600">
+                {convertingToTemplate ? <Loader2 className="h-5 w-5 animate-spin" /> : <PenLine className="h-5 w-5" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800">Zum Ausfüllen</p>
+                <p className="text-xs text-gray-400 mt-0.5">Felder definieren — wird als Vorlage gespeichert</p>
+              </div>
+              <ChevronLeft className="h-4 w-4 text-gray-300 rotate-180 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          </div>
+        )}
+
         {/* ── Upload ── */}
-        {mode === 'upload' && (
+        {!uploadedDoc && mode === 'upload' && (
           <div className="space-y-4 py-1">
             <div className="space-y-1.5">
               <Label>Titel</Label>
@@ -351,7 +436,7 @@ export default function AddDocumentModal({
         )}
 
         {/* ── Aus Vorlage ── */}
-        {mode === 'template' && (
+        {!uploadedDoc && mode === 'template' && (
           <div className="space-y-3 py-1">
             {templatesLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -395,7 +480,7 @@ export default function AddDocumentModal({
         )}
 
         {/* ── Aus Fachkraft ── */}
-        {mode === 'fachkraft' && (
+        {!uploadedDoc && mode === 'fachkraft' && (
           <div className="space-y-3 py-1">
             {!selectedFk ? (
               <>
@@ -497,7 +582,7 @@ export default function AddDocumentModal({
         )}
 
         {/* ── Aus Unternehmen ── */}
-        {mode === 'company' && (
+        {!uploadedDoc && mode === 'company' && (
           <div className="space-y-3 py-1">
             {!selectedCompany ? (
               <>
