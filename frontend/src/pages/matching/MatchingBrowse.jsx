@@ -272,7 +272,7 @@ export default function MatchingBrowse() {
           )}
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {[...Array(6)].map((_, i) => (
                 <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <Skeleton className="h-44 rounded-none" />
@@ -298,7 +298,7 @@ export default function MatchingBrowse() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {filtered.map(profile => (
                   <ProfileCard
                     key={profile.id}
