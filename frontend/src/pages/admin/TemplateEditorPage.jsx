@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 
 import { useAuthStore } from '@/store/authStore'
@@ -448,6 +448,8 @@ function computePopupPos(overlayEl, xPct, yPct, wPct, hPct) {
 export default function TemplateEditorPage() {
   const { templateId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
   const { session } = useAuthStore()
 
   const [template, setTemplate] = useState(null)
@@ -692,6 +694,7 @@ export default function TemplateEditorPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Fehler')
       toast({ title: 'Gespeichert', variant: 'success' })
+      if (returnTo) navigate(decodeURIComponent(returnTo))
     } catch (err) { toast({ title: 'Fehler', description: err.message, variant: 'destructive' }) }
     finally { setSaving(false) }
   }
@@ -705,7 +708,7 @@ export default function TemplateEditorPage() {
     <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4 text-gray-500">
       <AlertCircle className="h-10 w-10 text-red-400" />
       <p className="text-sm">{loadError}</p>
-      <Button variant="outline" onClick={() => navigate('/admin/mediathek')}><ArrowLeft className="h-4 w-4 mr-2" />Zurück</Button>
+      <Button variant="outline" onClick={() => navigate(returnTo ? decodeURIComponent(returnTo) : '/admin/mediathek')}><ArrowLeft className="h-4 w-4 mr-2" />Zurück</Button>
     </div>
   )
 
@@ -717,7 +720,7 @@ export default function TemplateEditorPage() {
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => navigate('/admin/mediathek')} className="text-gray-400 hover:text-gray-600">
+          <button onClick={() => navigate(returnTo ? decodeURIComponent(returnTo) : '/admin/mediathek')} className="text-gray-400 hover:text-gray-600">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="min-w-0">

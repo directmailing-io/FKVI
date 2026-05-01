@@ -212,7 +212,8 @@ export default function AddDocumentModal({
         is_internal: false,
       })
       onClose()
-      window.open(`/admin/dokumente/editor/${templateId}`, '_blank')
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search)
+      window.location.href = `/admin/dokumente/editor/${templateId}?returnTo=${returnTo}`
     } catch (err) {
       toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {

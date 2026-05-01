@@ -30,6 +30,7 @@ export default withHandler(async (req, res) => {
     .from('document_templates')
     .select('*')
     .eq('is_active', true)
+    .not('storage_path', 'like', 'from-profile/%')
     .order('created_at', { ascending: false })
 
   if (fetchError) {
