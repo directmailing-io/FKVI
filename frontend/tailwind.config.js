@@ -5,6 +5,10 @@ export default {
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  safelist: [
+    // TemplateEditor: audience-specific field colors (FK = pastel, UN = saturated)
+    { pattern: /^(border|bg|text|ring)-(blue|orange|purple|green)-(50|100|200|300|400|500|600|700|800|900)$/ },
+  ],
   theme: {
     extend: {
       colors: {
