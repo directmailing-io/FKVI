@@ -14,13 +14,36 @@ import {
 import { toast } from '@/hooks/use-toast'
 
 // ── Profile auto-fill map ──────────────────────────────────────────────────
+function fmtDate(val) {
+  if (!val) return ''
+  try { return new Date(val).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
+  catch { return val }
+}
+function fmtBool(val) { return val ? 'Ja' : 'Nein' }
+function fmtEuro(val) {
+  if (!val && val !== 0) return ''
+  return Number(val).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
+}
+
 function buildProfilePrefill(profile) {
   if (!profile) return {}
   const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+  const q = profile.qualifikation || {}
   return {
     'profile.first_name': profile.first_name || '',
     'profile.last_name': profile.last_name || '',
+    'profile.birth_date': fmtDate(profile.birth_date),
     'profile.nationality': profile.nationality || '',
+    'profile.social_security_number': profile.social_security_number || '',
+    'profile.ba_customer_number': profile.ba_customer_number || '',
+    'profile.disability': fmtBool(profile.disability),
+    'profile.aufenthaltstitel': profile.aufenthaltstitel || '',
+    'profile.aufenthaltstitel_bis': fmtDate(profile.aufenthaltstitel_bis),
+    'profile.street': profile.street || '',
+    'profile.house_number': profile.house_number || '',
+    'profile.postal_code': profile.postal_code || '',
+    'profile.city': profile.city || '',
+    'profile.residence_since': fmtDate(profile.residence_since),
     'profile.nursing_education': profile.nursing_education || '',
     'profile.education_duration': profile.education_duration || '',
     'profile.graduation_year': String(profile.graduation_year || ''),
@@ -30,11 +53,10 @@ function buildProfilePrefill(profile) {
     'profile.work_time_preference': profile.work_time_preference || '',
     'profile.marital_status': profile.marital_status || '',
     'profile.children_count': String(profile.children_count ?? ''),
-    'profile.address': profile.address || '',
-    'profile.postal_code': profile.postal_code || '',
-    'profile.city': profile.city || '',
+    // legacy key (keep for backwards compat)
+    'profile.address': [profile.street, profile.house_number].filter(Boolean).join(' '),
     'signer.name': name,
-    today: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    today: fmtDate(new Date().toISOString()),
   }
 }
 
@@ -45,17 +67,44 @@ function buildCompanyPrefill(company) {
   return {
     'company.name': name,
     'company.company_name': name,
+    'company.contact_name': `${company.first_name || ''} ${company.last_name || ''}`.trim(),
     'company.contact_person': `${company.first_name || ''} ${company.last_name || ''}`.trim(),
+    'company.contact_first_name': company.first_name || '',
+    'company.contact_last_name': company.last_name || '',
     'company.first_name': company.first_name || '',
     'company.last_name': company.last_name || '',
     'company.email': company.email || '',
     'company.phone': company.phone || '',
     'company.address': company.address || '',
+    'company.house_number': company.house_number || '',
+    'company.adresszusatz': company.adresszusatz || '',
     'company.postal_code': company.postal_code || '',
     'company.city': company.city || '',
     'company.country': company.country || '',
+    'company.betriebsnummer': company.betriebsnummer || '',
+    'company.ba_kundennummer': company.ba_kundennummer || '',
     'signer.name': name,
-    today: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    today: fmtDate(new Date().toISOString()),
+  }
+}
+
+// ── Vermittlung / Förderfall auto-fill map ────────────────────────────────
+function buildVermittlungPrefill(reservation) {
+  if (!reservation) return {}
+  const av = reservation.arbeitsverhaeltnis || {}
+  const vg = reservation.verguetung || {}
+  const ms = reservation.massnahme || {}
+  return {
+    'vermittlung.beginn': fmtDate(av.beginn),
+    'vermittlung.berufsbezeichnung': av.berufsbezeichnung || '',
+    'vermittlung.stunden_woche': av.stunden_woche ? String(av.stunden_woche) : '',
+    'vermittlung.urlaubstage': av.urlaubstage ? String(av.urlaubstage) : '',
+    'vermittlung.grundgehalt': fmtEuro(vg.grundgehalt),
+    'vermittlung.entgeltgruppe': vg.entgeltgruppe || '',
+    'vermittlung.massnahme_bezeichnung': ms.bezeichnung || '',
+    'vermittlung.massnahme_beginn': fmtDate(ms.beginn),
+    'vermittlung.massnahme_ende': fmtDate(ms.ende),
+    'vermittlung.bildungstraeger': ms.bildungstraeger_name || '',
   }
 }
 
@@ -115,6 +164,7 @@ export default function UnifiedSendDialog({
   entityId,
   profile = null,
   company = null,
+  reservation = null,
   session,
   onClose,
   onSent,
@@ -217,7 +267,10 @@ export default function UnifiedSendDialog({
     setStep('prefill')
     setLoadingPrefill(true)
     const items = []
-    const auto = entityType === 'company' ? buildCompanyPrefill(company) : buildProfilePrefill(profile)
+    const auto = {
+      ...(entityType === 'company' ? buildCompanyPrefill(company) : buildProfilePrefill(profile)),
+      ...buildVermittlungPrefill(reservation),
+    }
 
     for (let i = 0; i < docs.length; i++) {
       if (isSendRef(docs[i])) continue // forward docs skip prefill

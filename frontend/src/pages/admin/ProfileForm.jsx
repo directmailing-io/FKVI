@@ -645,8 +645,13 @@ const EMPTY_PROFILE = {
   fkvi_competency_proof: '', internal_notes: '',
   // CV fields
   birth_date: '', phone: '', contact_email: '',
-  street: '', city: '', postal_code: '', country: 'Deutschland',
+  street: '', house_number: '', city: '', postal_code: '', country: 'Deutschland',
+  residence_since: '',
   work_experience: [], education_history: [], personal_skills: [],
+  // Förderfall fields
+  social_security_number: '', ba_customer_number: '',
+  disability: false, aufenthaltstitel: '', aufenthaltstitel_bis: '',
+  qualifikation: {}, soziales: {},
 }
 
 // ─── ZusageDialog (Step 4) ────────────────────────────────────────────────────
@@ -981,6 +986,8 @@ export default function ProfileForm() {
   }
 
   const set = (field, value) => setProfile(prev => ({ ...prev, [field]: value }))
+  const setQ = (k, v) => setProfile(prev => ({ ...prev, qualifikation: { ...(prev.qualifikation || {}), [k]: v } }))
+  const setS = (k, v) => setProfile(prev => ({ ...prev, soziales: { ...(prev.soziales || {}), [k]: v } }))
 
   // CV helpers — work experience
   const newWorkEntry = () => ({ id: Date.now().toString(), company: '', position: '', department: '', employment_type: 'Vollzeit', start_date: '', end_date: '', is_current: false, description: '' })
@@ -1133,6 +1140,10 @@ export default function ProfileForm() {
         marital_status: nullIfEmpty(profile.marital_status),
         work_time_preference: nullIfEmpty(profile.work_time_preference),
         german_recognition: nullIfEmpty(profile.german_recognition),
+        aufenthaltstitel: nullIfEmpty(profile.aufenthaltstitel),
+        birth_date: profile.birth_date || null,
+        aufenthaltstitel_bis: profile.aufenthaltstitel_bis || null,
+        residence_since: profile.residence_since || null,
       }
       delete payload.id
       delete payload.created_at
@@ -1911,9 +1922,16 @@ export default function ProfileForm() {
                 </Field>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Straße & Hausnummer">
-                  <Input value={profile.street || ''} onChange={e => set('street', e.target.value)} placeholder="Musterstraße 12" />
-                </Field>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <Field label="Straße">
+                      <Input value={profile.street || ''} onChange={e => set('street', e.target.value)} placeholder="Musterstraße" />
+                    </Field>
+                  </div>
+                  <Field label="Hausnummer">
+                    <Input value={profile.house_number || ''} onChange={e => set('house_number', e.target.value)} placeholder="12a" />
+                  </Field>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="PLZ">
                     <Input value={profile.postal_code || ''} onChange={e => set('postal_code', e.target.value)} placeholder="10115" maxLength={10} />
@@ -1923,9 +1941,14 @@ export default function ProfileForm() {
                   </Field>
                 </div>
               </div>
-              <Field label="Land">
-                <Input value={profile.country || ''} onChange={e => set('country', e.target.value)} placeholder="Deutschland" />
-              </Field>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Land">
+                  <Input value={profile.country || ''} onChange={e => set('country', e.target.value)} placeholder="Deutschland" />
+                </Field>
+                <Field label="Wohnsitz seit">
+                  <Input type="date" value={profile.residence_since || ''} onChange={e => set('residence_since', e.target.value)} />
+                </Field>
+              </div>
             </div>
 
             {/* Preferences */}
@@ -2022,6 +2045,130 @@ export default function ProfileForm() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Erweiterte Stammdaten */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Erweiterte Stammdaten</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Rentenversicherungsnummer">
+                  <Input value={profile.social_security_number || ''} onChange={e => set('social_security_number', e.target.value)} placeholder="12 345678 A 001" />
+                </Field>
+                <Field label="Kundennummer BA">
+                  <Input value={profile.ba_customer_number || ''} onChange={e => set('ba_customer_number', e.target.value)} placeholder="Bundesagentur für Arbeit" />
+                </Field>
+                <Field label="Aufenthaltstitel">
+                  <Select value={profile.aufenthaltstitel || ''} onValueChange={v => set('aufenthaltstitel', v)}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unbefristet">Unbefristet</SelectItem>
+                      <SelectItem value="befristet">Befristet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Aufenthaltstitel gültig bis">
+                  <Input type="date" value={profile.aufenthaltstitel_bis || ''} onChange={e => set('aufenthaltstitel_bis', e.target.value)} disabled={profile.aufenthaltstitel !== 'befristet'} />
+                </Field>
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <Switch checked={!!profile.disability} onCheckedChange={v => set('disability', v)} />
+                <Label>Schwerbehinderung (GdB ≥ 50)</Label>
+              </div>
+            </div>
+
+            {/* Qualifikation & Fördervoraussetzungen */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Qualifikation & Fördervoraussetzungen</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Switch checked={!!profile.qualifikation?.berufsabschluss_vorhanden} onCheckedChange={v => setQ('berufsabschluss_vorhanden', v)} />
+                  <Label>Berufsabschluss vorhanden</Label>
+                </div>
+                {profile.qualifikation?.berufsabschluss_vorhanden && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-4 border-l-2 border-gray-100">
+                    <Field label="Berufsbezeichnung / Ausbildungsberuf">
+                      <Input value={profile.qualifikation?.berufsbezeichnung || ''} onChange={e => setQ('berufsbezeichnung', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
+                    </Field>
+                    <Field label="Datum des Zeugnisses">
+                      <Input type="date" value={profile.qualifikation?.zeugnis_datum || ''} onChange={e => setQ('zeugnis_datum', e.target.value)} />
+                    </Field>
+                    <Field label="Ausbildung von">
+                      <Input type="date" value={profile.qualifikation?.ausbildung_von || ''} onChange={e => setQ('ausbildung_von', e.target.value)} />
+                    </Field>
+                    <Field label="Ausbildung bis">
+                      <Input type="date" value={profile.qualifikation?.ausbildung_bis || ''} onChange={e => setQ('ausbildung_bis', e.target.value)} />
+                    </Field>
+                    <div className="sm:col-span-2">
+                      <Field label="Ort des Erwerbs (Hochschule / Ausbildungsstätte)">
+                        <Input value={profile.qualifikation?.ausbildungseinrichtung || ''} onChange={e => setQ('ausbildungseinrichtung', e.target.value)} placeholder="z.B. Philippinen · University of Santo Tomas" />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <Switch checked={!!profile.qualifikation?.hochschulabschluss_vorhanden} onCheckedChange={v => setQ('hochschulabschluss_vorhanden', v)} />
+                  <Label>Hochschulabschluss vorhanden</Label>
+                </div>
+                {profile.qualifikation?.hochschulabschluss_vorhanden && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-4 border-l-2 border-gray-100">
+                    <div className="sm:col-span-2">
+                      <Field label="Studiengang / Bezeichnung">
+                        <Input value={profile.qualifikation?.studiengang || ''} onChange={e => setQ('studiengang', e.target.value)} placeholder="z.B. Bachelor of Science in Nursing" />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <Field label="Art des Anerkennungsnachweises">
+                      <Input value={profile.qualifikation?.anerkennungsnachweis || ''} onChange={e => setQ('anerkennungsnachweis', e.target.value)} placeholder="z.B. Gleichwertigkeitsbescheid" />
+                    </Field>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 pt-6">
+                      <Switch checked={!!profile.qualifikation?.im_erlernten_beruf_taetig} onCheckedChange={v => setQ('im_erlernten_beruf_taetig', v)} />
+                      <Label>Im erlernten Beruf tätig</Label>
+                    </div>
+                  </div>
+                </div>
+
+                {!profile.qualifikation?.im_erlernten_beruf_taetig && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-4 border-l-2 border-gray-100">
+                    <Field label="In an-/ungelernter Tätigkeit seit">
+                      <Input type="date" value={profile.qualifikation?.ungelernt_seit || ''} onChange={e => setQ('ungelernt_seit', e.target.value)} />
+                    </Field>
+                    <div className="flex items-center gap-3 pt-6">
+                      <Switch checked={!!profile.qualifikation?.mehr_4_jahre_ungelernt} onCheckedChange={v => setQ('mehr_4_jahre_ungelernt', v)} />
+                      <Label>Mehr als 4 Jahre in an-/ungelernter Tätigkeit</Label>
+                    </div>
+                  </div>
+                )}
+
+                <Field label="Sonstige Qualifikationen / Zertifikate">
+                  <Textarea value={profile.qualifikation?.sonstige || ''} onChange={e => setQ('sonstige', e.target.value)} rows={2} placeholder="Weitere Qualifikationen, Zertifikate, Berufserfahrung..." />
+                </Field>
+              </div>
+            </div>
+
+            {/* Sprachzertifikat & Sozialleistungen */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">Sprachzertifikat & Sozialleistungen</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Switch checked={!!profile.soziales?.sprachzertifikat_vorhanden} onCheckedChange={v => setS('sprachzertifikat_vorhanden', v)} />
+                  <Label>Sprachzertifikat vorhanden</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch checked={!!profile.soziales?.buergergeld_bezug} onCheckedChange={v => setS('buergergeld_bezug', v)} />
+                  <Label>Bürgergeld-Bezug / SGB II</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Switch checked={!!profile.soziales?.bedarfsgemeinschaft} onCheckedChange={v => setS('bedarfsgemeinschaft', v)} />
+                  <Label>Mitglied einer Bedarfsgemeinschaft</Label>
+                </div>
+              </div>
             </div>
 
             {/* Internal Notes */}

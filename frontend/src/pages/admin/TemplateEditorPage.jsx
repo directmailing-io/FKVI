@@ -37,7 +37,18 @@ const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
 const PREFILL_FACHKRAFT = [
   { value: 'profile.first_name',            label: 'Vorname' },
   { value: 'profile.last_name',             label: 'Nachname' },
+  { value: 'profile.birth_date',            label: 'Geburtsdatum' },
   { value: 'profile.nationality',           label: 'Nationalität' },
+  { value: 'profile.social_security_number', label: 'Rentenversicherungsnummer' },
+  { value: 'profile.ba_customer_number',    label: 'Kundennummer BA (Fachkraft)' },
+  { value: 'profile.disability',            label: 'Schwerbehinderung' },
+  { value: 'profile.aufenthaltstitel',      label: 'Aufenthaltstitel' },
+  { value: 'profile.aufenthaltstitel_bis',  label: 'Aufenthaltstitel gültig bis' },
+  { value: 'profile.street',               label: 'Straße' },
+  { value: 'profile.house_number',         label: 'Hausnummer' },
+  { value: 'profile.postal_code',          label: 'PLZ' },
+  { value: 'profile.city',                 label: 'Stadt' },
+  { value: 'profile.residence_since',      label: 'Wohnsitz seit' },
   { value: 'profile.nursing_education',     label: 'Ausbildungsbezeichnung' },
   { value: 'profile.education_duration',    label: 'Ausbildungsdauer' },
   { value: 'profile.graduation_year',       label: 'Abschlussjahr' },
@@ -47,9 +58,6 @@ const PREFILL_FACHKRAFT = [
   { value: 'profile.work_time_preference',  label: 'Arbeitszeitpräferenz' },
   { value: 'profile.marital_status',        label: 'Familienstand' },
   { value: 'profile.children_count',        label: 'Anzahl Kinder' },
-  { value: 'profile.address',               label: 'Straße & Hausnummer' },
-  { value: 'profile.postal_code',           label: 'PLZ' },
-  { value: 'profile.city',                  label: 'Stadt' },
   { value: 'today',                         label: 'Heutiges Datum' },
   { value: 'signer.name',                   label: 'Name Unterzeichner' },
 ]
@@ -61,18 +69,36 @@ const PREFILL_UNTERNEHMEN = [
   { value: 'company.contact_last_name',  label: 'Ansprechpartner Nachname' },
   { value: 'company.email',              label: 'E-Mail' },
   { value: 'company.phone',              label: 'Telefon' },
-  { value: 'company.address',            label: 'Straße & Hausnummer' },
+  { value: 'company.address',            label: 'Straße' },
+  { value: 'company.house_number',       label: 'Hausnummer' },
+  { value: 'company.adresszusatz',       label: 'Adresszusatz' },
   { value: 'company.city',               label: 'Stadt' },
   { value: 'company.postal_code',        label: 'PLZ' },
+  { value: 'company.betriebsnummer',     label: 'Betriebsnummer (BA)' },
+  { value: 'company.ba_kundennummer',    label: 'Kundennummer BA (Unternehmen)' },
   { value: 'today',                      label: 'Heutiges Datum' },
   { value: 'signer.name',                label: 'Name Unterzeichner' },
 ]
 
-// Legacy flat list (kept for backward-compat)
+const PREFILL_VERMITTLUNG = [
+  { value: 'vermittlung.beginn',              label: 'Beginn Arbeitsverhältnis' },
+  { value: 'vermittlung.berufsbezeichnung',   label: 'Berufsbezeichnung' },
+  { value: 'vermittlung.stunden_woche',       label: 'Stunden/Woche' },
+  { value: 'vermittlung.urlaubstage',         label: 'Urlaubstage/Jahr' },
+  { value: 'vermittlung.grundgehalt',         label: 'Grundgehalt (brutto)' },
+  { value: 'vermittlung.entgeltgruppe',       label: 'Entgeltgruppe' },
+  { value: 'vermittlung.massnahme_bezeichnung', label: 'Weiterbildungsmaßnahme' },
+  { value: 'vermittlung.massnahme_beginn',    label: 'Maßnahme Beginn' },
+  { value: 'vermittlung.massnahme_ende',      label: 'Maßnahme Ende' },
+  { value: 'vermittlung.bildungstraeger',     label: 'Bildungsträger' },
+]
+
+// Flat list for field properties panel
 const PREFILL_GROUPS = [
   { group: null, options: [{ value: '', label: 'Kein Vorausfüllen' }] },
   { group: '👤 Fachkraft', options: PREFILL_FACHKRAFT.filter(o => o.value !== 'today' && o.value !== 'signer.name') },
   { group: '🏢 Unternehmen', options: PREFILL_UNTERNEHMEN.filter(o => o.value !== 'today' && o.value !== 'signer.name') },
+  { group: '📋 Vermittlung', options: PREFILL_VERMITTLUNG },
   { group: '📅 Allgemein', options: [{ value: 'today', label: 'Heutiges Datum' }, { value: 'signer.name', label: 'Unterzeichner Name' }] },
 ]
 

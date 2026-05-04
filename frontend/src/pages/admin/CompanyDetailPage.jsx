@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
 import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil, History } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
@@ -250,6 +251,19 @@ export default function CompanyDetailPage() {
       updateField(field, value)
     }
   }
+
+  const updateKlass = (key, value) => {
+    const updated = { ...(company.klassifizierung || {}), [key]: value }
+    updateField('klassifizierung', updated)
+  }
+
+  const handleKlassBlur = (key) => (e) => {
+    const value = e.target.value
+    const current = (company?.klassifizierung || {})[key]
+    if (current !== value) updateKlass(key, value)
+  }
+
+  const handleKlassToggle = (key, value) => updateKlass(key, value)
 
   const handleTypeChange = (value) => {
     updateField('company_type', value)
@@ -622,12 +636,28 @@ export default function CompanyDetailPage() {
 
             {/* Address grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-3 space-y-1.5">
-                <Label className="text-sm text-gray-600">Adresse</Label>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label className="text-sm text-gray-600">Straße</Label>
                 <Input
                   defaultValue={company.address || ''}
                   onBlur={handleBlurSave('address')}
-                  placeholder="Straße und Hausnummer"
+                  placeholder="Straße"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Hausnummer</Label>
+                <Input
+                  defaultValue={company.house_number || ''}
+                  onBlur={handleBlurSave('house_number')}
+                  placeholder="12a"
+                />
+              </div>
+              <div className="sm:col-span-3 space-y-1.5">
+                <Label className="text-sm text-gray-600">Adresszusatz</Label>
+                <Input
+                  defaultValue={company.adresszusatz || ''}
+                  onBlur={handleBlurSave('adresszusatz')}
+                  placeholder="c/o, Etage, Gebäude... (optional)"
                 />
               </div>
               <div className="space-y-1.5">
@@ -644,6 +674,26 @@ export default function CompanyDetailPage() {
                   defaultValue={company.city || ''}
                   onBlur={handleBlurSave('city')}
                   placeholder="Stadt"
+                />
+              </div>
+            </div>
+
+            {/* Betriebskennzahlen */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Betriebsnummer (BA)</Label>
+                <Input
+                  defaultValue={company.betriebsnummer || ''}
+                  onBlur={handleBlurSave('betriebsnummer')}
+                  placeholder="8-stellig"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Kundennummer BA</Label>
+                <Input
+                  defaultValue={company.ba_kundennummer || ''}
+                  onBlur={handleBlurSave('ba_kundennummer')}
+                  placeholder="Optional"
                 />
               </div>
             </div>
@@ -767,6 +817,97 @@ export default function CompanyDetailPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Klassifizierung */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h2 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-gray-400" />Unternehmensgröße / Klassifizierung
+            </h2>
+            <div className="space-y-1.5">
+              <Label className="text-sm text-gray-600">KMU-Kategorie</Label>
+              <Select
+                value={(company.klassifizierung || {}).kmu_kategorie || ''}
+                onValueChange={v => handleKlassToggle('kmu_kategorie', v)}
+              >
+                <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="klein">Klein (bis 49 Mitarbeiter)</SelectItem>
+                  <SelectItem value="mittel">Mittel (50–249 Mitarbeiter)</SelectItem>
+                  <SelectItem value="gross">Groß (ab 250 Mitarbeiter)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Beschäftigte gesamt</Label>
+                <Input
+                  type="number"
+                  defaultValue={(company.klassifizierung || {}).beschaeftigte_gesamt || ''}
+                  onBlur={handleKlassBlur('beschaeftigte_gesamt')}
+                  placeholder="Anzahl"
+                  min="0"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Jahresumsatz (€)</Label>
+                <Input
+                  type="number"
+                  defaultValue={(company.klassifizierung || {}).jahresumsatz || ''}
+                  onBlur={handleKlassBlur('jahresumsatz')}
+                  placeholder="In EUR"
+                  min="0"
+                />
+              </div>
+            </div>
+            <div className="space-y-2 pt-1">
+              <Label className="text-sm text-gray-600">Beschäftigte nach Wochenarbeitszeit (ohne Azubis/GFB)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'az_bis10', label: 'bis 10 Std.' },
+                  { key: 'az_bis20', label: 'bis 20 Std.' },
+                  { key: 'az_bis30', label: 'bis 30 Std.' },
+                  { key: 'az_ueber30', label: 'mehr als 30 Std.' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <Label className="text-xs text-gray-500">{label}</Label>
+                    <Input
+                      type="number"
+                      defaultValue={(company.klassifizierung || {})[key] || ''}
+                      onBlur={handleKlassBlur(key)}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2 pt-1">
+              {[
+                { key: 'betriebsvereinbarung_wb', label: 'Betriebsvereinbarung über berufliche Weiterbildung' },
+                { key: 'tarifvertrag_wb', label: 'Tarifvertrag mit betriebsbezogener Weiterbildung' },
+                { key: 'tarifgebunden', label: 'Tarifgebundenheit nach § 3 / § 5 TVG' },
+                { key: 'gegruendet_24m', label: 'Unternehmen in den letzten 24 Monaten gegründet' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <Switch
+                    checked={!!(company.klassifizierung || {})[key]}
+                    onCheckedChange={v => handleKlassToggle(key, v)}
+                  />
+                  <Label className="text-sm text-gray-600">{label}</Label>
+                </div>
+              ))}
+            </div>
+            {(company.klassifizierung || {}).tarifgebunden && (
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Tarifvertrag (Bezeichnung)</Label>
+                <Input
+                  defaultValue={(company.klassifizierung || {}).tarifvertrag_bezeichnung || ''}
+                  onBlur={handleKlassBlur('tarifvertrag_bezeichnung')}
+                  placeholder="z.B. TVöD, AVR..."
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

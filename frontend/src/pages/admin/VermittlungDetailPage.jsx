@@ -3,15 +3,20 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PROCESS_STATUS_LABELS, formatDateTime } from '@/lib/utils'
+import { PROCESS_STATUS_LABELS, formatDateTime, cn } from '@/lib/utils'
 import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 import {
   ArrowLeft, User, Building2, Mail, Phone, CheckCircle2,
   Circle, Loader2, AlertTriangle, Send, Clock, ChevronRight,
-  ExternalLink, FileText, Upload, X, MailX, MailCheck, FolderOpen
+  ExternalLink, FileText, Upload, X, MailX, MailCheck, FolderOpen,
+  ClipboardList, Save
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -472,6 +477,9 @@ export default function VermittlungDetailPage() {
   const [stopDialog, setStopDialog] = useState(false)
   const [stopping, setStopping] = useState(false)
   const [zusageDialog, setZusageDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState('prozess')
+  const [foerderfall, setFoerderfall] = useState({ arbeitsverhaeltnis: {}, verguetung: {}, massnahme: {}, foerderung: {} })
+  const [savingFF, setSavingFF] = useState(false)
 
   useEffect(() => { fetchData() }, [id])
 
@@ -484,6 +492,7 @@ export default function VermittlungDetailPage() {
           .select(`
             id, process_status, created_at, updated_at,
             profile_id, company_id,
+            arbeitsverhaeltnis, verguetung, massnahme, foerderung,
             profiles (
               id, first_name, last_name, gender, age, nationality,
               profile_image_url, nursing_education,
@@ -503,7 +512,15 @@ export default function VermittlungDetailPage() {
           .order('created_at', { ascending: false }),
       ])
 
-      if (resRes.data) setReservation(resRes.data)
+      if (resRes.data) {
+        setReservation(resRes.data)
+        setFoerderfall({
+          arbeitsverhaeltnis: resRes.data.arbeitsverhaeltnis || {},
+          verguetung: resRes.data.verguetung || {},
+          massnahme: resRes.data.massnahme || {},
+          foerderung: resRes.data.foerderung || {},
+        })
+      }
       setHistory(histRes.data || [])
     } catch {
       // reservation will remain null, showing "not found" state
@@ -594,6 +611,29 @@ export default function VermittlungDetailPage() {
     }
   }
 
+  // ── Förderfall helpers ────────────────────────────────────────────────────
+  const setFF = (section, key, value) =>
+    setFoerderfall(prev => ({ ...prev, [section]: { ...prev[section], [key]: value } }))
+
+  const handleSaveFF = async () => {
+    setSavingFF(true)
+    const { error } = await supabase
+      .from('reservations')
+      .update({
+        arbeitsverhaeltnis: foerderfall.arbeitsverhaeltnis,
+        verguetung: foerderfall.verguetung,
+        massnahme: foerderfall.massnahme,
+        foerderung: foerderfall.foerderung,
+      })
+      .eq('id', id)
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Förderfall gespeichert', variant: 'success' })
+    }
+    setSavingFF(false)
+  }
+
   if (loading) return (
     <div className="space-y-4 max-w-5xl">
       <Skeleton className="h-8 w-64" />
@@ -673,6 +713,312 @@ export default function VermittlungDetailPage() {
           )}
         </div>
 
+        {/* Tab bar */}
+        <div className="flex gap-1 border-b border-gray-200">
+          {[
+            { id: 'prozess', label: 'Prozessübersicht' },
+            { id: 'foerderfall', label: 'Förderfall-Daten' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+                activeTab === tab.id
+                  ? 'border-[#1a3a5c] text-[#1a3a5c]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'foerderfall' && (
+        <div className="space-y-6">
+          <div className="flex justify-end">
+            <Button onClick={handleSaveFF} disabled={savingFF}>
+              {savingFF ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Förderfall speichern</>}
+            </Button>
+          </div>
+
+          {/* Arbeitsverhältnis */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-gray-400" />Daten zum Arbeitsverhältnis
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Beginn des Beschäftigungsverhältnisses</Label>
+                <Input type="date" value={foerderfall.arbeitsverhaeltnis.beginn || ''} onChange={e => setFF('arbeitsverhaeltnis', 'beginn', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Befristung</Label>
+                <Select value={foerderfall.arbeitsverhaeltnis.befristung || ''} onValueChange={v => setFF('arbeitsverhaeltnis', 'befristung', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unbefristet">Unbefristet</SelectItem>
+                    <SelectItem value="befristet">Befristet</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {foerderfall.arbeitsverhaeltnis.befristung === 'befristet' && (
+                <div className="space-y-1.5">
+                  <Label>Ende der Befristung</Label>
+                  <Input type="date" value={foerderfall.arbeitsverhaeltnis.befristung_bis || ''} onChange={e => setFF('arbeitsverhaeltnis', 'befristung_bis', e.target.value)} />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>Berufsbezeichnung / Branche</Label>
+                <Input value={foerderfall.arbeitsverhaeltnis.berufsbezeichnung || ''} onChange={e => setFF('arbeitsverhaeltnis', 'berufsbezeichnung', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Arbeitszeit-Art</Label>
+                <Select value={foerderfall.arbeitsverhaeltnis.arbeitszeit_art || ''} onValueChange={v => setFF('arbeitsverhaeltnis', 'arbeitszeit_art', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vollzeit">Vollzeit</SelectItem>
+                    <SelectItem value="teilzeit">Teilzeit</SelectItem>
+                    <SelectItem value="geringfuegig">Geringfügig</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Stunden pro Woche</Label>
+                <Input type="number" value={foerderfall.arbeitsverhaeltnis.stunden_woche || ''} onChange={e => setFF('arbeitsverhaeltnis', 'stunden_woche', e.target.value)} placeholder="z.B. 40" min="0" max="60" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Stunden pro Monat</Label>
+                <Input type="number" value={foerderfall.arbeitsverhaeltnis.stunden_monat || ''} onChange={e => setFF('arbeitsverhaeltnis', 'stunden_monat', e.target.value)} placeholder="z.B. 174" min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Urlaubsanspruch (Arbeitstage/Jahr)</Label>
+                <Input type="number" value={foerderfall.arbeitsverhaeltnis.urlaubstage || ''} onChange={e => setFF('arbeitsverhaeltnis', 'urlaubstage', e.target.value)} placeholder="z.B. 28" min="0" max="50" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Arbeitsort</Label>
+                <Select value={foerderfall.arbeitsverhaeltnis.arbeitsort || ''} onValueChange={v => setFF('arbeitsverhaeltnis', 'arbeitsort', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="arbeitgebersitz">Entspricht Arbeitgebersitz</SelectItem>
+                    <SelectItem value="wechselnd">Wechselnd</SelectItem>
+                    <SelectItem value="abweichend">Abweichende Adresse</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              {[
+                { key: 'sv_pflichtig', label: 'Sozialversicherungspflichtiges Arbeitsverhältnis' },
+                { key: 'sv_pflicht_de', label: 'SV-Pflicht in Deutschland' },
+                { key: 'arbeitnehmerueberlassung', label: 'Arbeitnehmerüberlassung' },
+                { key: 'ueberstundenpflicht', label: 'Überstundenpflicht' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.arbeitsverhaeltnis[key]} onCheckedChange={v => setFF('arbeitsverhaeltnis', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Vergütung */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Vergütung</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Grundgehalt brutto (€)</Label>
+                <Input type="number" value={foerderfall.verguetung.grundgehalt || ''} onChange={e => setFF('verguetung', 'grundgehalt', e.target.value)} placeholder="z.B. 3200" min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Einheit</Label>
+                <Select value={foerderfall.verguetung.grundgehalt_einheit || ''} onValueChange={v => setFF('verguetung', 'grundgehalt_einheit', v)}>
+                  <SelectTrigger><SelectValue placeholder="pro..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monat">pro Monat</SelectItem>
+                    <SelectItem value="stunde">pro Stunde</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Entgeltart</Label>
+                <Select value={foerderfall.verguetung.entgeltart || ''} onValueChange={v => setFF('verguetung', 'entgeltart', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tariflich">Tariflich</SelectItem>
+                    <SelectItem value="ortsuesblich">Ortsüblich</SelectItem>
+                    <SelectItem value="frei">Frei verhandelt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Entgeltgruppe (bei Tarifbindung)</Label>
+                <Input value={foerderfall.verguetung.entgeltgruppe || ''} onChange={e => setFF('verguetung', 'entgeltgruppe', e.target.value)} placeholder="z.B. P8 TVöD" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Weitere Gehaltsbestandteile</Label>
+                <Input value={foerderfall.verguetung.weitere_bestandteile || ''} onChange={e => setFF('verguetung', 'weitere_bestandteile', e.target.value)} placeholder="z.B. Zulagen, Boni (Bezeichnung + Betrag)" />
+              </div>
+            </div>
+          </div>
+
+          {/* Weiterbildungsmaßnahme */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Weiterbildungsmaßnahme</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Maßnahmeziel / Bezeichnung der Weiterbildung</Label>
+                <Input value={foerderfall.massnahme.bezeichnung || ''} onChange={e => setFF('massnahme', 'bezeichnung', e.target.value)} placeholder="z.B. Anpassungsqualifizierung Pflegefachkraft" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Maßnahmenummer</Label>
+                <Input value={foerderfall.massnahme.massnahmenummer || ''} onChange={e => setFF('massnahme', 'massnahmenummer', e.target.value)} placeholder="123/45678/2023" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Bildungsgutscheinnummer</Label>
+                <Input value={foerderfall.massnahme.bildungsgutschein_nr || ''} onChange={e => setFF('massnahme', 'bildungsgutschein_nr', e.target.value)} placeholder="123A456789-01 (optional)" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Beginn</Label>
+                <Input type="date" value={foerderfall.massnahme.beginn || ''} onChange={e => setFF('massnahme', 'beginn', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Voraussichtliches Ende</Label>
+                <Input type="date" value={foerderfall.massnahme.ende || ''} onChange={e => setFF('massnahme', 'ende', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Umfang (Zeitstunden)</Label>
+                <Input type="number" value={foerderfall.massnahme.zeitstunden || ''} onChange={e => setFF('massnahme', 'zeitstunden', e.target.value)} placeholder="z.B. 160" min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Freistellungsstunden</Label>
+                <Input type="number" value={foerderfall.massnahme.freistellungsstunden || ''} onChange={e => setFF('massnahme', 'freistellungsstunden', e.target.value)} placeholder="Stunden während Weiterbildung" min="0" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Bildungsträger (Name)</Label>
+                <Input value={foerderfall.massnahme.bildungstraeger_name || ''} onChange={e => setFF('massnahme', 'bildungstraeger_name', e.target.value)} placeholder="Name des Maßnahmeträgers" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Bildungsträger (Adresse)</Label>
+                <Input value={foerderfall.massnahme.bildungstraeger_adresse || ''} onChange={e => setFF('massnahme', 'bildungstraeger_adresse', e.target.value)} placeholder="Straße, PLZ, Ort" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              {[
+                { key: 'azav_zugelassen', label: 'AZAV-zugelassen' },
+                { key: 'dauer_gt120h', label: 'Dauer > 120 Stunden' },
+                { key: 'ueber_anpassung', label: 'Vermittelt Inhalte über Anpassungsfortbildung hinaus' },
+                { key: 'fuehrt_zu_abschluss', label: 'Führt zu Berufsabschluss (≥ 2-jährige Ausbildung)' },
+                { key: 'verzicht_bildungsgutschein', label: 'Verzicht auf Bildungsgutschein' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.massnahme[key]} onCheckedChange={v => setFF('massnahme', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Anerkennungsverfahren */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Anerkennungsverfahren (Drittstaatsangehörige)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Art des Verfahrens</Label>
+                <Select value={foerderfall.massnahme.anerk_art || ''} onValueChange={v => setFF('massnahme', 'anerk_art', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="betriebliche_quali">Betriebliche Qualifizierung</SelectItem>
+                    <SelectItem value="beschaeftigung_neben">Beschäftigung neben Qualifizierung</SelectItem>
+                    <SelectItem value="anerkennungspartnerschaft">Anerkennungspartnerschaft</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Antragsart</Label>
+                <Select value={foerderfall.massnahme.anerk_antragsart || ''} onValueChange={v => setFF('massnahme', 'anerk_antragsart', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gleichwertigkeit">Gleichwertigkeit</SelectItem>
+                    <SelectItem value="berufsausuebungserlaubnis">Berufsausübungserlaubnis</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Name der Anerkennungsbehörde</Label>
+                <Input value={foerderfall.massnahme.anerk_behoerde_name || ''} onChange={e => setFF('massnahme', 'anerk_behoerde_name', e.target.value)} placeholder="z.B. Regierungspräsidium Stuttgart" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Adresse Anerkennungsbehörde</Label>
+                <Input value={foerderfall.massnahme.anerk_behoerde_adresse || ''} onChange={e => setFF('massnahme', 'anerk_behoerde_adresse', e.target.value)} placeholder="Straße, PLZ, Ort" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Zielberuf nach Anerkennung</Label>
+                <Input value={foerderfall.massnahme.anerk_zielberuf || ''} onChange={e => setFF('massnahme', 'anerk_zielberuf', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Zeitraum Nachqualifizierung von</Label>
+                <Input type="date" value={foerderfall.massnahme.anerk_nachquali_von || ''} onChange={e => setFF('massnahme', 'anerk_nachquali_von', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Zeitraum Nachqualifizierung bis</Label>
+                <Input type="date" value={foerderfall.massnahme.anerk_nachquali_bis || ''} onChange={e => setFF('massnahme', 'anerk_nachquali_bis', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              {[
+                { key: 'anerk_unterschiede', label: 'Wesentliche Unterschiede festgestellt' },
+                { key: 'anerk_ausgleich_erforderlich', label: 'Ausgleichsmaßnahmen erforderlich' },
+                { key: 'anerk_teilbescheid', label: '(Teil-)Anerkennungsbescheid liegt vor' },
+                { key: 'anerk_berufserlaubnis_erforderlich', label: 'Berufsausübungserlaubnis erforderlich' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.massnahme[key]} onCheckedChange={v => setFF('massnahme', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Förderungs- / Antragsdaten */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Förderungs- / Antragsdaten</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { key: 'transferkug', label: 'Anspruch auf Transferkurzarbeitergeld' },
+                { key: 'kug_beantragt', label: 'Kurzarbeitergeld beantragt' },
+                { key: 'eingliederungszuschuss', label: 'Eingliederungszuschuss beantragt' },
+                { key: 'zuschuss_andere_stelle', label: 'Zuschuss von anderer Stelle' },
+                { key: 'zuwendungen_dritter', label: 'Zuwendungen Dritter zu Weiterbildungskosten' },
+                { key: 'bundesrechtl_verpflichtung', label: 'Bundes-/landesrechtliche Verpflichtung zur Weiterbildung' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.foerderung[key]} onCheckedChange={v => setFF('foerderung', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+            {foerderfall.foerderung.zuschuss_andere_stelle && (
+              <div className="space-y-1.5">
+                <Label>Stellenbezeichnung (andere Stelle)</Label>
+                <Input value={foerderfall.foerderung.zuschuss_andere_stelle_bezeichnung || ''} onChange={e => setFF('foerderung', 'zuschuss_andere_stelle_bezeichnung', e.target.value)} placeholder="Bezeichnung der anderen Stelle" />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>Anspruch gegenüber anderer öffentl.-rechtl. Stelle</Label>
+              <Input value={foerderfall.foerderung.anspruch_oeffentlich || ''} onChange={e => setFF('foerderung', 'anspruch_oeffentlich', e.target.value)} placeholder="z.B. Rentenversicherung / Stelle + Aktenzeichen (optional)" />
+            </div>
+          </div>
+
+          <div className="flex justify-end pb-4">
+            <Button onClick={handleSaveFF} disabled={savingFF}>
+              {savingFF ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Förderfall speichern</>}
+            </Button>
+          </div>
+        </div>
+        )}
+
+        {activeTab === 'prozess' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Left: Info + History ────────────────────────────────────── */}
@@ -847,6 +1193,8 @@ export default function VermittlungDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
       </div>
 
       {/* Zusage dialog (step 4) */}
