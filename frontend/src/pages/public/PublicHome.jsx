@@ -88,65 +88,100 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundens
   }
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${scrolled || mobileMenuOpen ? 'bg-white shadow-sm' : 'bg-white/95 backdrop-blur-sm'}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-14 w-auto" />
+    <header className="fixed top-0 left-0 right-0 z-50">
 
-        {/* Nav links — desktop */}
-        <nav className="hidden lg:flex items-center gap-7 text-xs font-medium text-gray-600">
-          <button onClick={() => scroll(vorteileRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Vorteile</button>
-          <button onClick={() => scroll(kpassRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Kompetenzpass</button>
-          <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Verfügbare Fachkräfte</button>
-          <button onClick={() => scroll(kundenstimmenRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Praxisberichte</button>
-          <button onClick={() => scroll(prozessRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Ablauf</button>
-          <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching-Plattform</button>
-          <span className="w-px h-4 bg-gray-200" />
-          <Link to="/downloads" className="flex items-center gap-1.5 text-xs font-medium text-fkvi-teal hover:text-fkvi-teal/80 transition-colors whitespace-nowrap border border-fkvi-teal/25 bg-fkvi-teal/5 hover:bg-fkvi-teal/10 rounded-full px-3 py-1">
-            <span>Broschüre</span>
-            <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full leading-none">FACHKRAFT</span>
+      {/* ── Topbar ── */}
+      <div className="hidden md:block bg-fkvi-blue border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-10 flex items-center justify-between">
+          {/* Left: phone + email */}
+          <div className="flex items-center gap-5">
+            <a href="tel:+496980884364" className="flex items-center gap-1.5 text-xs text-white/80 hover:text-white transition-colors">
+              <Phone className="h-3 w-3" />+49 69 8088 4364
+            </a>
+            <span className="w-px h-3 bg-white/20" />
+            <a href="mailto:info@fachkraft-vermittlung.de" className="text-xs text-white/60 hover:text-white/90 transition-colors">
+              info@fachkraft-vermittlung.de
+            </a>
+          </div>
+          {/* Right: CTA */}
+          <Link to="/beratung"
+            className="flex items-center gap-1.5 text-xs font-semibold text-white hover:text-white/90 transition-colors">
+            Gespräch vereinbaren <ArrowRight className="h-3 w-3" />
           </Link>
-        </nav>
-
-        {/* Right */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <a href="tel:+496980884364" className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-fkvi-blue transition-colors">
-            <Phone className="h-4 w-4" />+49 69 8088 4364
-          </a>
-          <Link to="/beratung" className="hidden sm:inline-flex items-center gap-2 bg-fkvi-blue text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fkvi-blue/90 transition-colors whitespace-nowrap">
-            Gespräch vereinbaren
-          </Link>
-          {/* Hamburger */}
-          <button
-            onClick={() => setMobileMenuOpen(o => !o)}
-            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-            aria-label={mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'}
-          >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-gray-100 bg-white shadow-lg">
-          <nav className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-0.5">
-            <button onClick={() => scroll(vorteileRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Vorteile</button>
-            <button onClick={() => scroll(kpassRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Kompetenzpass</button>
-            <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Verfügbare Fachkräfte</button>
-            <button onClick={() => scroll(kundenstimmenRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Praxisberichte</button>
-            <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
-            <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</button>
-            <div className="border-t border-gray-100 my-1" />
-            <a href="tel:+496980884364" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
-              <Phone className="h-4 w-4 text-fkvi-teal" /><span>+49 69 8088 4364</span>
-            </a>
-            <Link to="/beratung" onClick={() => setMobileMenuOpen(false)} className="sm:hidden mt-1 flex items-center justify-center gap-2 bg-fkvi-blue text-white px-4 py-3 rounded-xl font-semibold text-sm hover:bg-fkvi-blue/90 transition-colors">
-              Gespräch vereinbaren <ArrowRight className="h-4 w-4" />
+      {/* ── Main navbar ── */}
+      <div className={`transition-all duration-200 ${scrolled || mobileMenuOpen ? 'bg-white shadow-sm' : 'bg-white/97 backdrop-blur-sm'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+
+          {/* Logo */}
+          <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-12 w-auto shrink-0" />
+
+          {/* Nav links — desktop */}
+          <nav className="hidden lg:flex items-center gap-1 text-xs font-medium text-gray-600 flex-1 justify-center">
+            {[
+              { label: 'Vorteile',             ref: vorteileRef },
+              { label: 'Kompetenzpass',         ref: kpassRef },
+              { label: 'Fachkräfte-Pool',       ref: poolRef },
+              { label: 'Praxisberichte',        ref: kundenstimmenRef },
+              { label: 'Ablauf',                ref: prozessRef },
+              { label: 'Matching-Plattform',    ref: poolRef },
+            ].map(({ label, ref }) => (
+              <button key={label} onClick={() => scroll(ref)}
+                className="px-3 py-2 rounded-lg hover:bg-gray-50 hover:text-fkvi-blue transition-colors whitespace-nowrap">
+                {label}
+              </button>
+            ))}
+            <span className="w-px h-4 bg-gray-200 mx-1" />
+            <Link to="/downloads"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-fkvi-teal/30 bg-fkvi-teal/5 hover:bg-fkvi-teal/10 text-fkvi-teal transition-colors whitespace-nowrap">
+              <span>Broschüre</span>
+              <span className="text-[8px] font-bold tracking-wider bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full leading-none">FACHKRAFT</span>
             </Link>
           </nav>
+
+          {/* Right: CTA (mobile only — desktop CTA is in topbar) + hamburger */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to="/beratung"
+              className="md:hidden inline-flex items-center gap-1.5 bg-fkvi-blue text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fkvi-blue/90 transition-colors whitespace-nowrap">
+              Gespräch vereinbaren
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(o => !o)}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              aria-label={mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Mobile menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden border-t border-gray-100 bg-white shadow-lg">
+            <nav className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col gap-0.5">
+              <button onClick={() => scroll(vorteileRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Vorteile</button>
+              <button onClick={() => scroll(kpassRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Kompetenzpass</button>
+              <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Fachkräfte-Pool</button>
+              <button onClick={() => scroll(kundenstimmenRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Praxisberichte</button>
+              <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
+              <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</button>
+              <div className="border-t border-gray-100 my-1" />
+              <Link to="/downloads" className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-fkvi-teal hover:bg-teal-50 transition-colors">
+                Broschüre <span className="text-[9px] font-bold bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full">FACHKRAFT</span>
+              </Link>
+              <a href="tel:+496980884364" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
+                <Phone className="h-4 w-4 text-fkvi-teal" /><span>+49 69 8088 4364</span>
+              </a>
+              <Link to="/beratung" onClick={() => setMobileMenuOpen(false)} className="mt-1 flex items-center justify-center gap-2 bg-fkvi-blue text-white px-4 py-3 rounded-xl font-semibold text-sm hover:bg-fkvi-blue/90 transition-colors">
+                Gespräch vereinbaren <ArrowRight className="h-4 w-4" />
+              </Link>
+            </nav>
+          </div>
+        )}
+      </div>
+
     </header>
   )
 }
@@ -172,7 +207,7 @@ function HeroSection({ poolRef }) {
   const showFloat = sticky && !dismissed
 
   return (
-    <section className="pt-16 bg-white relative overflow-hidden">
+    <section className="pt-16 md:pt-[104px] bg-white relative overflow-hidden">
       {/* Subtle green ambient glow */}
       <div
         className="pointer-events-none absolute inset-0"
