@@ -511,82 +511,116 @@ function LeistungenSection({ vorteileRef }) {
           </div>
 
           {/* Platform Preview — full bottom row */}
-          <div className="rounded-3xl overflow-hidden flex flex-col sm:flex-row gap-0" style={{ gridArea: 'plat', background: '#0f172a', boxShadow: HERO_SHADOW }}>
+          <div className="rounded-3xl overflow-hidden flex flex-col sm:flex-row gap-0 relative" style={{
+            gridArea: 'plat',
+            background: 'linear-gradient(135deg, #0d1f35 0%, #0f172a 50%, #071a14 100%)',
+            boxShadow: '0 0 0 1px rgba(13,148,136,0.15), 0 8px 40px rgba(13,148,136,0.12), 0 24px 64px rgba(0,0,0,0.25)',
+          }}>
+            {/* Ambient glow blobs */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+              <div style={{ position:'absolute', top:'-20%', left:'10%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle, rgba(13,148,136,0.18) 0%, transparent 70%)', filter:'blur(40px)' }} />
+              <div style={{ position:'absolute', bottom:'-20%', right:'15%', width:250, height:250, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 70%)', filter:'blur(40px)' }} />
+            </div>
 
             {/* Matching-Portal */}
-            <div className="flex-1 p-6 flex flex-col gap-4 border-b sm:border-b-0 sm:border-r border-white/8">
+            <div className="relative flex-1 p-6 flex flex-col gap-3.5 border-b sm:border-b-0 sm:border-r border-white/[0.07] overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-white font-bold text-base leading-tight">Matching-Portal</div>
                   <div className="text-slate-400 text-xs mt-0.5">Kandidaten filtern, vergleichen & auswählen</div>
                 </div>
-                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-emerald-400 bg-emerald-400/10 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Live
+                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                  </span>
+                  Live
                 </span>
               </div>
-              {/* Mini cards */}
-              {[
-                { init:'AK', country:'🇵🇭', job:'Pflegefachkraft (B.Sc.)', exp:'6 J. Intensiv', status:'Verfügbar', sc:'#10b981' },
-                { init:'MR', country:'🇧🇷', job:'Gesundheits- & Krankenpfleger', exp:'9 J. Chirurgie', status:'In Verfahren', sc:'#f59e0b' },
-              ].map((p, i) => (
-                <div key={i} className="flex items-center gap-3 bg-white/6 rounded-xl px-3 py-2.5">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs text-white shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #1a3a5c, #0d9488)' }}>{p.init}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white text-xs font-semibold truncate">{p.job} {p.country}</div>
-                    <div className="text-slate-400 text-[10px]">{p.exp} Erfahrung</div>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-                    style={{ color: p.sc, background: p.sc + '20' }}>{p.status}</span>
+
+              {/* Cards with fade-out gradient — like the Vorleistung card */}
+              <div className="relative overflow-hidden" style={{ maxHeight: 160 }}>
+                <div className="flex flex-col gap-2.5">
+                  {[
+                    { init:'AK', country:'🇵🇭', job:'Pflegefachkraft (B.Sc.)', exp:'6 J. Intensiv', status:'Verfügbar', sc:'#10b981', sglow:'rgba(16,185,129,0.15)' },
+                    { init:'MR', country:'🇧🇷', job:'Gesundheits- & Krankenpfleger', exp:'9 J. Chirurgie', status:'In Verfahren', sc:'#f59e0b', sglow:'rgba(245,158,11,0.12)' },
+                    { init:'FO', country:'🇲🇦', job:'Altenpflegerin (examiniert)', exp:'4 J. Demenz', status:'Verfügbar', sc:'#10b981', sglow:'rgba(16,185,129,0.15)' },
+                  ].map((p, i) => (
+                    <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs text-white shrink-0"
+                        style={{ background: 'linear-gradient(135deg, #1a3a5c, #0d9488)', boxShadow: `0 0 12px ${p.sglow}` }}>{p.init}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-xs font-semibold truncate">{p.job} {p.country}</div>
+                        <div className="text-slate-400 text-[10px]">{p.exp} Erfahrung</div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border"
+                        style={{ color: p.sc, background: p.sc + '18', borderColor: p.sc + '30' }}>{p.status}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <div className="flex items-center gap-2.5 bg-white/4 rounded-xl px-3 py-2 opacity-40">
-                <div className="w-9 h-9 rounded-xl bg-white/10 shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-2 bg-white/15 rounded-full w-3/4" />
-                  <div className="h-1.5 bg-white/10 rounded-full w-1/2" />
-                </div>
+                {/* Fade to transparent — same technique as Vorleistung */}
+                <div style={{
+                  position:'absolute', bottom:0, left:0, right:0, height:72,
+                  background:'linear-gradient(to bottom, transparent 0%, rgba(13,23,42,0.97) 100%)',
+                  pointerEvents:'none',
+                }} />
               </div>
             </div>
 
-            {/* Statustracking */}
-            <div className="flex-1 p-6 flex flex-col gap-4">
+            {/* Live-Statustracking */}
+            <div className="relative flex-1 p-6 flex flex-col gap-3.5">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-white font-bold text-base leading-tight">Live-Statustracking</div>
                   <div className="text-slate-400 text-xs mt-0.5">Immer auf dem Laufenden bleiben.</div>
                 </div>
-                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-blue-400 bg-blue-400/10 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />Echtzeit
+                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-blue-400 bg-blue-400/10 border border-blue-400/20 flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400" />
+                  </span>
+                  Echtzeit
                 </span>
               </div>
-              {/* Progress bar */}
-              <div className="bg-white/6 rounded-xl p-3">
-                <div className="flex items-center justify-between mb-2">
+
+              {/* Progress tracker */}
+              <div className="rounded-xl p-3.5" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
+                <div className="flex items-center justify-between mb-3">
                   <span className="text-white text-xs font-semibold">Amara K.</span>
-                  <span className="text-blue-400 text-[10px] font-bold">Woche 7 / 12</span>
+                  <span className="text-blue-400 text-[10px] font-bold tracking-wide">Woche 7 / 12</span>
                 </div>
-                <div className="flex gap-1 mb-2">
+                <div className="flex gap-1.5 mb-2.5">
                   {[{l:'Matching',d:true},{l:'Behörden',d:true},{l:'Visum',d:false,a:true},{l:'Einreise',d:false}].map((s,i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <div className={`h-1.5 w-full rounded-full ${s.d ? 'bg-fkvi-teal' : s.a ? 'bg-fkvi-teal/50' : 'bg-white/15'}`} />
-                      <span className={`text-[8px] ${s.d||s.a ? 'text-slate-300' : 'text-slate-600'}`}>{s.l}</span>
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                      <div className="h-1.5 w-full rounded-full" style={{
+                        background: s.d ? '#0d9488' : s.a ? 'rgba(13,148,136,0.45)' : 'rgba(255,255,255,0.1)',
+                        boxShadow: s.d ? '0 0 6px rgba(13,148,136,0.5)' : 'none',
+                      }} />
+                      <span className="text-[8px] font-medium" style={{ color: s.d || s.a ? '#94a3b8' : '#475569' }}>{s.l}</span>
                     </div>
                   ))}
                 </div>
               </div>
+
               {/* Events */}
-              {[
-                { msg:'Visumsantrag eingereicht', time:'Heute', color:'#10b981' },
-                { msg:'Botschaftstermin bestätigt', time:'3. Dez.', color:'#3b82f6' },
-                { msg:'Anerkennungsverfahren gestartet', time:'28. Nov.', color:'#8b5cf6' },
-              ].map((ev, i) => (
-                <div key={i} className="flex items-center gap-2.5 bg-white/5 rounded-xl px-3 py-2">
-                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: ev.color }} />
-                  <span className="text-slate-300 text-xs flex-1">{ev.msg}</span>
-                  <span className="text-slate-500 text-[10px] shrink-0">{ev.time}</span>
-                </div>
-              ))}
+              <div className="flex flex-col gap-2">
+                {[
+                  { msg:'Visumsantrag eingereicht', time:'Heute', color:'#10b981', glow:'rgba(16,185,129,0.25)' },
+                  { msg:'Botschaftstermin bestätigt', time:'3. Dez.', color:'#3b82f6', glow:'rgba(59,130,246,0.20)' },
+                  { msg:'Anerkennungsverfahren gestartet', time:'28. Nov.', color:'#8b5cf6', glow:'rgba(139,92,246,0.20)' },
+                ].map((ev, i) => (
+                  <div key={i} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      {i === 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: ev.color }} />}
+                      <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: ev.color, boxShadow: `0 0 6px ${ev.glow}` }} />
+                    </span>
+                    <span className="text-slate-300 text-xs flex-1">{ev.msg}</span>
+                    <span className="text-slate-500 text-[10px] shrink-0">{ev.time}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
           </div>
