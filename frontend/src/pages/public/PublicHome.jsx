@@ -637,26 +637,162 @@ function LeistungenSection({ vorteileRef }) {
           </div>
         </div>
 
-        {/* ── Mobile / Tablet fallback ─────────────────────────────────── */}
-        <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { Icon: Home,       metric: '360°',    color: '#6366f1', bg: 'bg-indigo-50', title: 'Wohnungssuche & Ersteinrichtung', desc: 'Wir finden und richten die Wohnung komplett ein.' },
-            { Icon: Banknote,   metric: '100 %',   color: '#0d9488', bg: 'bg-teal-50', title: 'Vorleistung',                   desc: 'B2-Kurs, Flug, Visum, Einrichtung – alles vorfinanziert.' },
-            { Icon: MapPin,     metric: '2 Tage',  color: '#3b82f6', bg: 'bg-blue-50',    title: 'Vor-Ort-Support',              desc: 'Abholung, Behördengänge und Wohnungsübergabe ab Tag 1.' },
-            { Icon: ShieldCheck,metric: '12 Mo.',  color: '#14b8a6', bg: 'bg-teal-50',    title: 'Ersatzgarantie',               desc: 'Kostenloser Ersatz bei Abgang. Planungssicherheit.' },
-            { Icon: Users,      metric: '90 Tage', color: '#6366f1', bg: 'bg-indigo-50',  title: 'Intensiv-Mentoring',           desc: 'Begleitung durch die kritische Eingewöhnungsphase, für Fachkraft und Team.' },
-          ].map(({ Icon, metric, color, bg, title, desc }) => (
-            <div key={title} className="bg-white rounded-2xl p-6 flex flex-col gap-4" style={{ boxShadow: CARD_SHADOW }}>
-              <div className={`w-12 h-12 rounded-2xl ${bg} flex items-center justify-center`}>
-                <Icon className="h-6 w-6" style={{ color }} />
-              </div>
-              <div>
-                <div className="text-3xl font-bold tracking-tight leading-none mb-1" style={{ color }}>{metric}</div>
-                <div className="text-sm font-semibold text-gray-900 mb-1">{title}</div>
-                <div className="text-xs text-gray-400 leading-relaxed">{desc}</div>
+        {/* ── Mobile Bento Grid (< lg) ────────────────────────────────── */}
+        <div
+          className="lg:hidden grid gap-3"
+          style={{
+            gridTemplateColumns: '1fr 1fr',
+            gridTemplateAreas: `
+              "hero   hero  "
+              "small1 small2"
+              "small3 wide  "
+              "plat   plat  "
+            `,
+          }}
+        >
+          {/* 360° hero — full width */}
+          <div className="rounded-3xl p-5 sm:p-7 flex flex-col gap-4 relative overflow-hidden"
+            style={{ gridArea: 'hero', background: 'white', boxShadow: HERO_SHADOW }}>
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none',
+              background: 'radial-gradient(ellipse at 25% 80%, rgba(99,102,241,0.09) 0%, rgba(14,165,233,0.07) 45%, transparent 75%)',
+            }} />
+            <div className="relative">
+              <div className="font-bold tracking-tight leading-none mb-2"
+                style={{
+                  fontSize: 64,
+                  background: 'linear-gradient(135deg, #6366f1 0%, #0ea5e9 55%, #0d9488 100%)',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+                }}>360°</div>
+              <div className="text-lg font-bold text-gray-900 mb-1.5">Wohnungssuche & Ersteinrichtung</div>
+              <div className="text-sm text-gray-400 leading-relaxed">
+                Wir finden die passende Wohnung und richten sie komplett ein — Fachkräfte kommen zum Arbeiten, nicht zum Möbelkaufen.
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* 2 Tage */}
+          <div className="bg-white rounded-3xl p-4 flex flex-col justify-between" style={{ gridArea: 'small1', boxShadow: CARD_SHADOW, minHeight: 164 }}>
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+              <MapPin className="h-4 w-4 text-blue-500" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="text-3xl font-bold text-blue-500 tracking-tight leading-none">2 Tage</div>
+              <div className="text-xs font-semibold text-gray-900 mt-0.5">Vor-Ort-Support</div>
+              <div className="text-[11px] text-gray-400 leading-relaxed mt-0.5">Abholung, Behördengänge, Bankkonto, Wohnungsübergabe — ab Tag 1.</div>
+            </div>
+          </div>
+
+          {/* 12 Monate */}
+          <div className="rounded-3xl p-4 flex flex-col justify-between" style={{ gridArea: 'small2', boxShadow: CARD_SHADOW, background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', border: '1px solid rgba(13,148,136,0.18)', minHeight: 164 }}>
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#0f766e' }}>
+              <ShieldCheck className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="text-3xl font-bold text-teal-600 tracking-tight leading-none">12 Monate</div>
+              <div className="text-xs font-semibold text-teal-800 mt-0.5">Ersatzgarantie</div>
+              <div className="text-[11px] text-teal-700/70 leading-relaxed mt-0.5">Kostenlose Nachbesetzung — wir stehen für unseren Prozess ein.</div>
+            </div>
+          </div>
+
+          {/* 90 Tage */}
+          <div className="bg-white rounded-3xl p-4 flex flex-col justify-between" style={{ gridArea: 'small3', boxShadow: CARD_SHADOW, minHeight: 164 }}>
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+              <Users className="h-4 w-4 text-indigo-500" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="text-3xl font-bold text-indigo-500 tracking-tight leading-none">90 Tage</div>
+              <div className="text-xs font-semibold text-gray-900 mt-0.5">Intensiv-Mentoring</div>
+              <div className="text-[11px] text-gray-400 leading-relaxed mt-0.5">Begleitung durch die kritische Eingewöhnungsphase.</div>
+            </div>
+          </div>
+
+          {/* 100% Vorleistung — vertical for 50% width */}
+          <div className="bg-white rounded-3xl p-4 flex flex-col gap-2.5" style={{ gridArea: 'wide', boxShadow: CARD_SHADOW }}>
+            <div>
+              <div className="text-3xl font-bold tracking-tight leading-none text-fkvi-teal">100 %</div>
+              <div className="text-xs font-semibold text-gray-500 mt-1">Vorleistung</div>
+            </div>
+            <div className="w-full h-px bg-gray-100" />
+            <div className="flex flex-col gap-1.5">
+              {vorleistungItems.slice(0, 5).map(item => (
+                <div key={item.label} className="flex items-start gap-1.5">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+                  <span className="text-[11px] text-gray-700 font-medium leading-snug">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Platform Preview — full width */}
+          <div className="rounded-3xl overflow-hidden flex flex-col relative" style={{
+            gridArea: 'plat',
+            background: 'linear-gradient(135deg, #f0fdf8 0%, #ffffff 45%, #eff6ff 100%)',
+            boxShadow: '0 0 0 1px rgba(13,148,136,0.12), 0 4px 24px rgba(13,148,136,0.08), 0 12px 48px rgba(59,130,246,0.07)',
+          }}>
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+              <div style={{ position:'absolute', top:'-30%', left:'5%', width:240, height:240, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)', filter:'blur(40px)' }} />
+              <div style={{ position:'absolute', bottom:'-30%', right:'10%', width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle, rgba(13,148,136,0.09) 0%, transparent 70%)', filter:'blur(40px)' }} />
+            </div>
+            {/* Matching-Portal */}
+            <div className="relative p-5 flex flex-col gap-3 border-b border-gray-100 overflow-hidden">
+              <div>
+                <div className="text-gray-900 font-bold text-sm leading-tight">Matching-Portal</div>
+                <div className="text-gray-500 text-xs mt-0.5">Fachkräfte einsehen, auswählen & kennenlernen</div>
+              </div>
+              <div className="relative overflow-hidden" style={{ maxHeight: 160 }}>
+                <div className="flex flex-col gap-2">
+                  {[
+                    { init:'AK', country:'🇵🇭', job:'Pflegefachkraft (B.Sc.)', exp:'6 J. Intensiv' },
+                    { init:'MR', country:'🇧🇷', job:'Gesundheits- & Krankenpfleger', exp:'9 J. Chirurgie' },
+                    { init:'FO', country:'🇲🇦', job:'Altenpflegerin (examiniert)', exp:'4 J. Demenz' },
+                  ].map((p, i) => (
+                    <div key={i} className="flex items-center gap-2.5 rounded-xl px-3 py-2"
+                      style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.07)', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[10px] text-white shrink-0"
+                        style={{ background:'linear-gradient(135deg, #1a3a5c, #0d9488)' }}>{p.init}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-gray-900 text-xs font-semibold truncate">{p.job} {p.country}</div>
+                        <div className="text-gray-400 text-[10px]">{p.exp}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ position:'absolute', bottom:0, left:0, right:0, height:60, background:'linear-gradient(to bottom, transparent 0%, rgba(248,253,252,0.98) 100%)', pointerEvents:'none' }} />
+              </div>
+            </div>
+            {/* Live-Statustracking */}
+            <div className="relative p-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-gray-900 font-bold text-sm leading-tight">Live-Statustracking</div>
+                  <div className="text-gray-500 text-xs mt-0.5">Immer up to date, völlige Transparenz.</div>
+                </div>
+                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center gap-1.5 shrink-0">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                  Live
+                </span>
+              </div>
+              <div className="rounded-xl p-3" style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.07)', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-gray-900 text-xs font-semibold">Amara K. 🇮🇳</span>
+                  <span className="text-fkvi-teal text-[10px] font-bold tracking-wide">Woche 7 / 12</span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[{l:'Matching',d:true},{l:'Behörden',d:true},{l:'Visum',d:false,a:true},{l:'Einreise',d:false}].map((s,i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="h-1.5 w-full rounded-full" style={{ background: s.d ? '#0d9488' : s.a ? 'rgba(13,148,136,0.35)' : 'rgba(0,0,0,0.08)', boxShadow: s.d ? '0 0 4px rgba(13,148,136,0.4)' : 'none' }} />
+                      <span className="text-[8px] font-medium" style={{ color: s.d || s.a ? '#374151' : '#9ca3af' }}>{s.l}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <PlatformEvents />
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1942,7 +2078,6 @@ export default function PublicHome() {
       <HeroSection poolRef={poolRef} />
       <LogoMarquee />
       <LeistungenSection vorteileRef={vorteileRef} />
-      <div className="lg:hidden"><PlatformPreviewSection /></div>
       {/* ── Dark zone 1: Kompetenzpass + floating light island + Prozess ── */}
       <div style={{ background: '#0f172a' }}>
         <KompetenzpassCarouselSection kpassRef={kpassRef} />
