@@ -547,8 +547,8 @@ function LeistungenSection({ vorteileRef }) {
           }}>
             {/* Soft ambient glows */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-              <div style={{ position:'absolute', top:'-30%', left:'5%', width:320, height:320, borderRadius:'50%', background:'radial-gradient(circle, rgba(13,148,136,0.09) 0%, transparent 70%)', filter:'blur(50px)' }} />
-              <div style={{ position:'absolute', bottom:'-30%', right:'10%', width:280, height:280, borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)', filter:'blur(50px)' }} />
+              <div style={{ position:'absolute', top:'-30%', left:'5%', width:320, height:320, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)', filter:'blur(50px)' }} />
+              <div style={{ position:'absolute', bottom:'-30%', right:'10%', width:280, height:280, borderRadius:'50%', background:'radial-gradient(circle, rgba(13,148,136,0.09) 0%, transparent 70%)', filter:'blur(50px)' }} />
             </div>
 
             {/* Matching-Portal */}
