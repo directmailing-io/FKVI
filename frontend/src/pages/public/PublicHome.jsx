@@ -477,25 +477,25 @@ function LeistungenSection({ vorteileRef }) {
           </div>
 
           {/* 2 Tage — right top */}
-          <div className="bg-white rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small1', boxShadow: CARD_SHADOW }}>
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
-              <MapPin className="h-6 w-6 text-blue-500" />
+          <div className="bg-white rounded-3xl p-6 flex flex-col gap-4" style={{ gridArea: 'small1', boxShadow: CARD_SHADOW }}>
+            <div className="w-11 h-11 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+              <MapPin className="h-5 w-5 text-blue-500" />
             </div>
-            <div>
-              <div className="text-5xl font-bold text-blue-500 tracking-tight leading-none mb-2">2 Tage</div>
-              <div className="text-sm font-semibold text-gray-900 mb-1">Vor-Ort-Support</div>
+            <div className="flex flex-col gap-1">
+              <div className="text-5xl font-bold text-blue-500 tracking-tight leading-none">2 Tage</div>
+              <div className="text-sm font-semibold text-gray-900">Vor-Ort-Support</div>
               <div className="text-xs text-gray-400 leading-relaxed">Abholung, Behördengänge, Steuer-ID, Bankkonto, Krankenkasse, Wohnungsübergabe — ab Tag 1 persönlich begleitet.</div>
             </div>
           </div>
 
           {/* 12 Monate — right middle */}
-          <div className="rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small2', boxShadow: CARD_SHADOW, background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', border: '1px solid rgba(13,148,136,0.18)' }}>
-            <div className="w-12 h-12 rounded-2xl bg-teal-100 flex items-center justify-center">
-              <ShieldCheck className="h-6 w-6 text-teal-600" />
+          <div className="rounded-3xl p-6 flex flex-col gap-4" style={{ gridArea: 'small2', boxShadow: CARD_SHADOW, background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', border: '1px solid rgba(13,148,136,0.18)' }}>
+            <div className="w-11 h-11 rounded-2xl bg-teal-50 flex items-center justify-center shrink-0">
+              <ShieldCheck className="h-5 w-5 text-teal-600" />
             </div>
-            <div>
-              <div className="text-5xl font-bold text-teal-600 tracking-tight leading-none mb-1">12 Monate</div>
-              <div className="text-sm font-bold text-teal-800 mb-1.5">kostenlose Ersatzgarantie</div>
+            <div className="flex flex-col gap-1">
+              <div className="text-5xl font-bold text-teal-600 tracking-tight leading-none">12 Monate</div>
+              <div className="text-sm font-semibold text-teal-800">kostenlose Ersatzgarantie</div>
               <div className="text-xs text-teal-700/70 leading-relaxed">Wir bieten 12 Monate Garantie, weil wir auf die Qualität unseres Auswahlprozesses vertrauen. Sollte eine Fachkraft in dieser Zeit ausscheiden, übernehmen wir die Nachbesetzung vollständig auf eigene Kosten.</div>
             </div>
           </div>
@@ -528,13 +528,13 @@ function LeistungenSection({ vorteileRef }) {
           </div>
 
           {/* 90 Tage — small bottom left */}
-          <div className="bg-white rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small3', boxShadow: CARD_SHADOW }}>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-              <Users className="h-4 w-4 text-indigo-500" />
+          <div className="bg-white rounded-3xl p-6 flex flex-col gap-4" style={{ gridArea: 'small3', boxShadow: CARD_SHADOW }}>
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5 text-indigo-500" />
             </div>
-            <div>
-              <div className="text-5xl font-bold text-indigo-500 tracking-tight leading-none mb-2">90 Tage</div>
-              <div className="text-sm font-semibold text-gray-900 mb-1">Intensiv-Mentoring</div>
+            <div className="flex flex-col gap-1">
+              <div className="text-5xl font-bold text-indigo-500 tracking-tight leading-none">90 Tage</div>
+              <div className="text-sm font-semibold text-gray-900">Intensiv-Mentoring</div>
               <div className="text-xs text-gray-400 leading-relaxed">Begleitung durch die kritische Eingewöhnungsphase, für Fachkraft und Team gleichermaßen.</div>
             </div>
           </div>
