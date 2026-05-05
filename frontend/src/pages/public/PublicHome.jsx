@@ -390,7 +390,7 @@ function PlatformEvents() {
   const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const daysAgo17 = new Date(Date.now() - 17 * 24 * 60 * 60 * 1000)
   const events = [
-    { msg:'Visumsantrag eingereicht', time:'Heute', color:'#6ee7b7', ping: true },
+    { msg:'Visumsantrag eingereicht', time:'Heute', color:'#B6DAD5', ping: true },
     { msg:'Botschaftstermin bestätigt', time: fmt(lastWeek), color:'#10b981', ping: false },
     { msg:'Anerkennungsverfahren gestartet', time: fmt(daysAgo17), color:'#10b981', ping: false },
   ]
