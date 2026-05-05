@@ -390,9 +390,9 @@ function PlatformEvents() {
   const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const daysAgo17 = new Date(Date.now() - 17 * 24 * 60 * 60 * 1000)
   const events = [
-    { msg:'Visumsantrag eingereicht', time:'Heute', color:'#10b981', ping: true },
-    { msg:'Botschaftstermin bestätigt', time: fmt(lastWeek), color:'#3b82f6', ping: false },
-    { msg:'Anerkennungsverfahren gestartet', time: fmt(daysAgo17), color:'#8b5cf6', ping: false },
+    { msg:'Visumsantrag eingereicht', time:'Heute', color:'#6ee7b7', ping: true },
+    { msg:'Botschaftstermin bestätigt', time: fmt(lastWeek), color:'#10b981', ping: false },
+    { msg:'Anerkennungsverfahren gestartet', time: fmt(daysAgo17), color:'#10b981', ping: false },
   ]
   return (
     <div className="flex flex-col gap-2">
