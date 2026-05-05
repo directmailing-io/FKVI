@@ -382,6 +382,35 @@ function LogoMarquee() {
 const CARD_SHADOW = '0 0 0 1px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.07)'
 const HERO_SHADOW = '0 0 0 1px rgba(99,102,241,0.10), 0 8px 40px rgba(99,102,241,0.18), 0 24px 64px rgba(0,0,0,0.07)'
 
+function PlatformEvents() {
+  const fmt = (d) => {
+    const months = ['Jan.','Feb.','Mär.','Apr.','Mai','Jun.','Jul.','Aug.','Sep.','Okt.','Nov.','Dez.']
+    return `${d.getDate()}. ${months[d.getMonth()]}`
+  }
+  const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const daysAgo17 = new Date(Date.now() - 17 * 24 * 60 * 60 * 1000)
+  const events = [
+    { msg:'Visumsantrag eingereicht', time:'Heute', color:'#10b981', ping: true },
+    { msg:'Botschaftstermin bestätigt', time: fmt(lastWeek), color:'#3b82f6', ping: false },
+    { msg:'Anerkennungsverfahren gestartet', time: fmt(daysAgo17), color:'#8b5cf6', ping: false },
+  ]
+  return (
+    <div className="flex flex-col gap-2">
+      {events.map((ev, i) => (
+        <div key={i} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+          style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.07)', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' }}>
+          <span className="relative flex h-2 w-2 shrink-0">
+            {ev.ping && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: ev.color }} />}
+            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: ev.color }} />
+          </span>
+          <span className="text-gray-700 text-xs flex-1">{ev.msg}</span>
+          <span className="text-gray-400 text-[10px] shrink-0">{ev.time}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function LeistungenSection({ vorteileRef }) {
   const vorleistungItems = [
     { label: 'B2-Sprachkurs' },
@@ -510,59 +539,57 @@ function LeistungenSection({ vorteileRef }) {
             </div>
           </div>
 
-          {/* Platform Preview — full bottom row */}
+          {/* Platform Preview — full bottom row, light mode */}
           <div className="rounded-3xl overflow-hidden flex flex-col sm:flex-row gap-0 relative" style={{
             gridArea: 'plat',
-            background: 'linear-gradient(135deg, #0d1f35 0%, #0f172a 50%, #071a14 100%)',
-            boxShadow: '0 0 0 1px rgba(13,148,136,0.15), 0 8px 40px rgba(13,148,136,0.12), 0 24px 64px rgba(0,0,0,0.25)',
+            background: 'linear-gradient(135deg, #f0fdf8 0%, #ffffff 45%, #eff6ff 100%)',
+            boxShadow: '0 0 0 1px rgba(13,148,136,0.12), 0 4px 24px rgba(13,148,136,0.08), 0 12px 48px rgba(59,130,246,0.07)',
           }}>
-            {/* Ambient glow blobs */}
+            {/* Soft ambient glows */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-              <div style={{ position:'absolute', top:'-20%', left:'10%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle, rgba(13,148,136,0.18) 0%, transparent 70%)', filter:'blur(40px)' }} />
-              <div style={{ position:'absolute', bottom:'-20%', right:'15%', width:250, height:250, borderRadius:'50%', background:'radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 70%)', filter:'blur(40px)' }} />
+              <div style={{ position:'absolute', top:'-30%', left:'5%', width:320, height:320, borderRadius:'50%', background:'radial-gradient(circle, rgba(13,148,136,0.09) 0%, transparent 70%)', filter:'blur(50px)' }} />
+              <div style={{ position:'absolute', bottom:'-30%', right:'10%', width:280, height:280, borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)', filter:'blur(50px)' }} />
             </div>
 
             {/* Matching-Portal */}
-            <div className="relative flex-1 p-6 flex flex-col gap-3.5 border-b sm:border-b-0 sm:border-r border-white/[0.07] overflow-hidden">
+            <div className="relative flex-1 p-6 flex flex-col gap-3.5 border-b sm:border-b-0 sm:border-r border-gray-100 overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-white font-bold text-base leading-tight">Matching-Portal</div>
-                  <div className="text-slate-400 text-xs mt-0.5">Kandidaten filtern, vergleichen & auswählen</div>
+                  <div className="text-gray-900 font-bold text-base leading-tight">Matching-Portal</div>
+                  <div className="text-gray-400 text-xs mt-0.5">Kandidaten filtern, vergleichen & auswählen</div>
                 </div>
-                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 flex items-center gap-1.5">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-                  </span>
-                  Live
-                </span>
               </div>
 
-              {/* Cards with fade-out gradient — like the Vorleistung card */}
-              <div className="relative overflow-hidden" style={{ maxHeight: 160 }}>
+              {/* Cards with fade-out gradient */}
+              <div className="relative overflow-hidden" style={{ maxHeight: 195 }}>
                 <div className="flex flex-col gap-2.5">
                   {[
-                    { init:'AK', country:'🇵🇭', job:'Pflegefachkraft (B.Sc.)', exp:'6 J. Intensiv', status:'Verfügbar', sc:'#10b981', sglow:'rgba(16,185,129,0.15)' },
-                    { init:'MR', country:'🇧🇷', job:'Gesundheits- & Krankenpfleger', exp:'9 J. Chirurgie', status:'In Verfahren', sc:'#f59e0b', sglow:'rgba(245,158,11,0.12)' },
-                    { init:'FO', country:'🇲🇦', job:'Altenpflegerin (examiniert)', exp:'4 J. Demenz', status:'Verfügbar', sc:'#10b981', sglow:'rgba(16,185,129,0.15)' },
+                    { init:'AK', country:'🇵🇭', job:'Pflegefachkraft (B.Sc.)', exp:'6 J. Intensiv' },
+                    { init:'MR', country:'🇧🇷', job:'Gesundheits- & Krankenpfleger', exp:'9 J. Chirurgie' },
+                    { init:'FO', country:'🇲🇦', job:'Altenpflegerin (examiniert)', exp:'4 J. Demenz' },
                   ].map((p, i) => (
-                    <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5"
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs text-white shrink-0"
-                        style={{ background: 'linear-gradient(135deg, #1a3a5c, #0d9488)', boxShadow: `0 0 12px ${p.sglow}` }}>{p.init}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-white text-xs font-semibold truncate">{p.job} {p.country}</div>
-                        <div className="text-slate-400 text-[10px]">{p.exp} Erfahrung</div>
+                    <div key={i} className="flex flex-col gap-2 rounded-xl px-3 py-2.5"
+                      style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs text-white shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #1a3a5c, #0d9488)' }}>{p.init}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-gray-900 text-xs font-semibold truncate">{p.job} {p.country}</div>
+                          <div className="text-gray-400 text-[10px]">{p.exp} Erfahrung</div>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border"
-                        style={{ color: p.sc, background: p.sc + '18', borderColor: p.sc + '30' }}>{p.status}</span>
+                      <div className="flex gap-1.5 pl-0">
+                        {['Profil ansehen','Video anschauen','Lebenslauf öffnen'].map(btn => (
+                          <span key={btn} className="text-[9px] font-semibold px-2 py-1 rounded-lg border border-gray-200 text-gray-500 bg-gray-50 cursor-default whitespace-nowrap">{btn}</span>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
-                {/* Fade to transparent — same technique as Vorleistung */}
+                {/* Fade to white */}
                 <div style={{
-                  position:'absolute', bottom:0, left:0, right:0, height:72,
-                  background:'linear-gradient(to bottom, transparent 0%, rgba(13,23,42,0.97) 100%)',
+                  position:'absolute', bottom:0, left:0, right:0, height:80,
+                  background:'linear-gradient(to bottom, transparent 0%, rgba(248,253,252,0.98) 100%)',
                   pointerEvents:'none',
                 }} />
               </div>
@@ -572,55 +599,39 @@ function LeistungenSection({ vorteileRef }) {
             <div className="relative flex-1 p-6 flex flex-col gap-3.5">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-white font-bold text-base leading-tight">Live-Statustracking</div>
-                  <div className="text-slate-400 text-xs mt-0.5">Immer auf dem Laufenden bleiben.</div>
+                  <div className="text-gray-900 font-bold text-base leading-tight">Live-Statustracking</div>
+                  <div className="text-gray-400 text-xs mt-0.5">Immer auf dem Laufenden bleiben.</div>
                 </div>
-                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-blue-400 bg-blue-400/10 border border-blue-400/20 flex items-center gap-1.5">
+                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center gap-1.5">
                   <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-400" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                   </span>
-                  Echtzeit
+                  Live
                 </span>
               </div>
 
               {/* Progress tracker */}
-              <div className="rounded-xl p-3.5" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
+              <div className="rounded-xl p-3.5" style={{ background:'#fff', border:'1px solid rgba(0,0,0,0.07)', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-white text-xs font-semibold">Amara K.</span>
-                  <span className="text-blue-400 text-[10px] font-bold tracking-wide">Woche 7 / 12</span>
+                  <span className="text-gray-900 text-xs font-semibold">Amara K. 🇮🇳</span>
+                  <span className="text-fkvi-teal text-[10px] font-bold tracking-wide">Woche 7 / 12</span>
                 </div>
-                <div className="flex gap-1.5 mb-2.5">
+                <div className="flex gap-1.5 mb-1">
                   {[{l:'Matching',d:true},{l:'Behörden',d:true},{l:'Visum',d:false,a:true},{l:'Einreise',d:false}].map((s,i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
                       <div className="h-1.5 w-full rounded-full" style={{
-                        background: s.d ? '#0d9488' : s.a ? 'rgba(13,148,136,0.45)' : 'rgba(255,255,255,0.1)',
-                        boxShadow: s.d ? '0 0 6px rgba(13,148,136,0.5)' : 'none',
+                        background: s.d ? '#0d9488' : s.a ? 'rgba(13,148,136,0.35)' : 'rgba(0,0,0,0.08)',
+                        boxShadow: s.d ? '0 0 4px rgba(13,148,136,0.4)' : 'none',
                       }} />
-                      <span className="text-[8px] font-medium" style={{ color: s.d || s.a ? '#94a3b8' : '#475569' }}>{s.l}</span>
+                      <span className="text-[8px] font-medium" style={{ color: s.d || s.a ? '#374151' : '#9ca3af' }}>{s.l}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Events */}
-              <div className="flex flex-col gap-2">
-                {[
-                  { msg:'Visumsantrag eingereicht', time:'Heute', color:'#10b981', glow:'rgba(16,185,129,0.25)' },
-                  { msg:'Botschaftstermin bestätigt', time:'3. Dez.', color:'#3b82f6', glow:'rgba(59,130,246,0.20)' },
-                  { msg:'Anerkennungsverfahren gestartet', time:'28. Nov.', color:'#8b5cf6', glow:'rgba(139,92,246,0.20)' },
-                ].map((ev, i) => (
-                  <div key={i} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
-                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)' }}>
-                    <span className="relative flex h-2 w-2 shrink-0">
-                      {i === 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: ev.color }} />}
-                      <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: ev.color, boxShadow: `0 0 6px ${ev.glow}` }} />
-                    </span>
-                    <span className="text-slate-300 text-xs flex-1">{ev.msg}</span>
-                    <span className="text-slate-500 text-[10px] shrink-0">{ev.time}</span>
-                  </div>
-                ))}
-              </div>
+              {/* Dynamic events */}
+              <PlatformEvents />
             </div>
 
           </div>
