@@ -10,11 +10,11 @@ import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/prof
 const FUNNEL_DATA = {
   fk: {
     stages: [
-      { num:'01', title:'Persönliches Erstgespräch', sub:'Motivation, Ziele & Berufserfahrung', w:100, bg:'#EEF2FF', fg:'#3730a3', detail:'Warum Pflege? Warum Deutschland? Wir wollen die Person hinter dem Lebenslauf verstehen: ihre Antriebe, ihre Erfahrung und was sie sich vom nächsten Schritt erhofft.', tags:['Motivation','Berufsziele','Erfahrung'] },
+      { num:'01', title:'Ihr Antrieb', sub:'Motivation, Ziele & Berufserfahrung', w:100, bg:'#EEF2FF', fg:'#3730a3', detail:'Warum Pflege? Warum Deutschland? Wir wollen die Person hinter dem Lebenslauf verstehen: ihre Antriebe, ihre Erfahrung und was sie sich vom nächsten Schritt erhofft. Nur wer wirklich ankommen will, bleibt auch.', tags:['Motivation','Berufsziele','Erfahrung'] },
       { num:'02', title:'Regionale Präferenzanalyse', sub:'Herkunft, Wunschregion & Einrichtungstyp', w:85, bg:'#E0F2FE', fg:'#0c4a6e', detail:'Stadt oder Land? Krankenhaus, Pflegeheim oder ambulanter Dienst? Wer in einer Kleinstadt aufgewachsen ist, fühlt sich in einer ländlichen Einrichtung oft deutlich wohler.', tags:['Herkunft','Wunschregion','Einrichtungstyp'] },
       { num:'03', title:'Soziale Ankerpunkte', sub:'Familie, Freunde & Community in Deutschland', w:70, bg:'#CCFBF1', fg:'#134e4a', detail:'Wer bereits Kontakte in Deutschland hat, kommt schneller an und bleibt länger. Wir vermitteln bevorzugt in der Nähe sozialer Ankerpunkte.', tags:['Familie','Community','Nähe'] },
-      { num:'04', title:'Kulturelle Passung', sub:'Werte, Arbeitsweise & Teamdynamik', w:58, bg:'#FEF9C3', fg:'#713f12', detail:'Jedes Team tickt anders. Wir gleichen Persönlichkeit und Kommunikationsstil mit der Kultur der Einrichtung ab, damit das Miteinander von Anfang an klappt.', tags:['Teamkultur','Kommunikation','Werte'] },
-      { num:'05', title:'Fachliche Qualifikation', sub:'B2-Zertifikat & Berufsanerkennung', w:44, bg:'#FEE2E2', fg:'#7f1d1d', detail:'Erst wenn die persönliche Passung stimmt, prüfen wir Sprachniveau (mind. B2), Berufsanerkennung und fachspezifische Erfahrung im Zielbereich.', tags:['B2-Zertifikat','Anerkennung','Fachkompetenz'] },
+      { num:'04', title:'Kulturelle Eignung', sub:'Werte, Arbeitsweise & Teamdynamik', w:58, bg:'#FEF9C3', fg:'#713f12', detail:'Jedes Team tickt anders. Wir gleichen Persönlichkeit und Kommunikationsstil mit der Kultur der Einrichtung ab, damit das Miteinander von Anfang an klappt.', tags:['Teamkultur','Kommunikation','Werte'] },
+      { num:'05', title:'Fachliche Qualifikation', sub:'B2-Zertifikat & Berufsanerkennung', w:44, bg:'#FEE2E2', fg:'#7f1d1d', detail:'Erst wenn die persönliche Eignung stimmt, prüfen wir Sprachniveau (mind. B2), Berufsanerkennung und fachspezifische Erfahrung im Zielbereich.', tags:['B2-Zertifikat','Anerkennung','Fachkompetenz'] },
       { num:'06', title:'Platzierung & 12 Monate Begleitung', sub:'Inklusive Ersatzgarantie', w:32, bg:'#ffffff', fg:'#1a3a5c', detail:'Die Fachkraft startet, und wir bleiben dran. Regelmäßige Check-ins, Konfliktmediation und Integrationsbegleitung über 12 Monate, inklusive Ersatzgarantie.', tags:['Onboarding','Check-ins','Garantie'] },
     ],
     resultTitle: 'Perfekte Passung. Langfristiger Verbleib.',
@@ -22,11 +22,11 @@ const FUNNEL_DATA = {
   },
   az: {
     stages: [
-      { num:'01', title:'Persönliches Erstgespräch', sub:'Motivation, Lernbereitschaft & Zukunftswunsch', w:100, bg:'#EEF2FF', fg:'#3730a3', detail:'Warum möchte die Person in die Pflege? Was erwartet sie von einer Ausbildung in Deutschland? Wir schauen auf Motivation und Reife, nicht nur auf Unterlagen.', tags:['Motivation','Lernbereitschaft','Zukunftsvision'] },
-      { num:'02', title:'Regionale Präferenzanalyse', sub:'Herkunft, Wunschregion & Ausbildungsbetrieb', w:85, bg:'#E0F2FE', fg:'#0c4a6e', detail:'Stadt oder Land? Für junge Menschen ist die richtige Umgebung genauso wichtig wie die Einrichtung selbst. Wir schauen beides genau an.', tags:['Herkunft','Wunschregion','Betriebsgröße'] },
+      { num:'01', title:'Ihr Antrieb', sub:'Motivation, Erwartungen & persönliche Reife', w:100, bg:'#EEF2FF', fg:'#3730a3', detail:'Warum möchte die Person in die Pflege? Was erwartet sie wirklich von einer Ausbildung in Deutschland — und ist sie bereit für diesen Schritt? Wir schauen auf Motivation und persönliche Reife, nicht nur auf Unterlagen und Nachweise.', tags:['Motivation','Erwartungen','Persönliche Reife'] },
+      { num:'02', title:'Regionale Präferenzanalyse', sub:'Herkunft, Wunschregion & Wohnumfeld', w:85, bg:'#E0F2FE', fg:'#0c4a6e', detail:'Stadt oder Land? Für junge Menschen ist das Umfeld mindestens genauso wichtig wie die Einrichtung selbst. Wer in einer Großstadt aufgewachsen ist, braucht andere Bedingungen als jemand vom Land. Wir schauen beides genau an.', tags:['Herkunft','Stadt/Land','Wohnumfeld'] },
       { num:'03', title:'Soziale Ankerpunkte', sub:'Familie, Freunde & Betreuungsnetz', w:70, bg:'#CCFBF1', fg:'#134e4a', detail:'Gerade bei jüngeren Azubis ist ein soziales Netz besonders wichtig. Wir vermitteln bevorzugt in der Nähe bestehender Ankerpunkte.', tags:['Familie','Betreuung','Nähe'] },
-      { num:'04', title:'Kulturelle Passung', sub:'Persönlichkeit, Teamfähigkeit & Betreuungskapazität', w:58, bg:'#FEF9C3', fg:'#713f12', detail:'Hat das Team Kapazität für Anleitung? Passt die Teamdynamik? Der Ausbildungsbetrieb muss menschlich und fachlich zur Person passen.', tags:['Teamfähigkeit','Anleitung','Betreuung'] },
-      { num:'05', title:'Schulische Voraussetzungen', sub:'Sprachpotenzial (B1+), Schulabschluss & Eignung', w:44, bg:'#FEE2E2', fg:'#7f1d1d', detail:'Für den Ausbildungsstart reicht oft B1, entscheidend ist das Lernpotenzial. Wir prüfen schulische Voraussetzungen und Ausbildungseignung.', tags:['B1-Sprachniveau','Schulabschluss','Lernpotenzial'] },
+      { num:'04', title:'Kulturelle Eignung', sub:'Teamfähigkeit, Anleitung & Teamdynamik', w:58, bg:'#FEF9C3', fg:'#713f12', detail:'Hat das Team tatsächlich Kapazität für eine aktive Anleitung? Passt die Teamdynamik zur Person? Der Ausbildungsbetrieb muss menschlich und fachlich zu ihr passen — nicht nur auf dem Papier.', tags:['Teamfähigkeit','Anleitungskapazität','Teamdynamik'] },
+      { num:'05', title:'Schulische Voraussetzungen', sub:'Sprachniveau, Schulabschluss & Ausbildungseignung', w:44, bg:'#FEE2E2', fg:'#7f1d1d', detail:'Für den Ausbildungsstart reicht oft B1 — unsere Kandidaten bringen aber bereits B2 mit, damit die Kommunikation von Tag 1 sicher läuft. Schulabschluss und Ausbildungseignung werden intensiv geprüft.', tags:['Sprachniveau B2','Schulabschluss','Ausbildungseignung'] },
       { num:'06', title:'Ausbildungsstart & Begleitung', sub:'Über die gesamte Ausbildung', w:32, bg:'#ffffff', fg:'#1a3a5c', detail:'Der Azubi startet, und wir begleiten den gesamten Weg: Onboarding, regelmäßige Check-ins und Unterstützung bei Herausforderungen.', tags:['Onboarding','Ausbildungsbegleitung','Check-ins'] },
     ],
     resultTitle: 'Der richtige Start. Die richtige Einrichtung.',
@@ -74,7 +74,7 @@ function InfoTooltip({ text }) {
   )
 }
 
-function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
+function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundenstimmenRef }) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   useEffect(() => {
@@ -98,17 +98,20 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
           <button onClick={() => scroll(vorteileRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Vorteile</button>
           <button onClick={() => scroll(kpassRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Kompetenzpass</button>
           <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Verfügbare Fachkräfte</button>
+          <button onClick={() => scroll(kundenstimmenRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Praxisberichte</button>
           <button onClick={() => scroll(prozessRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Ablauf</button>
-          <Link to="/downloads" className="hover:text-fkvi-blue transition-colors flex items-center gap-1.5 whitespace-nowrap">
-            Broschüre<span className="relative -top-1.5 -ml-0.5 text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
+          <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching-Plattform</button>
+          <span className="w-px h-4 bg-gray-200" />
+          <Link to="/downloads" className="flex items-center gap-1.5 text-xs font-medium text-fkvi-teal hover:text-fkvi-teal/80 transition-colors whitespace-nowrap border border-fkvi-teal/25 bg-fkvi-teal/5 hover:bg-fkvi-teal/10 rounded-full px-3 py-1">
+            <span>Informationsbroschüre</span>
+            <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full leading-none">FK</span>
           </Link>
-          <Link to="/matching/login" className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching-Plattform</Link>
         </nav>
 
         {/* Right */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <a href="tel:+491605562142" className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-fkvi-blue transition-colors">
-            <Phone className="h-4 w-4" />+49 160 5562142
+          <a href="tel:+496980884364" className="hidden md:flex items-center gap-1.5 text-sm text-gray-600 hover:text-fkvi-blue transition-colors">
+            <Phone className="h-4 w-4" />+49 69 8088 4364
           </a>
           <Link to="/beratung" className="hidden sm:inline-flex items-center gap-2 bg-fkvi-blue text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-fkvi-blue/90 transition-colors whitespace-nowrap">
             Gespräch vereinbaren
@@ -131,14 +134,12 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
             <button onClick={() => scroll(vorteileRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Vorteile</button>
             <button onClick={() => scroll(kpassRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Kompetenzpass</button>
             <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Verfügbare Fachkräfte</button>
+            <button onClick={() => scroll(kundenstimmenRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Praxisberichte</button>
             <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
-            <Link to="/downloads" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
-              Broschüre<span className="relative -top-1.5 -ml-0.5 text-[7px] font-bold tracking-widest bg-fkvi-teal/10 text-fkvi-teal px-1 py-0.5 rounded-full leading-none">FACHKRÄFTE</span>
-            </Link>
-            <Link to="/matching/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</Link>
+            <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</button>
             <div className="border-t border-gray-100 my-1" />
-            <a href="tel:+491605562142" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
-              <Phone className="h-4 w-4 text-fkvi-teal" /><span>+49 160 5562142</span>
+            <a href="tel:+496980884364" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
+              <Phone className="h-4 w-4 text-fkvi-teal" /><span>+49 69 8088 4364</span>
             </a>
             <Link to="/beratung" onClick={() => setMobileMenuOpen(false)} className="sm:hidden mt-1 flex items-center justify-center gap-2 bg-fkvi-blue text-white px-4 py-3 rounded-xl font-semibold text-sm hover:bg-fkvi-blue/90 transition-colors">
               Gespräch vereinbaren <ArrowRight className="h-4 w-4" />
@@ -152,7 +153,7 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef }) {
 
 const VIMEO_SRC = 'https://player.vimeo.com/video/1178838212?badge=0&autopause=0&player_id=hero&app_id=58479&title=0&byline=0&portrait=0'
 
-function HeroSection() {
+function HeroSection({ poolRef }) {
   const videoRef = useRef(null)
   const [sticky, setSticky] = useState(false)
   const [dismissed, setDismissed] = useState(false)
@@ -187,7 +188,7 @@ function HeroSection() {
             <h1 className="text-4xl sm:text-5xl font-bold text-fkvi-blue leading-tight mb-6">
               Pflegekräfte finden.<br />
               Inklusive Wohnraum.<br />
-              <span className="text-blue-500">In 4 Monaten vor Ort.</span>
+              <span className="text-blue-500">In 3 Monaten vor Ort.</span>
             </h1>
 
             <p className="text-gray-500 text-lg leading-relaxed mb-8 max-w-lg">
@@ -201,10 +202,11 @@ function HeroSection() {
                 className="inline-flex items-center justify-center gap-2 bg-fkvi-blue text-white px-6 py-3.5 rounded-xl font-semibold hover:bg-fkvi-blue/90 transition-all shadow-lg shadow-fkvi-blue/20">
                 Gespräch vereinbaren <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to="/matching/login"
+              <button
+                onClick={() => poolRef?.current?.scrollIntoView({ behavior: 'smooth' })}
                 className="inline-flex items-center justify-center gap-2 border border-gray-200 text-fkvi-blue px-6 py-3.5 rounded-xl font-semibold hover:bg-gray-50 transition-all">
-                Zur Matching-Plattform
-              </Link>
+                Verfügbare Fachkräfte
+              </button>
             </div>
 
             {/* Stats */}
@@ -218,7 +220,7 @@ function HeroSection() {
                 <div className="text-xs text-gray-400 mt-1">Erfolgsquote</div>
               </div>
               <div className="px-3 sm:px-6 border-r border-gray-100">
-                <div className="text-lg sm:text-2xl font-bold text-fkvi-blue whitespace-nowrap">4 Monate</div>
+                <div className="text-lg sm:text-2xl font-bold text-fkvi-blue whitespace-nowrap">3 Monate</div>
                 <div className="text-xs text-gray-400 mt-1">Ø bis vor Ort</div>
               </div>
               <div className="pl-3 sm:pl-6">
@@ -315,8 +317,9 @@ function LogoMarquee() {
           animation: marquee 50s linear infinite;
         }
       `}</style>
-      <p className="text-center text-xs font-semibold text-gray-400 tracking-widest uppercase mb-8">
-        Vertrauensvolle Kooperationen mit
+      <p className="text-center text-xs font-semibold tracking-widest uppercase mb-8">
+        <span className="text-fkvi-teal">Vertrauensvolle Kooperationen mit </span>
+        <span className="text-fkvi-teal">führenden Kliniken &amp; Pflegeeinrichtungen</span>
       </p>
       <div
         className="relative"
@@ -331,7 +334,7 @@ function LogoMarquee() {
               <img
                 src={logo.src}
                 alt={`${logo.name} – Kooperationspartner von FKVI`}
-                className="h-10 w-auto max-w-[180px] object-contain grayscale opacity-55 hover:opacity-100 hover:grayscale-0 transition-all duration-300"
+                className="h-10 w-auto max-w-[180px] object-contain opacity-80 hover:opacity-100 transition-all duration-300"
               />
             </div>
           ))}
@@ -354,7 +357,7 @@ function LeistungenSection({ vorteileRef }) {
   ]
 
   return (
-    <section ref={vorteileRef} className="py-24 px-4 sm:px-6 bg-[#f5f5f7]">
+    <section ref={vorteileRef} className="py-24 px-4 sm:px-6 bg-[#f5f5f7]" style={{ boxShadow: "inset 0 0 120px rgba(59,130,246,0.06)" }}>
       <div className="max-w-7xl mx-auto">
 
         <div className="text-center mb-16">
@@ -408,34 +411,34 @@ function LeistungenSection({ vorteileRef }) {
             </div>
           </div>
 
-          {/* 3 Tage — right top */}
+          {/* 2 Tage — right top */}
           <div className="bg-white rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small1', boxShadow: CARD_SHADOW }}>
             <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
               <MapPin className="h-4 w-4 text-blue-500" />
             </div>
             <div>
-              <div className="text-5xl font-bold text-blue-500 tracking-tight leading-none mb-2">3 Tage</div>
+              <div className="text-5xl font-bold text-blue-500 tracking-tight leading-none mb-2">2 Tage</div>
               <div className="text-sm font-semibold text-gray-900 mb-1">Vor-Ort-Support</div>
-              <div className="text-xs text-gray-400 leading-relaxed">Abholung, Behördengänge, Wohnungsübergabe: ab Tag 1 persönlich begleitet.</div>
+              <div className="text-xs text-gray-400 leading-relaxed">Abholung, Behördengänge, Steuer-ID, Bankkonto, Krankenkasse, Wohnungsübergabe — ab Tag 1 persönlich begleitet.</div>
             </div>
           </div>
 
           {/* 12 Monate — right middle */}
-          <div className="bg-white rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small2', boxShadow: CARD_SHADOW }}>
-            <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center">
-              <ShieldCheck className="h-4 w-4 text-teal-500" />
+          <div className="rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small2', boxShadow: CARD_SHADOW, background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', border: '1px solid rgba(13,148,136,0.18)' }}>
+            <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center">
+              <ShieldCheck className="h-4 w-4 text-teal-600" />
             </div>
             <div>
-              <div className="text-5xl font-bold text-teal-500 tracking-tight leading-none mb-2">12 Monate</div>
-              <div className="text-sm font-semibold text-gray-900 mb-1">Ersatzgarantie</div>
-              <div className="text-xs text-gray-400 leading-relaxed">Kostenloser Ersatz bei Abgang. Volle Planungssicherheit.</div>
+              <div className="text-5xl font-bold text-teal-600 tracking-tight leading-none mb-1">12 Monate</div>
+              <div className="text-sm font-bold text-teal-800 mb-1.5">kostenlose Ersatzgarantie</div>
+              <div className="text-xs text-teal-700/70 leading-relaxed">Wir bieten 12 Monate Garantie, weil wir auf die Qualität unseres Auswahlprozesses vertrauen. Sollte eine Fachkraft in dieser Zeit ausscheiden, übernehmen wir die Nachbesetzung vollständig auf eigene Kosten.</div>
             </div>
           </div>
 
           {/* 100% Vorleistung — wide bottom right */}
           <div className="bg-white rounded-3xl p-8 flex gap-10 items-start" style={{ gridArea: 'wide', boxShadow: CARD_SHADOW }}>
             <div className="shrink-0">
-              <div className="text-6xl font-bold tracking-tight leading-none text-gray-900">100 %</div>
+              <div className="text-6xl font-bold tracking-tight leading-none text-fkvi-teal">100 %</div>
               <div className="text-sm font-semibold text-gray-500 mt-2">Vorleistung</div>
             </div>
             <div className="w-px self-stretch bg-gray-100 shrink-0" />
@@ -476,8 +479,8 @@ function LeistungenSection({ vorteileRef }) {
         <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { Icon: Home,       metric: '360°',    color: '#6366f1', bg: 'bg-indigo-50', title: 'Wohnungssuche & Ersteinrichtung', desc: 'Wir finden und richten die Wohnung komplett ein.' },
-            { Icon: Banknote,   metric: '100 %',   color: '#10b981', bg: 'bg-emerald-50', title: 'Vorleistung',                   desc: 'B2-Kurs, Flug, Visum, Einrichtung – alles vorfinanziert.' },
-            { Icon: MapPin,     metric: '3 Tage',  color: '#3b82f6', bg: 'bg-blue-50',    title: 'Vor-Ort-Support',              desc: 'Abholung, Behördengänge und Wohnungsübergabe ab Tag 1.' },
+            { Icon: Banknote,   metric: '100 %',   color: '#0d9488', bg: 'bg-teal-50', title: 'Vorleistung',                   desc: 'B2-Kurs, Flug, Visum, Einrichtung – alles vorfinanziert.' },
+            { Icon: MapPin,     metric: '2 Tage',  color: '#3b82f6', bg: 'bg-blue-50',    title: 'Vor-Ort-Support',              desc: 'Abholung, Behördengänge und Wohnungsübergabe ab Tag 1.' },
             { Icon: ShieldCheck,metric: '12 Mo.',  color: '#14b8a6', bg: 'bg-teal-50',    title: 'Ersatzgarantie',               desc: 'Kostenloser Ersatz bei Abgang. Planungssicherheit.' },
             { Icon: Users,      metric: '90 Tage', color: '#6366f1', bg: 'bg-indigo-50',  title: 'Intensiv-Mentoring',           desc: 'Begleitung durch die kritische Eingewöhnungsphase, für Fachkraft und Team.' },
           ].map(({ Icon, metric, color, bg, title, desc }) => (
@@ -560,6 +563,172 @@ function KpassCard({ card, accentColor, accentBg }) {
   )
 }
 
+
+function PlatformPreviewSection() {
+  return (
+    <section className="py-24 px-4 sm:px-6 bg-white overflow-hidden">
+      <div className="max-w-7xl mx-auto">
+
+        <div className="text-center mb-16">
+          <p className="text-xs font-semibold tracking-widest uppercase text-fkvi-teal mb-3">Unsere Plattform</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-fkvi-blue mb-4">
+            Immer auf dem Laufenden bleiben.
+          </h2>
+          <p className="text-gray-500 max-w-xl mx-auto leading-relaxed">
+            Matching-Portal und Live-Statustracking — damit Sie zu jedem Zeitpunkt wissen, wo Ihre Fachkraft im Prozess steht.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+
+          {/* Matching-Portal Mockup */}
+          <div className="rounded-3xl overflow-hidden shadow-xl ring-1 ring-black/5">
+            <div className="bg-fkvi-blue px-5 py-3 flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-white/20" />
+                <div className="w-3 h-3 rounded-full bg-white/20" />
+                <div className="w-3 h-3 rounded-full bg-white/20" />
+              </div>
+              <div className="flex-1 bg-white/10 rounded-md h-5 mx-4 flex items-center px-3">
+                <span className="text-white/50 text-[10px]">fkvi-plattform.de/matching</span>
+              </div>
+            </div>
+            <div className="bg-[#f0f4f8] p-4">
+              {/* Search bar */}
+              <div className="bg-white rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-sm mb-4">
+                <div className="w-4 h-4 rounded bg-gray-200" />
+                <div className="flex-1 h-2.5 bg-gray-100 rounded-full" />
+                <div className="px-3 py-1 bg-fkvi-teal rounded-lg">
+                  <div className="w-8 h-2 bg-white/60 rounded-full" />
+                </div>
+              </div>
+              {/* Filter pills */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {['Pflegefachkraft','B2','Intensivstation','Süddeutschland'].map(tag => (
+                  <span key={tag} className="text-xs px-3 py-1 rounded-full bg-fkvi-blue/10 text-fkvi-blue font-medium">{tag}</span>
+                ))}
+              </div>
+              {/* Profile cards */}
+              {[
+                { init:'AK', country:'🇵🇭', job:'Pflegefachkraft (B.Sc.)', exp:'6 J. Intensiv', status:'Verfügbar', statusColor:'#10b981' },
+                { init:'MR', country:'🇧🇷', job:'Gesundheits- & Krankenpfleger', exp:'9 J. Chirurgie', status:'In Verfahren', statusColor:'#f59e0b' },
+              ].map((p, i) => (
+                <div key={i} className="bg-white rounded-2xl p-4 flex items-center gap-4 mb-3 shadow-sm">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm text-white shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #1a3a5c, #0d9488)' }}>
+                    {p.init}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-bold text-gray-900">{p.job}</span>
+                      <span>{p.country}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{p.exp} Erfahrung</span>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0"
+                    style={{ color: p.statusColor, background: p.statusColor + '18' }}>{p.status}</span>
+                </div>
+              ))}
+              <div className="bg-white/60 rounded-2xl p-4 flex items-center gap-4 mb-3 blur-[2px]">
+                <div className="w-12 h-12 rounded-xl bg-gray-100 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-2.5 bg-gray-100 rounded-full w-2/3" />
+                  <div className="h-2 bg-gray-100 rounded-full w-1/2" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white px-5 py-3 flex items-center justify-between border-t border-gray-100">
+              <span className="text-xs text-gray-500 font-medium">Matching-Plattform</span>
+              <span className="text-xs text-fkvi-teal font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-fkvi-teal animate-pulse" />
+                Live
+              </span>
+            </div>
+          </div>
+
+          {/* Status-Tracking Mockup */}
+          <div className="rounded-3xl overflow-hidden shadow-xl ring-1 ring-black/5">
+            <div className="bg-gradient-to-r from-fkvi-blue to-fkvi-teal px-5 py-3 flex items-center gap-2">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-white/20" />
+                <div className="w-3 h-3 rounded-full bg-white/20" />
+                <div className="w-3 h-3 rounded-full bg-white/20" />
+              </div>
+              <div className="flex-1 bg-white/10 rounded-md h-5 mx-4 flex items-center px-3">
+                <span className="text-white/50 text-[10px]">fkvi-plattform.de/status</span>
+              </div>
+            </div>
+            <div className="bg-[#f8fafc] p-5">
+              <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-gray-900">Amara K. · Pflegefachkraft</span>
+                  <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-blue-600 bg-blue-50">Woche 7 / 12</span>
+                </div>
+                <div className="relative">
+                  <div className="absolute top-3 left-3 right-3 h-0.5 bg-gray-100" />
+                  <div className="absolute top-3 left-3 h-0.5 bg-fkvi-teal" style={{ width: '58%' }} />
+                  <div className="flex justify-between relative">
+                    {[
+                      { label:'Matching', done:true },
+                      { label:'Behörden', done:true },
+                      { label:'Visum', done:false, active:true },
+                      { label:'Einreise', done:false },
+                    ].map((step, i) => (
+                      <div key={i} className="flex flex-col items-center gap-1.5">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold z-10 ${step.done ? 'bg-fkvi-teal text-white' : step.active ? 'bg-white border-2 border-fkvi-teal text-fkvi-teal' : 'bg-gray-100 text-gray-400'}`}>
+                          {step.done ? '✓' : i + 1}
+                        </div>
+                        <span className={`text-[9px] font-medium ${step.done || step.active ? 'text-gray-700' : 'text-gray-400'}`}>{step.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* Aktuelle Updates */}
+              <div className="space-y-2.5">
+                {[
+                  { time:'Heute', msg:'Visumsantrag eingereicht', color:'#10b981', dot:'bg-green-500' },
+                  { time:'3. Dez.', msg:'Botschaftstermin bestätigt', color:'#3b82f6', dot:'bg-blue-500' },
+                  { time:'28. Nov.', msg:'Anerkennungsverfahren gestartet', color:'#8b5cf6', dot:'bg-purple-500' },
+                  { time:'14. Nov.', msg:'Arbeitsvertrag unterzeichnet', color:'#f59e0b', dot:'bg-amber-500' },
+                ].map((ev, i) => (
+                  <div key={i} className="bg-white rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-sm">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${ev.dot}`} />
+                    <span className="text-xs text-gray-800 font-medium flex-1">{ev.msg}</span>
+                    <span className="text-[10px] text-gray-400 shrink-0">{ev.time}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white px-5 py-3 flex items-center justify-between border-t border-gray-100">
+              <span className="text-xs text-gray-500 font-medium">Live-Statustracking</span>
+              <span className="text-xs text-fkvi-teal font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-fkvi-teal animate-pulse" />
+                Echtzeit
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* USP Chips */}
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          {[
+            { label: 'Matching nach 6 Kriterien', color: 'text-fkvi-blue bg-fkvi-blue/8' },
+            { label: 'Live-Status für jede Fachkraft', color: 'text-fkvi-teal bg-fkvi-teal/8' },
+            { label: 'Dokumente digital verwalten', color: 'text-indigo-600 bg-indigo-50' },
+            { label: 'Immer auf dem Laufenden bleiben', color: 'text-emerald-700 bg-emerald-50' },
+          ].map(chip => (
+            <span key={chip.label} className={`text-sm font-semibold px-4 py-2 rounded-full ${chip.color}`}>
+              {chip.label}
+            </span>
+          ))}
+        </div>
+
+      </div>
+    </section>
+  )
+}
+
 function KompetenzpassCarouselSection({ kpassRef }) {
   const [tab, setTab] = useState('fachlich')
   const cards = tab === 'fachlich' ? KPASS_FACHLICH : KPASS_INTEGRATION
@@ -572,11 +741,14 @@ function KompetenzpassCarouselSection({ kpassRef }) {
 
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white font-semibold text-sm mb-5"
-            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>
-            <ShieldCheck className="h-4 w-4" />
-            PDL-VALIDIERT
-          </div>
+          {tab === 'fachlich' && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white font-semibold text-sm mb-5"
+              style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', boxShadow: '0 4px 15px rgba(59,130,246,0.3)' }}>
+              <ShieldCheck className="h-4 w-4" />
+              PDL validiert
+            </div>
+          )}
+          {tab !== 'fachlich' && <div className="mb-5 h-9" />}
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Der FKVI Kompetenzpass</h2>
           <p className="text-slate-400 max-w-xl mx-auto leading-relaxed">
             Prüfung der pflegerischen Handlungskompetenz und sozialen Integration nach deutschen Standards.
@@ -587,8 +759,8 @@ function KompetenzpassCarouselSection({ kpassRef }) {
         {/* Tab buttons */}
         <div className="flex justify-center gap-4 mb-10 flex-wrap">
           {[
-            { key: 'fachlich',    label: '1. Fachliche Pflege',    activeColor: '#3b82f6', activeBg: 'rgba(59,130,246,0.15)',  glow: 'rgba(59,130,246,0.2)'  },
-            { key: 'integration', label: '2. Leben & Integration', activeColor: '#10b981', activeBg: 'rgba(16,185,129,0.15)', glow: 'rgba(16,185,129,0.2)' },
+            { key: 'fachlich',    label: 'Fachliche Pflege',    activeColor: '#3b82f6', activeBg: 'rgba(59,130,246,0.15)',  glow: 'rgba(59,130,246,0.25)'  },
+            { key: 'integration', label: 'Leben & Integration', activeColor: '#10b981', activeBg: 'rgba(16,185,129,0.15)', glow: 'rgba(16,185,129,0.25)' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-7 py-3 rounded-full text-base font-semibold transition-all duration-300"
@@ -596,11 +768,11 @@ function KompetenzpassCarouselSection({ kpassRef }) {
                 border: `2px solid ${t.activeColor}`,
                 color: t.activeColor,
                 background: t.activeBg,
-                boxShadow: `0 0 20px ${t.glow}`,
+                boxShadow: `0 0 28px ${t.glow}`,
               } : {
-                border: '2px solid #334155',
-                color: '#94a3b8',
-                background: 'transparent',
+                border: '2px solid #475569',
+                color: '#cbd5e1',
+                background: 'rgba(255,255,255,0.04)',
               }}>
               {t.label}
             </button>
@@ -731,16 +903,24 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
                       <div className="h-6 w-20 bg-gray-100 rounded-full" />
                       <div className="h-6 w-24 bg-gray-100 rounded-full" />
                     </div>
-                    <div className="h-9 bg-gray-100 rounded-xl mt-4" />
                   </div>
                 </div>
               ))}
             </div>
           ) : visible.length > 0 ? (
-            <div className="grid sm:grid-cols-3 gap-6">
-              {visible.map((p, i) => (
-                <ProfileCard key={p.id} profile={p} onRequestAccess={() => setModalOpen(true)} />
-              ))}
+            <div className="relative">
+              <div className="grid sm:grid-cols-3 gap-6 overflow-hidden">
+                {visible.map((p, i) => (
+                  <ProfileCard key={p.id} profile={p} onRequestAccess={() => setModalOpen(true)} />
+                ))}
+              </div>
+              {/* Anschnitt-Indikator: weitere Kandidaten andeuten */}
+              <div className="hidden sm:flex absolute -right-10 top-0 bottom-0 w-40 pointer-events-none"
+                style={{ background: 'linear-gradient(to right, transparent 0%, rgba(248,250,252,0.7) 40%, rgba(248,250,252,0.97) 100%)' }}>
+                <div className="absolute right-12 top-1/2 -translate-y-1/2 flex flex-col gap-3 opacity-40">
+                  <div className="w-20 h-32 bg-white rounded-2xl border border-gray-200 shadow-sm" style={{ filter: 'blur(2px)' }} />
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -759,18 +939,18 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
   )
 }
 
-function KundenstimmenSection() {
+function KundenstimmenSection({ kundenstimmenRef }) {
   const VIMEO_TESTIMONIAL = 'https://player.vimeo.com/video/1093472894?badge=0&autopause=0&player_id=testimonial&app_id=58479&title=0&byline=0&portrait=0'
 
   return (
-    <section className="px-4 sm:px-6 pb-8 pt-16"
+    <section ref={kundenstimmenRef} className="px-4 sm:px-6 pb-8 pt-16"
       style={{ background: '#f8fafc' }}>
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-10">
-          <p className="text-xs font-semibold tracking-widest uppercase text-fkvi-teal mb-3">Kundenstimmen</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-fkvi-blue">Großartige Ergebnisse<br className="hidden sm:block" /> und zufriedene Kunden</h2>
+          <p className="text-xs font-semibold tracking-widest uppercase text-fkvi-teal mb-3">Praxisberichte</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-fkvi-blue">Erfahrungen aus der Praxis</h2>
         </div>
 
         {/* Card */}
@@ -812,7 +992,7 @@ function KundenstimmenSection() {
                   </div>
                 </div>
                 <img src="/logos/residenz-gruppe.webp" alt="Residenz-Gruppe – Seniorenresidenzen Lerchenhof"
-                  className="h-7 w-auto object-contain grayscale opacity-40" />
+                  className="h-7 w-auto object-contain opacity-70" />
               </div>
 
             </div>
@@ -1147,14 +1327,7 @@ function ProfileCard({ profile, onRequestAccess }) {
 
         <div className="flex-1" />
 
-        {/* CTA */}
-        <button
-          onClick={onRequestAccess}
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gray-50 border border-gray-200 text-xs font-medium text-gray-500 hover:bg-fkvi-blue hover:text-white hover:border-fkvi-blue group-hover:bg-fkvi-blue group-hover:text-white group-hover:border-fkvi-blue transition-all duration-200"
-        >
-          <Lock className="h-3.5 w-3.5" />
-          Zugang beantragen
-        </button>
+
       </div>
 
       {/* Hover teal accent */}
@@ -1232,24 +1405,65 @@ function UeberUnsSection() {
   )
 }
 
+function PhaseCard({ p }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative flex flex-col rounded-2xl p-6"
+      style={{
+        background: hovered ? '#263348' : '#1e293b',
+        border: `1px solid ${hovered || p.goal ? p.color + (hovered ? 'cc' : '70') : '#334155'}`,
+        boxShadow: hovered
+          ? `0 0 0 1px ${p.color}40, 0 12px 40px ${p.color}28`
+          : p.goal ? `0 0 0 1px ${p.color}20, 0 8px 32px ${p.color}18` : 'none',
+        transition: 'all 0.25s ease',
+        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
+      }}>
+      <span className="self-start text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4"
+        style={{ background: p.bg, color: p.color }}>
+        {p.week}
+      </span>
+      <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-lg font-bold mb-4"
+        style={{
+          background: p.goal || hovered ? p.color : p.bg,
+          color: p.goal || hovered ? '#fff' : p.color,
+          boxShadow: p.goal || hovered ? `0 0 24px ${p.color}55` : 'none',
+          transition: 'all 0.25s ease',
+        }}>
+        {p.num}
+      </div>
+      <h3 className="font-bold text-white text-sm leading-snug mb-2">{p.title}</h3>
+      <p className="text-slate-300 text-xs leading-relaxed flex-1">{p.body}</p>
+      {p.goal && (
+        <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-emerald-500/20">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+          <span className="text-xs font-semibold text-emerald-400">Ziel erreicht</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ProzessSection({ prozessRef }) {
   const phases = [
     {
       num: 1, week: 'Woche 1',
       title: 'Vertragsabschluss & Startschuss',
-      body: 'Das Matching war erfolgreich und der Arbeitsvertrag ist unterschrieben. Ab diesem Moment übernehmen wir die komplette Steuerung des behördlichen Dschungels für Sie.',
+      body: 'Nach erfolgreichem Matching und unterzeichnetem Arbeitsvertrag übernehmen wir ab sofort die vollständige Steuerung aller behördlichen Prozesse — von Antragsstellung bis Terminfristenmanagement.',
       color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',
     },
     {
       num: 2, week: 'Woche 2–6',
       title: 'Behörden-Management & Anerkennung',
-      body: 'Wir initiieren das beschleunigte Fachkräfteverfahren (§ 81a AufenthG). Da wir alle Zeugnisse bereits vor Monaten geprüft haben, verläuft die Einreichung reibungslos.',
+      body: 'Wir initiieren das beschleunigte Fachkräfteverfahren nach § 81a AufenthG sowie das Anerkennungsverfahren. Da alle Unterlagen bereits Monate im Voraus geprüft und vollständig vorbereitet wurden, erfolgt die Einreichung ohne Verzögerungen.',
       color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)',
     },
     {
       num: 3, week: 'Woche 7–10',
       title: 'Visumsverfahren & Reisevorbereitung',
-      body: 'Wir begleiten die Fachkraft in die Deutsche Botschaft und prüfen vorab alle Anträge, um Ablehnungen durch Formfehler auszuschließen.',
+      body: 'Die Fachkraft wird persönlich zur deutschen Botschaft begleitet. Alle Anträge werden vorab geprüft, um Ablehnungen aufgrund von Formfehlern von vornherein auszuschließen.',
       color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',
     },
     {
@@ -1266,10 +1480,10 @@ function ProzessSection({ prozessRef }) {
 
         {/* Header */}
         <div className="text-center mb-16">
-          <p className="text-xs font-semibold tracking-widest uppercase text-blue-400 mb-3">Ihr Ablauf</p>
+          <p className="text-xs font-semibold tracking-widest uppercase text-blue-400 mb-3">Ablauf</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Ihre neue Fachkraft in 12 Wochen</h2>
           <p className="text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Unser gemeinsames Ziel ist eine langfristige Zusammenarbeit. Dass der sichtbare Prozess ab Vertragsunterschrift idealerweise nur rund 12 Wochen dauert, liegt an dem, was vorher passiert ist.
+            Unser Ziel ist eine langfristige Partnerschaft. Dass der sichtbare Prozess ab Vertragsunterschrift in der Regel nur rund 12 Wochen dauert, ist das Ergebnis sorgfältiger Vorarbeit, die Monate zuvor beginnt.
           </p>
         </div>
 
@@ -1281,35 +1495,7 @@ function ProzessSection({ prozessRef }) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {phases.map((p, i) => (
-              <div key={i} className="relative flex flex-col rounded-2xl p-6"
-                style={{
-                  background: '#1e293b',
-                  border: `1px solid ${p.goal ? p.color + '70' : '#334155'}`,
-                  boxShadow: p.goal ? `0 0 0 1px ${p.color}20, 0 8px 32px ${p.color}18` : 'none',
-                }}>
-                {/* Week badge */}
-                <span className="self-start text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4"
-                  style={{ background: p.bg, color: p.color }}>
-                  {p.week}
-                </span>
-                {/* Number circle */}
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-lg font-bold mb-4"
-                  style={{
-                    background: p.goal ? p.color : p.bg,
-                    color: p.goal ? '#fff' : p.color,
-                    boxShadow: p.goal ? `0 0 24px ${p.color}55` : 'none',
-                  }}>
-                  {p.num}
-                </div>
-                <h3 className="font-bold text-white text-sm leading-snug mb-2">{p.title}</h3>
-                <p className="text-slate-400 text-xs leading-relaxed flex-1">{p.body}</p>
-                {p.goal && (
-                  <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-emerald-500/20">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                    <span className="text-xs font-semibold text-emerald-400">Ziel erreicht</span>
-                  </div>
-                )}
-              </div>
+              <PhaseCard key={i} p={p} />
             ))}
           </div>
         </div>
@@ -1338,9 +1524,9 @@ function ProzessSection({ prozessRef }) {
               </p>
               <div className="grid sm:grid-cols-3 gap-4">
                 {[
+                  { title: 'Dokumentenprüfung', sub: 'Anerkennungsfähigkeit vorab gesichert', color: '#10b981' },
                   { title: 'B2-Sprachausbildung', sub: 'Komplett vorfinanziert von FKVI', color: '#3b82f6' },
                   { title: 'Interkulturelles Coaching', sub: 'Intensiv & persönlich begleitet', color: '#8b5cf6' },
-                  { title: 'Dokument-Prüfung', sub: 'Anerkennungsfähigkeit vorab gesichert', color: '#10b981' },
                 ].map(item => (
                   <div key={item.title} className="flex gap-3 items-start p-4 rounded-xl"
                     style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid #1e293b' }}>
@@ -1371,7 +1557,7 @@ function ProzessSection({ prozessRef }) {
             <div className="w-1 rounded-full shrink-0" style={{ background: '#10b981' }} />
             <div>
               <h3 className="text-sm font-bold text-emerald-400 mb-1">Nachbesetzungsgarantie</h3>
-              <p className="text-xs leading-relaxed" style={{ color: 'rgba(167,243,208,0.6)' }}>Sollte das Arbeitsverhältnis während der Probezeit gelöst werden, kümmern wir uns kostenfrei um eine äquivalente Nachbesetzung.</p>
+              <p className="text-xs leading-relaxed" style={{ color: 'rgba(167,243,208,0.6)' }}>Endet das Arbeitsverhältnis innerhalb eines Jahres — unabhängig vom Grund — übernehmen wir die Nachbesetzung vollständig kostenlos. Wir gehen hier bewusst die Extrameile, weil wir von unserem Prozess überzeugt sind.</p>
             </div>
           </div>
         </div>
@@ -1414,23 +1600,16 @@ function MotivationSection() {
         <p className="text-xs font-semibold tracking-widest uppercase text-teal-400 text-center mb-4">
           Unsere Motivation
         </p>
-        <h2 className="text-4xl sm:text-5xl font-black text-white text-center leading-tight mb-6"
-          style={{ letterSpacing: '-1px' }}>
-          Wir tun das für{' '}
-          <span style={{
-            background: 'linear-gradient(90deg, #0d9488 0%, #3b82f6 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>
-            unsere Eltern
-          </span>
+        <h2 className="text-4xl sm:text-5xl font-black text-center leading-tight mb-6"
+          style={{ letterSpacing: '-1px', color: '#0d9488' }}>
+          Wir tun das für unsere Eltern
         </h2>
 
         <p className="text-slate-400 text-lg leading-relaxed max-w-2xl mx-auto text-center mb-5">
           Wir sind Söhne und Töchter. Unsere Eltern werden älter, und wir wollen sicherstellen,
           dass sie in stabilen, kompetenten Teams gepflegt werden.
         </p>
-        <p className="text-slate-600 italic text-center mb-20 max-w-xl mx-auto">
+        <p className="text-slate-300 font-medium text-base italic text-center mb-20 max-w-xl mx-auto" style={{ lineHeight: 1.8 }}>
           „Pflege ist keine Übergangslösung. Sie ist das Fundament unserer Gesellschaft."
         </p>
 
@@ -1481,7 +1660,7 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
         </Link>
         <div className="mt-6 flex items-center justify-center gap-1.5 text-sm text-slate-500">
           <Phone className="h-4 w-4" />
-          <a href="tel:+491605562142" className="hover:text-white transition-colors">+49 160 5562142</a>
+          <a href="tel:+496980884364" className="hover:text-white transition-colors">+49 69 8088 4364</a>
         </div>
       </div>
 
@@ -1502,14 +1681,17 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
               <button onClick={() => scroll(vorteileRef)} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Vorteile</button>
               <button onClick={() => scroll(kpassRef)} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Kompetenzpass</button>
               <button onClick={() => scroll(prozessRef)} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Ablauf</button>
-              <Link to="/downloads" className="block text-slate-400 text-sm hover:text-white transition-colors">Informationsbroschüre für Fachkräfte</Link>
+              <Link to="/downloads" className="flex items-center gap-2 text-slate-400 text-sm hover:text-white transition-colors">
+                Informationsbroschüre
+                <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal/15 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FÜR FACHKRÄFTE</span>
+              </Link>
               <Link to="/matching/login" className="block text-slate-400 text-sm hover:text-white transition-colors">Matching-Plattform</Link>
             </div>
           </div>
           <div>
             <p className="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-3">Kontakt</p>
             <div className="space-y-2">
-              <a href="tel:+491605562142" className="block text-slate-400 text-sm hover:text-white transition-colors">+49 160 5562142</a>
+              <a href="tel:+496980884364" className="block text-slate-400 text-sm hover:text-white transition-colors">+49 69 8088 4364</a>
               <a href="mailto:info@fachkraft-vermittlung.de" className="block text-slate-400 text-sm hover:text-white transition-colors">info@fachkraft-vermittlung.de</a>
             </div>
           </div>
@@ -1528,6 +1710,41 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
   )
 }
 
+// ─── Floating Guarantee Badge ──────────────────────────────────────────────────
+function FloatingGuaranteeBadge() {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const fn = () => setVisible(window.scrollY > 500)
+    window.addEventListener('scroll', fn, { passive: true })
+    return () => window.removeEventListener('scroll', fn)
+  }, [])
+  return (
+    <div
+      className="fixed bottom-6 left-6 z-40 transition-all duration-500 ease-out pointer-events-none"
+      style={{
+        transform: visible ? 'translateY(0) scale(1)' : 'translateY(80px) scale(0.9)',
+        opacity: visible ? 1 : 0,
+      }}
+    >
+      <div
+        className="flex items-center gap-2 px-3.5 py-2 rounded-full pointer-events-auto"
+        style={{
+          background: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          boxShadow: '0 2px 16px rgba(13,148,136,0.18), 0 1px 4px rgba(0,0,0,0.08)',
+          border: '1px solid rgba(13,148,136,0.2)',
+        }}
+      >
+        <ShieldCheck className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+        <span className="text-xs font-semibold text-gray-800 whitespace-nowrap">12 Monate Garantie</span>
+        <span className="w-px h-3 bg-gray-200" />
+        <span className="text-xs text-teal-600 font-medium whitespace-nowrap">Kostenloser Ersatz</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function PublicHome() {
   const [profiles, setProfiles] = useState([])
@@ -1537,6 +1754,7 @@ export default function PublicHome() {
   const funnelRef = useRef(null)
   const prozessRef = useRef(null)
   const poolRef = useRef(null)
+  const kundenstimmenRef = useRef(null)
 
   useEffect(() => {
     supabase.from('profiles')
@@ -1551,23 +1769,24 @@ export default function PublicHome() {
     <div className="min-h-screen bg-white">
       <Helmet>
         <title>FKVI – Internationale Pflegekräfte für Kliniken &amp; Pflegeheime | Fachkraft Vermittlung International</title>
-        <meta name="description" content="FKVI vermittelt qualifizierte Pflegefachkräfte aus dem Ausland an Kliniken, Pflegeheime und ambulante Dienste. 100 % Vorleistung, B2-Zertifikat, Wohnung, 12 Monate Garantie – in 4 Monaten vor Ort." />
+        <meta name="description" content="FKVI vermittelt qualifizierte Pflegefachkräfte aus dem Ausland an Kliniken, Pflegeheime und ambulante Dienste. 100 % Vorleistung, B2-Zertifikat, Wohnung, 12 Monate Garantie – in 3 Monaten vor Ort." />
         <link rel="canonical" href="https://fkvi-plattform.de/" />
         <meta property="og:title" content="FKVI – Internationale Pflegekräfte für Kliniken & Pflegeheime" />
         <meta property="og:description" content="Qualifizierte Pflegefachkräfte aus dem Ausland. 100 % Vorleistung, B2-Zertifikat, Wohnung inklusive. 12 Monate Garantie." />
         <meta property="og:url" content="https://fkvi-plattform.de/" />
       </Helmet>
-      <NavBar funnelRef={funnelRef} prozessRef={prozessRef} vorteileRef={vorteileRef} kpassRef={kpassRef} poolRef={poolRef} />
-      <HeroSection />
+      <NavBar funnelRef={funnelRef} prozessRef={prozessRef} vorteileRef={vorteileRef} kpassRef={kpassRef} poolRef={poolRef} kundenstimmenRef={kundenstimmenRef} />
+      <HeroSection poolRef={poolRef} />
       <LogoMarquee />
       <LeistungenSection vorteileRef={vorteileRef} />
+      <PlatformPreviewSection />
       {/* ── Dark zone 1: Kompetenzpass + floating light island + Prozess ── */}
       <div style={{ background: '#0f172a' }}>
         <KompetenzpassCarouselSection kpassRef={kpassRef} />
         <KompetenzpassSection funnelRef={funnelRef} />
         <div style={{ background: '#f8fafc', borderRadius: 32, margin: '40px 0', overflow: 'hidden' }}>
           <ProfilesSection profiles={profiles} profilesLoading={profilesLoading} poolRef={poolRef} />
-          <KundenstimmenSection />
+          <KundenstimmenSection kundenstimmenRef={kundenstimmenRef} />
         </div>
         <ProzessSection prozessRef={prozessRef} />
         <div style={{ background: '#fff', borderRadius: 32, margin: '40px 0', overflow: 'hidden' }}>
@@ -1577,6 +1796,7 @@ export default function PublicHome() {
       </div>
 
       <Footer funnelRef={funnelRef} prozessRef={prozessRef} vorteileRef={vorteileRef} kpassRef={kpassRef} />
+      <FloatingGuaranteeBadge />
     </div>
   )
 }
