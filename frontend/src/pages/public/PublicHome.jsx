@@ -103,8 +103,8 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundens
           <button onClick={() => scroll(poolRef)} className="hover:text-fkvi-blue transition-colors whitespace-nowrap">Matching-Plattform</button>
           <span className="w-px h-4 bg-gray-200" />
           <Link to="/downloads" className="flex items-center gap-1.5 text-xs font-medium text-fkvi-teal hover:text-fkvi-teal/80 transition-colors whitespace-nowrap border border-fkvi-teal/25 bg-fkvi-teal/5 hover:bg-fkvi-teal/10 rounded-full px-3 py-1">
-            <span>Informationsbroschüre</span>
-            <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full leading-none">FK</span>
+            <span>Broschüre</span>
+            <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full leading-none">FACHKRAFT</span>
           </Link>
         </nav>
 
@@ -378,11 +378,12 @@ function LeistungenSection({ vorteileRef }) {
           className="hidden lg:grid gap-3"
           style={{
             gridTemplateColumns: '280px 1fr 1fr',
-            gridTemplateRows: '210px 210px 230px',
+            gridTemplateRows: '210px 210px 230px auto',
             gridTemplateAreas: `
               "hero   hero   small1"
               "hero   hero   small2"
               "small3 wide   wide  "
+              "plat   plat   plat  "
             `,
           }}
         >
@@ -413,8 +414,8 @@ function LeistungenSection({ vorteileRef }) {
 
           {/* 2 Tage — right top */}
           <div className="bg-white rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small1', boxShadow: CARD_SHADOW }}>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
-              <MapPin className="h-4 w-4 text-blue-500" />
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
+              <MapPin className="h-6 w-6 text-blue-500" />
             </div>
             <div>
               <div className="text-5xl font-bold text-blue-500 tracking-tight leading-none mb-2">2 Tage</div>
@@ -425,8 +426,8 @@ function LeistungenSection({ vorteileRef }) {
 
           {/* 12 Monate — right middle */}
           <div className="rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small2', boxShadow: CARD_SHADOW, background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', border: '1px solid rgba(13,148,136,0.18)' }}>
-            <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center">
-              <ShieldCheck className="h-4 w-4 text-teal-600" />
+            <div className="w-12 h-12 rounded-2xl bg-teal-100 flex items-center justify-center">
+              <ShieldCheck className="h-6 w-6 text-teal-600" />
             </div>
             <div>
               <div className="text-5xl font-bold text-teal-600 tracking-tight leading-none mb-1">12 Monate</div>
@@ -473,6 +474,87 @@ function LeistungenSection({ vorteileRef }) {
               <div className="text-xs text-gray-400 leading-relaxed">Begleitung durch die kritische Eingewöhnungsphase, für Fachkraft und Team gleichermaßen.</div>
             </div>
           </div>
+
+          {/* Platform Preview — full bottom row */}
+          <div className="rounded-3xl overflow-hidden flex flex-col sm:flex-row gap-0" style={{ gridArea: 'plat', background: '#0f172a', boxShadow: HERO_SHADOW }}>
+
+            {/* Matching-Portal */}
+            <div className="flex-1 p-6 flex flex-col gap-4 border-b sm:border-b-0 sm:border-r border-white/8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-bold text-base leading-tight">Matching-Portal</div>
+                  <div className="text-slate-400 text-xs mt-0.5">Kandidaten filtern, vergleichen & auswählen</div>
+                </div>
+                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-emerald-400 bg-emerald-400/10 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Live
+                </span>
+              </div>
+              {/* Mini cards */}
+              {[
+                { init:'AK', country:'🇵🇭', job:'Pflegefachkraft (B.Sc.)', exp:'6 J. Intensiv', status:'Verfügbar', sc:'#10b981' },
+                { init:'MR', country:'🇧🇷', job:'Gesundheits- & Krankenpfleger', exp:'9 J. Chirurgie', status:'In Verfahren', sc:'#f59e0b' },
+              ].map((p, i) => (
+                <div key={i} className="flex items-center gap-3 bg-white/6 rounded-xl px-3 py-2.5">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs text-white shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #1a3a5c, #0d9488)' }}>{p.init}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white text-xs font-semibold truncate">{p.job} {p.country}</div>
+                    <div className="text-slate-400 text-[10px]">{p.exp} Erfahrung</div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                    style={{ color: p.sc, background: p.sc + '20' }}>{p.status}</span>
+                </div>
+              ))}
+              <div className="flex items-center gap-2.5 bg-white/4 rounded-xl px-3 py-2 opacity-40">
+                <div className="w-9 h-9 rounded-xl bg-white/10 shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-2 bg-white/15 rounded-full w-3/4" />
+                  <div className="h-1.5 bg-white/10 rounded-full w-1/2" />
+                </div>
+              </div>
+            </div>
+
+            {/* Statustracking */}
+            <div className="flex-1 p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-bold text-base leading-tight">Live-Statustracking</div>
+                  <div className="text-slate-400 text-xs mt-0.5">Immer auf dem Laufenden bleiben.</div>
+                </div>
+                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-blue-400 bg-blue-400/10 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />Echtzeit
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="bg-white/6 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white text-xs font-semibold">Amara K.</span>
+                  <span className="text-blue-400 text-[10px] font-bold">Woche 7 / 12</span>
+                </div>
+                <div className="flex gap-1 mb-2">
+                  {[{l:'Matching',d:true},{l:'Behörden',d:true},{l:'Visum',d:false,a:true},{l:'Einreise',d:false}].map((s,i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div className={`h-1.5 w-full rounded-full ${s.d ? 'bg-fkvi-teal' : s.a ? 'bg-fkvi-teal/50' : 'bg-white/15'}`} />
+                      <span className={`text-[8px] ${s.d||s.a ? 'text-slate-300' : 'text-slate-600'}`}>{s.l}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Events */}
+              {[
+                { msg:'Visumsantrag eingereicht', time:'Heute', color:'#10b981' },
+                { msg:'Botschaftstermin bestätigt', time:'3. Dez.', color:'#3b82f6' },
+                { msg:'Anerkennungsverfahren gestartet', time:'28. Nov.', color:'#8b5cf6' },
+              ].map((ev, i) => (
+                <div key={i} className="flex items-center gap-2.5 bg-white/5 rounded-xl px-3 py-2">
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: ev.color }} />
+                  <span className="text-slate-300 text-xs flex-1">{ev.msg}</span>
+                  <span className="text-slate-500 text-[10px] shrink-0">{ev.time}</span>
+                </div>
+              ))}
+            </div>
+
+          </div>
         </div>
 
         {/* ── Mobile / Tablet fallback ─────────────────────────────────── */}
@@ -485,8 +567,8 @@ function LeistungenSection({ vorteileRef }) {
             { Icon: Users,      metric: '90 Tage', color: '#6366f1', bg: 'bg-indigo-50',  title: 'Intensiv-Mentoring',           desc: 'Begleitung durch die kritische Eingewöhnungsphase, für Fachkraft und Team.' },
           ].map(({ Icon, metric, color, bg, title, desc }) => (
             <div key={title} className="bg-white rounded-2xl p-6 flex flex-col gap-4" style={{ boxShadow: CARD_SHADOW }}>
-              <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center`}>
-                <Icon className="h-4 w-4" style={{ color }} />
+              <div className={`w-12 h-12 rounded-2xl ${bg} flex items-center justify-center`}>
+                <Icon className="h-6 w-6" style={{ color }} />
               </div>
               <div>
                 <div className="text-3xl font-bold tracking-tight leading-none mb-1" style={{ color }}>{metric}</div>
@@ -743,7 +825,7 @@ function KompetenzpassCarouselSection({ kpassRef }) {
         <div className="text-center mb-12">
           {tab === 'fachlich' && (
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white font-semibold text-sm mb-5"
-              style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', boxShadow: '0 4px 15px rgba(59,130,246,0.3)' }}>
+              style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>
               <ShieldCheck className="h-4 w-4" />
               PDL validiert
             </div>
@@ -880,7 +962,8 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
     <>
       <AccessRequestModal open={modalOpen} onClose={() => setModalOpen(false)} />
 
-      <section ref={poolRef} className="py-24 px-4 sm:px-6" style={{ background: '#f8fafc' }}>
+      <section ref={poolRef} className="py-24 px-4 sm:px-6 relative overflow-hidden" style={{ background: '#f8fafc' }}>
+      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(96,165,250,0.12) 0%, rgba(147,197,253,0.05) 50%, transparent 75%)' }} />
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-xs font-semibold tracking-widest uppercase text-fkvi-teal mb-3">Aktueller Pool</p>
@@ -943,8 +1026,9 @@ function KundenstimmenSection({ kundenstimmenRef }) {
   const VIMEO_TESTIMONIAL = 'https://player.vimeo.com/video/1093472894?badge=0&autopause=0&player_id=testimonial&app_id=58479&title=0&byline=0&portrait=0'
 
   return (
-    <section ref={kundenstimmenRef} className="px-4 sm:px-6 pb-8 pt-16"
+    <section ref={kundenstimmenRef} className="px-4 sm:px-6 pb-8 pt-16 relative overflow-hidden"
       style={{ background: '#f8fafc' }}>
+      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(96,165,250,0.10) 0%, rgba(147,197,253,0.04) 50%, transparent 75%)' }} />
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
@@ -1257,44 +1341,45 @@ function ProfileCard({ profile, onRequestAccess }) {
   const rec   = RECOGNITION[profile.german_recognition]
 
   return (
-    <div className="group relative bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all flex flex-col">
+    <div className="group relative bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-xl hover:border-gray-200 transition-all duration-300 flex flex-col overflow-hidden">
 
-      {/* Top gradient band — same as matching platform */}
-      <div className="h-16 bg-gradient-to-br from-fkvi-blue/10 via-fkvi-teal/5 to-transparent shrink-0" />
+      {/* Full-card gradient — matches matching platform exactly */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: 'linear-gradient(170deg, rgba(13,148,136,0.07) 0%, rgba(26,58,92,0.04) 25%, rgba(255,255,255,0) 55%)' }} />
 
-      {/* Avatar — real photo blurred to show presence but hide identity */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2">
-        <div className="w-24 h-24 rounded-full p-[3px] shadow-md" style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}>
-          <div className="w-full h-full rounded-full overflow-hidden bg-fkvi-blue/10 flex items-center justify-center">
-            {profile.profile_image_url ? (
-              <img
-                src={profile.profile_image_url}
-                alt="Fachkraft"
-                className="w-full h-full object-cover object-top"
-                style={{}}
-              />
-            ) : (
-              <User className="h-9 w-9 text-fkvi-blue/30" />
-            )}
+      {/* Top spacer for avatar */}
+      <div className="h-20 shrink-0" />
+
+      {/* Avatar */}
+      <div className="absolute top-5 left-1/2 -translate-x-1/2">
+        <div className="w-28 h-28 rounded-full p-[3px] shadow-lg"
+          style={{ background: 'linear-gradient(135deg, #0d9488 0%, #1a3a5c 100%)' }}>
+          <div className="w-full h-full rounded-full overflow-hidden bg-gray-100">
+            {profile.profile_image_url
+              ? <img src={profile.profile_image_url} alt="Profilbild" className="w-full h-full object-cover object-top" />
+              : <div className="w-full h-full flex items-center justify-center bg-fkvi-blue/10"><User className="h-10 w-10 text-fkvi-blue/30" /></div>
+            }
           </div>
         </div>
-        {/* "Anonymisiert" pill — identical to matching platform */}
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm rounded-full px-2 py-0.5 whitespace-nowrap">
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-800/75 backdrop-blur-sm rounded-full px-2.5 py-0.5 whitespace-nowrap">
           <EyeOff className="h-2.5 w-2.5 text-white/70" />
           <span className="text-[9px] text-white/80 font-medium tracking-wide">Anonymisiert</span>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="pt-14 pb-4 px-4 flex flex-col flex-1 gap-3">
+      {/* Lock-Zugang button */}
+      <button onClick={onRequestAccess}
+        className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-fkvi-teal text-white text-[10px] font-bold px-2.5 py-1.5 rounded-full hover:bg-fkvi-teal/85 transition-colors z-10 shadow-sm">
+        <Lock className="h-3 w-3" />Zugang
+      </button>
 
-        {/* Job title (not personal) + blurred name bar + demographics */}
+      {/* Content */}
+      <div className="relative pt-14 pb-5 px-4 flex flex-col flex-1 gap-3">
+
+        {/* Identity */}
         <div className="text-center">
           <p className="font-bold text-gray-900 text-sm leading-tight">{profile.nursing_education || 'Pflegefachkraft'}</p>
-          <div className="flex justify-center my-1">
-            <div className="h-3 w-24 rounded bg-gray-300 select-none" style={{ filter: 'blur(3px)' }} />
-          </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 mt-0.5">
             {[profile.gender, profile.age ? `${profile.age} J.` : null, profile.nationality].filter(Boolean).join(' · ')}
           </p>
         </div>
@@ -1326,12 +1411,10 @@ function ProfileCard({ profile, onRequestAccess }) {
         )}
 
         <div className="flex-1" />
-
-
       </div>
 
       {/* Hover teal accent */}
-      <div className="h-0.5 bg-gradient-to-r from-fkvi-teal/0 via-fkvi-teal/50 to-fkvi-teal/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="h-0.5 bg-gradient-to-r from-fkvi-teal/0 via-fkvi-teal/40 to-fkvi-teal/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
     </div>
   )
 }
@@ -1683,7 +1766,7 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
               <button onClick={() => scroll(prozessRef)} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Ablauf</button>
               <Link to="/downloads" className="flex items-center gap-2 text-slate-400 text-sm hover:text-white transition-colors">
                 Informationsbroschüre
-                <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal/15 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FÜR FACHKRÄFTE</span>
+                <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal/15 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRAFT</span>
               </Link>
               <Link to="/matching/login" className="block text-slate-400 text-sm hover:text-white transition-colors">Matching-Plattform</Link>
             </div>
@@ -1779,7 +1862,6 @@ export default function PublicHome() {
       <HeroSection poolRef={poolRef} />
       <LogoMarquee />
       <LeistungenSection vorteileRef={vorteileRef} />
-      <PlatformPreviewSection />
       {/* ── Dark zone 1: Kompetenzpass + floating light island + Prozess ── */}
       <div style={{ background: '#0f172a' }}>
         <KompetenzpassCarouselSection kpassRef={kpassRef} />
