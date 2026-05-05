@@ -478,8 +478,8 @@ function LeistungenSection({ vorteileRef }) {
 
           {/* 2 Tage — right top */}
           <div className="bg-white rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small1', boxShadow: CARD_SHADOW }}>
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
-              <MapPin className="h-5 w-5 text-blue-500" />
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#1e40af' }}>
+              <MapPin className="h-5 w-5 text-white" />
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-4xl font-bold text-blue-500 tracking-tight leading-none">2 Tage</div>
@@ -490,8 +490,8 @@ function LeistungenSection({ vorteileRef }) {
 
           {/* 12 Monate — right middle */}
           <div className="rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small2', boxShadow: CARD_SHADOW, background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)', border: '1px solid rgba(13,148,136,0.18)' }}>
-            <div className="w-11 h-11 rounded-2xl bg-teal-50 flex items-center justify-center shrink-0">
-              <ShieldCheck className="h-5 w-5 text-teal-600" />
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#0f766e' }}>
+              <ShieldCheck className="h-5 w-5 text-white" />
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-4xl font-bold text-teal-600 tracking-tight leading-none">12 Monate</div>
@@ -529,8 +529,8 @@ function LeistungenSection({ vorteileRef }) {
 
           {/* 90 Tage — small bottom left */}
           <div className="bg-white rounded-3xl p-6 flex flex-col justify-between" style={{ gridArea: 'small3', boxShadow: CARD_SHADOW }}>
-            <div className="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
-              <Users className="h-5 w-5 text-indigo-500" />
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#4338ca' }}>
+              <Users className="h-5 w-5 text-white" />
             </div>
             <div className="flex flex-col gap-1">
               <div className="text-4xl font-bold text-indigo-500 tracking-tight leading-none">90 Tage</div>
