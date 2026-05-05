@@ -556,7 +556,7 @@ function LeistungenSection({ vorteileRef }) {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-gray-900 font-bold text-base leading-tight">Matching-Portal</div>
-                  <div className="text-gray-400 text-xs mt-0.5">Kandidaten filtern, vergleichen & auswählen</div>
+                  <div className="text-gray-500 text-xs mt-0.5">Fachkräfte einsehen, auswählen & kennenlernen</div>
                 </div>
               </div>
 
@@ -600,7 +600,7 @@ function LeistungenSection({ vorteileRef }) {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-gray-900 font-bold text-base leading-tight">Live-Statustracking</div>
-                  <div className="text-gray-400 text-xs mt-0.5">Immer auf dem Laufenden bleiben.</div>
+                  <div className="text-gray-500 text-xs mt-0.5">Immer up to date, völlige Transparenz.</div>
                 </div>
                 <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center gap-1.5">
                   <span className="relative flex h-1.5 w-1.5">
