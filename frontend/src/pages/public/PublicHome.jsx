@@ -484,7 +484,7 @@ function LeistungenSection({ vorteileRef }) {
             <div className="flex flex-col gap-1">
               <div className="text-4xl font-bold text-blue-500 tracking-tight leading-none">2 Tage</div>
               <div className="text-sm font-semibold text-gray-900 mt-1">Vor-Ort-Support</div>
-              <div className="text-xs text-gray-400 leading-relaxed mt-0.5">Abholung, Behördengänge, Steuer-ID, Bankkonto, Krankenkasse — ab Tag 1 persönlich begleitet.</div>
+              <div className="text-xs text-gray-400 leading-relaxed mt-0.5">Abholung, Behördengänge, Steuer-ID, Bankkonto, Krankenkasse, Wohnungsübergabe — ab Tag 1 persönlich begleitet.</div>
             </div>
           </div>
 
@@ -1092,7 +1092,7 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
               onClick={() => setModalOpen(true)}
               className="inline-flex items-center gap-2 bg-fkvi-blue text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-fkvi-blue/90 transition-all shadow-lg shadow-fkvi-blue/20"
             >
-              Vollprofile freischalten <ArrowRight className="h-4 w-4" />
+              Zugang freischalten <ArrowRight className="h-4 w-4" />
             </button>
             <p className="text-xs text-gray-400 mt-3">Zugang nur für verifizierte Einrichtungen</p>
           </div>
@@ -1238,7 +1238,7 @@ function AccessRequestModal({ open, onClose }) {
             </div>
             <div>
               <h2 className="font-bold text-lg leading-tight">Zugang beantragen</h2>
-              <p className="text-white/60 text-xs">Matching-Plattform & Vollprofile</p>
+              <p className="text-white/60 text-xs">Matching-Plattform & Kandidatenprofile</p>
             </div>
           </div>
           <p className="text-white/70 text-sm leading-relaxed">
