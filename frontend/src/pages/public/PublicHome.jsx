@@ -215,12 +215,12 @@ function HeroSection({ poolRef }) {
           background: 'radial-gradient(ellipse 75% 65% at 58% 42%, rgba(96,165,250,0.18) 0%, rgba(147,197,253,0.08) 45%, transparent 70%)',
         }}
       />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 lg:py-24 relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 lg:py-24 relative">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
 
           {/* Left */}
           <div>
-            <h1 className="text-4xl sm:text-5xl font-bold text-fkvi-blue leading-tight mb-6">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-fkvi-blue leading-tight mb-5 sm:mb-6">
               Pflegekräfte finden.<br />
               Inklusive Wohnraum.<br />
               <span className="text-blue-500">In 3 Monaten vor Ort.</span>
@@ -255,7 +255,7 @@ function HeroSection({ poolRef }) {
                 <div className="text-xs text-gray-400 mt-1">Erfolgsquote</div>
               </div>
               <div className="px-3 sm:px-6 border-r border-gray-100">
-                <div className="text-lg sm:text-2xl font-bold text-fkvi-blue whitespace-nowrap">3 Monate</div>
+                <div className="text-lg sm:text-2xl font-bold text-fkvi-blue">3 Monate</div>
                 <div className="text-xs text-gray-400 mt-1">Ø bis vor Ort</div>
               </div>
               <div className="pl-3 sm:pl-6">
@@ -421,7 +421,7 @@ function LeistungenSection({ vorteileRef }) {
   ]
 
   return (
-    <section ref={vorteileRef} className="py-24 px-4 sm:px-6 bg-[#f5f5f7]" style={{ boxShadow: "inset 0 0 120px rgba(59,130,246,0.06)" }}>
+    <section ref={vorteileRef} className="py-16 sm:py-24 px-4 sm:px-6 bg-[#f5f5f7]" style={{ boxShadow: "inset 0 0 120px rgba(59,130,246,0.06)" }}>
       <div className="max-w-7xl mx-auto">
 
         <div className="text-center mb-16">
@@ -728,7 +728,7 @@ function KpassCard({ card, accentColor, accentBg }) {
 
 function PlatformPreviewSection() {
   return (
-    <section className="py-24 px-4 sm:px-6 bg-white overflow-hidden">
+    <section className="py-14 sm:py-24 px-4 sm:px-6 bg-white overflow-hidden">
       <div className="max-w-7xl mx-auto">
 
         <div className="text-center mb-16">
@@ -898,7 +898,7 @@ function KompetenzpassCarouselSection({ kpassRef }) {
   const accentBg   = tab === 'fachlich' ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.15)'
 
   return (
-    <section ref={kpassRef} style={{ background: '#0f172a' }} className="py-20 px-4 sm:px-6">
+    <section ref={kpassRef} style={{ background: '#0f172a' }} className="py-14 sm:py-20 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
@@ -942,7 +942,7 @@ function KompetenzpassCarouselSection({ kpassRef }) {
         </div>
 
         {/* Card grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           {cards.map((card, i) => (
             <KpassCard key={`${tab}-${i}`} card={card} accentColor={accentColor} accentBg={accentBg} />
           ))}
@@ -958,7 +958,7 @@ function KompetenzpassSection({ funnelRef }) {
   const d = FUNNEL_DATA[mode]
 
   return (
-    <section ref={funnelRef} className="py-20 px-4 sm:px-6" style={{ background: '#0f172a' }}>
+    <section ref={funnelRef} className="py-14 sm:py-20 px-4 sm:px-6" style={{ background: '#0f172a' }}>
       <style>{`
         @media (min-width: 640px) {
           .fk-funnel-0 { width: 100%; }
@@ -972,7 +972,7 @@ function KompetenzpassSection({ funnelRef }) {
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
           <p className="text-xs font-semibold tracking-widest uppercase text-blue-300 mb-3">Matching-Faktoren</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Unser Matching-Filter</h2>
+          <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4">Unser Matching-Filter</h2>
           <p className="text-white/60 max-w-xl mx-auto">
             6 Stufen bis zur perfekten Passung. Jede Stufe filtert gezielt,
             damit nur Fachkräfte vermittelt werden, die wirklich passen und langfristig bleiben.
@@ -1042,7 +1042,7 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
     <>
       <AccessRequestModal open={modalOpen} onClose={() => setModalOpen(false)} />
 
-      <section ref={poolRef} className="py-24 px-4 sm:px-6 relative overflow-hidden" style={{ background: '#f8fafc' }}>
+      <section ref={poolRef} className="py-14 sm:py-24 px-4 sm:px-6 relative overflow-hidden" style={{ background: '#f8fafc' }}>
       <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(96,165,250,0.12) 0%, rgba(147,197,253,0.05) 50%, transparent 75%)' }} />
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
@@ -1054,7 +1054,7 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
           </div>
 
           {profilesLoading ? (
-            <div className="grid sm:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
               {[...Array(3)].map((_,i) => (
                 <div key={i} className="bg-white rounded-3xl border border-gray-100 overflow-hidden animate-pulse">
                   <div className="h-24 bg-gray-100" />
@@ -1072,7 +1072,7 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
             </div>
           ) : visible.length > 0 ? (
             <div className="relative">
-              <div className="grid sm:grid-cols-3 gap-6 overflow-hidden">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 overflow-hidden">
                 {visible.map((p, i) => (
                   <ProfileCard key={p.id} profile={p} onRequestAccess={() => setModalOpen(true)} />
                 ))}
@@ -1106,7 +1106,7 @@ function KundenstimmenSection({ kundenstimmenRef }) {
   const VIMEO_TESTIMONIAL = 'https://player.vimeo.com/video/1093472894?badge=0&autopause=0&player_id=testimonial&app_id=58479&title=0&byline=0&portrait=0'
 
   return (
-    <section ref={kundenstimmenRef} className="px-4 sm:px-6 pb-8 pt-16 relative overflow-hidden"
+    <section ref={kundenstimmenRef} className="px-4 sm:px-6 pb-8 pt-10 sm:pt-16 relative overflow-hidden"
       style={{ background: '#f8fafc' }}>
       <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(96,165,250,0.10) 0%, rgba(147,197,253,0.04) 50%, transparent 75%)' }} />
       <div className="max-w-4xl mx-auto">
@@ -1501,7 +1501,7 @@ function ProfileCard({ profile, onRequestAccess }) {
 
 function UeberUnsSection() {
   return (
-    <section className="pt-12 pb-20 px-4 sm:px-6 bg-white">
+    <section className="pt-8 sm:pt-12 pb-12 sm:pb-20 px-4 sm:px-6 bg-white">
       <div className="max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start">
 
@@ -1638,7 +1638,7 @@ function ProzessSection({ prozessRef }) {
   ]
 
   return (
-    <section ref={prozessRef} style={{ background: '#0f172a' }} className="py-20 px-4 sm:px-6">
+    <section ref={prozessRef} style={{ background: '#0f172a' }} className="py-14 sm:py-20 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
@@ -1669,11 +1669,11 @@ function ProzessSection({ prozessRef }) {
           {/* Top banner */}
           <div className="flex items-center justify-center gap-2 py-3 border-b border-slate-800/80"
             style={{ background: 'rgba(59,130,246,0.06)' }}>
-            <span className="text-blue-400 font-bold uppercase tracking-widest text-xs">
-              90% passieren vorab im Verborgenen: Das 18-Monate Fundament
+            <span className="text-blue-400 font-bold uppercase tracking-widest text-xs text-center px-2">
+              Das 18-Monate Fundament – 90% passiert im Verborgenen
             </span>
           </div>
-          <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start text-center md:text-left">
+          <div className="p-5 sm:p-8 flex flex-col md:flex-row gap-5 md:gap-8 items-center md:items-start text-center md:text-left">
             {/* Left stat */}
             <div className="shrink-0">
               <div className="text-5xl font-black text-white leading-none mb-1">18</div>
@@ -1685,7 +1685,7 @@ function ProzessSection({ prozessRef }) {
               <p className="text-slate-300 text-sm leading-relaxed mb-5 text-center md:text-left">
                 Der reibungslose 12-Wochen-Ablauf ist nur möglich, weil wir die Fachkraft davor bereits <strong className="text-white">12 bis 18 Monate</strong> lang intensiv begleitet haben. Das ist Ihre Garantie, dass es klappt.
               </p>
-              <div className="grid sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { title: 'Dokumentenprüfung', sub: 'Anerkennungsfähigkeit vorab gesichert', color: '#10b981' },
                   { title: 'B2-Sprachausbildung', sub: 'Komplett vorfinanziert von FKVI', color: '#3b82f6' },
@@ -1706,7 +1706,7 @@ function ProzessSection({ prozessRef }) {
         </div>
 
         {/* Info cards */}
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="rounded-xl p-5 flex gap-4"
             style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(245,158,11,0.25)' }}>
             <div className="w-1 rounded-full shrink-0" style={{ background: '#f59e0b' }} />
@@ -1756,14 +1756,14 @@ function MotivationSection() {
   ]
 
   return (
-    <section className="py-28 px-4 sm:px-6"
+    <section className="py-16 sm:py-28 px-4 sm:px-6"
       style={{ background: 'linear-gradient(180deg, #0f172a 0%, #111827 100%)' }}>
       <div className="max-w-6xl mx-auto">
 
         <p className="text-xs font-semibold tracking-widest uppercase text-teal-400 text-center mb-4">
           Unsere Motivation
         </p>
-        <h2 className="text-4xl sm:text-5xl font-black text-center leading-tight mb-6"
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-center leading-tight mb-4 sm:mb-6"
           style={{ letterSpacing: '-1px', color: '#0d9488' }}>
           Wir tun das für unsere Eltern
         </h2>
@@ -1861,7 +1861,7 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
         </div>
         <div className="border-t border-white/10 pt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
           <span>© 2026 Fachkraft Vermittlung International GmbH &amp; Co. KG</span>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <Link to="/impressum" className="hover:text-white transition-colors">Impressum</Link>
             <Link to="/datenschutzerklaerung" className="hover:text-white transition-colors">Datenschutzerklärung</Link>
             <Link to="/matching/login" className="hover:text-white transition-colors">Zum Login</Link>
@@ -1942,6 +1942,7 @@ export default function PublicHome() {
       <HeroSection poolRef={poolRef} />
       <LogoMarquee />
       <LeistungenSection vorteileRef={vorteileRef} />
+      <div className="lg:hidden"><PlatformPreviewSection /></div>
       {/* ── Dark zone 1: Kompetenzpass + floating light island + Prozess ── */}
       <div style={{ background: '#0f172a' }}>
         <KompetenzpassCarouselSection kpassRef={kpassRef} />
