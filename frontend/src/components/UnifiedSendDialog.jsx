@@ -29,21 +29,32 @@ function buildProfilePrefill(profile) {
   if (!profile) return {}
   const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
   const q = profile.qualifikation || {}
+  const s = profile.soziales || {}
+  const mark = v => v ? 'X' : ''
   return {
+    // Stammdaten
+    'profile.full_name': name,
     'profile.first_name': profile.first_name || '',
     'profile.last_name': profile.last_name || '',
     'profile.birth_date': fmtDate(profile.birth_date),
+    'profile.birth_city': profile.birth_city || '',
+    'profile.age': profile.age ? String(profile.age) : '',
     'profile.nationality': profile.nationality || '',
+    'profile.email': profile.email || '',
+    'profile.phone': profile.phone || '',
     'profile.social_security_number': profile.social_security_number || '',
     'profile.ba_customer_number': profile.ba_customer_number || '',
     'profile.disability': fmtBool(profile.disability),
+    'profile.disability_mark': mark(profile.disability),
     'profile.aufenthaltstitel': profile.aufenthaltstitel || '',
     'profile.aufenthaltstitel_bis': fmtDate(profile.aufenthaltstitel_bis),
+    // Adresse
     'profile.street': profile.street || '',
     'profile.house_number': profile.house_number || '',
     'profile.postal_code': profile.postal_code || '',
     'profile.city': profile.city || '',
     'profile.residence_since': fmtDate(profile.residence_since),
+    // Ausbildung
     'profile.nursing_education': profile.nursing_education || '',
     'profile.education_duration': profile.education_duration || '',
     'profile.graduation_year': String(profile.graduation_year || ''),
@@ -53,7 +64,25 @@ function buildProfilePrefill(profile) {
     'profile.work_time_preference': profile.work_time_preference || '',
     'profile.marital_status': profile.marital_status || '',
     'profile.children_count': String(profile.children_count ?? ''),
-    // legacy key (keep for backwards compat)
+    // Qualifikation JSONB (Text)
+    'profile.qualifikation.berufsbezeichnung': q.berufsbezeichnung || '',
+    'profile.qualifikation.ausbildungseinrichtung': q.ausbildungseinrichtung || '',
+    'profile.qualifikation.studiengang': q.studiengang || '',
+    'profile.qualifikation.zeugnis_datum': fmtDate(q.zeugnis_datum),
+    'profile.qualifikation.ausbildung_von': fmtDate(q.ausbildung_von),
+    'profile.qualifikation.ausbildung_bis': fmtDate(q.ausbildung_bis),
+    'profile.qualifikation.anerkennungsnachweis': q.anerkennungsnachweis || '',
+    'profile.qualifikation.ungelernt_seit': fmtDate(q.ungelernt_seit),
+    // Qualifikation JSONB (Boolean mark)
+    'profile.qualifikation.berufsabschluss_vorhanden_mark': mark(q.berufsabschluss_vorhanden),
+    'profile.qualifikation.hochschulabschluss_vorhanden_mark': mark(q.hochschulabschluss_vorhanden),
+    'profile.qualifikation.im_erlernten_beruf_taetig_mark': mark(q.im_erlernten_beruf_taetig),
+    'profile.qualifikation.mehr_4_jahre_ungelernt_mark': mark(q.mehr_4_jahre_ungelernt),
+    // Soziales JSONB (Boolean mark)
+    'profile.soziales.sprachzertifikat_vorhanden_mark': mark(s.sprachzertifikat_vorhanden),
+    'profile.soziales.buergergeld_bezug_mark': mark(s.buergergeld_bezug),
+    'profile.soziales.bedarfsgemeinschaft_mark': mark(s.bedarfsgemeinschaft),
+    // Legacy
     'profile.address': [profile.street, profile.house_number].filter(Boolean).join(' '),
     'signer.name': name,
     today: fmtDate(new Date().toISOString()),
@@ -64,6 +93,8 @@ function buildProfilePrefill(profile) {
 function buildCompanyPrefill(company) {
   if (!company) return {}
   const name = company.company_name || company.name || ''
+  const k = company.klassifizierung || {}
+  const mark = v => v ? 'X' : ''
   return {
     'company.name': name,
     'company.company_name': name,
@@ -83,12 +114,24 @@ function buildCompanyPrefill(company) {
     'company.country': company.country || '',
     'company.betriebsnummer': company.betriebsnummer || '',
     'company.ba_kundennummer': company.ba_kundennummer || '',
+    // Klassifizierung JSONB (Text)
+    'company.klassifizierung.kmu_kategorie': k.kmu_kategorie || '',
+    'company.klassifizierung.beschaeftigte_gesamt': k.beschaeftigte_gesamt ? String(k.beschaeftigte_gesamt) : '',
+    'company.klassifizierung.jahresumsatz': k.jahresumsatz || '',
+    'company.klassifizierung.tarifvertrag_bezeichnung': k.tarifvertrag_bezeichnung || '',
+    // Klassifizierung JSONB (Boolean mark)
+    'company.klassifizierung.betriebsvereinbarung_wb_mark': mark(k.betriebsvereinbarung_wb),
+    'company.klassifizierung.tarifvertrag_wb_mark': mark(k.tarifvertrag_wb),
+    'company.klassifizierung.tarifgebunden_mark': mark(k.tarifgebunden),
+    'company.klassifizierung.gegruendet_24m_mark': mark(k.gegruendet_24m),
     'signer.name': name,
     today: fmtDate(new Date().toISOString()),
   }
 }
 
 // ── Vermittlung / Förderfall auto-fill map ────────────────────────────────
+const MASSNAHME_BEZEICHNUNG_DEFAULT = 'Lehrgang stattl. Anerkennung ausl. Krankenpflege'
+
 function buildVermittlungPrefill(reservation) {
   if (!reservation) return {}
   const av = reservation.arbeitsverhaeltnis || {}
@@ -97,14 +140,25 @@ function buildVermittlungPrefill(reservation) {
   return {
     'vermittlung.beginn': fmtDate(av.beginn),
     'vermittlung.berufsbezeichnung': av.berufsbezeichnung || '',
+    'vermittlung.befristung': av.befristung || '',
     'vermittlung.stunden_woche': av.stunden_woche ? String(av.stunden_woche) : '',
+    'vermittlung.stunden_monat': av.stunden_monat ? String(av.stunden_monat) : '',
     'vermittlung.urlaubstage': av.urlaubstage ? String(av.urlaubstage) : '',
+    'vermittlung.arbeitszeit_art': av.arbeitszeit_art || '',
+    'vermittlung.arbeitsort': av.arbeitsort || '',
     'vermittlung.grundgehalt': fmtEuro(vg.grundgehalt),
+    'vermittlung.grundgehalt_einheit': vg.grundgehalt_einheit || '',
+    'vermittlung.entgeltart': vg.entgeltart || '',
     'vermittlung.entgeltgruppe': vg.entgeltgruppe || '',
-    'vermittlung.massnahme_bezeichnung': ms.bezeichnung || '',
+    'vermittlung.weitere_bestandteile': vg.weitere_bestandteile || '',
+    // Maßnahme-Bezeichnung hat immer einen fixen Standardwert
+    'vermittlung.massnahme_bezeichnung': ms.bezeichnung || MASSNAHME_BEZEICHNUNG_DEFAULT,
+    'vermittlung.massnahme_nummer': ms.massnahmenummer || '',
     'vermittlung.massnahme_beginn': fmtDate(ms.beginn),
     'vermittlung.massnahme_ende': fmtDate(ms.ende),
     'vermittlung.bildungstraeger': ms.bildungstraeger_name || '',
+    'vermittlung.bildungstraeger_adresse': ms.bildungstraeger_adresse || '',
+    'vermittlung.massnahme_zeitstunden': ms.zeitstunden ? String(ms.zeitstunden) : '',
   }
 }
 
@@ -262,15 +316,19 @@ export default function UnifiedSendDialog({
   // ── Step 1 → 2 (load template fields) ────────────────────────────────
   const recipientAudience = entityType === 'company' ? 'unternehmen' : 'fachkraft'
 
+  // Merged prefill from all 3 sources — always available for auto-fill
+  const allAutoPrefill = {
+    ...buildProfilePrefill(profile),
+    ...buildCompanyPrefill(company),
+    ...buildVermittlungPrefill(reservation),
+  }
+
   const proceedFromModes = async () => {
     if (!hasFillDocs) { setStep('recipient'); return }
     setStep('prefill')
     setLoadingPrefill(true)
     const items = []
-    const auto = {
-      ...(entityType === 'company' ? buildCompanyPrefill(company) : buildProfilePrefill(profile)),
-      ...buildVermittlungPrefill(reservation),
-    }
+    const auto = allAutoPrefill
 
     for (let i = 0; i < docs.length; i++) {
       if (isSendRef(docs[i])) continue // forward docs skip prefill
@@ -284,11 +342,7 @@ export default function UnifiedSendDialog({
         })
         const data = await res.json()
         // Filter fields to those matching the recipient audience
-        const allFields = data.template?.fields || []
-        const fields = allFields.filter(f => {
-          const aud = f.audience || 'fachkraft'
-          return aud === recipientAudience
-        })
+        const fields = data.template?.fields || []
         const key = `doc-${i}`
         items.push({ key, templateId, fields, name: doc.title || 'Dokument' })
         const init = {}
@@ -305,11 +359,7 @@ export default function UnifiedSendDialog({
     for (const tplId of selectedLibraryIds) {
       const tpl = libraryTemplates.find(t => t.id === tplId)
       const key = `lib-${tplId}`
-      const allFields = tpl?.fields || []
-      const fields = allFields.filter(f => {
-        const aud = f.audience || 'fachkraft'
-        return aud === recipientAudience
-      })
+      const fields = tpl?.fields || []
       items.push({ key, templateId: tplId, fields, name: tpl?.name || 'Vorlage' })
       const init = {}
       for (const f of fields) {
@@ -517,6 +567,26 @@ export default function UnifiedSendDialog({
           {step === 'modes' && (
             <div className="space-y-4">
 
+              {/* Vermittlungs-Kontext banner */}
+              {reservation && (
+                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-purple-50 border border-purple-200 rounded-lg">
+                  <FileText className="h-3.5 w-3.5 text-purple-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-purple-800 mb-0.5">Vermittlungs-Kontext aktiv</p>
+                    <p className="text-[11px] text-purple-600 leading-relaxed">
+                      Felder werden automatisch aus FK-Profil, Unternehmen <em>und</em> Förderfall-Daten vorausgefüllt.
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {profile && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">FK: {profile.first_name} {profile.last_name}</span>}
+                      {company && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">UN: {company.company_name || company.name}</span>}
+                      {(reservation.arbeitsverhaeltnis?.beginn || reservation.verguetung?.grundgehalt) && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">VM-Daten vorhanden</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Doc list */}
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Dokumente</p>
@@ -656,9 +726,18 @@ export default function UnifiedSendDialog({
           ════════════════════════════════════════════════════════════ */}
           {step === 'prefill' && (
             <div className="space-y-4">
-              <p className="text-xs text-gray-500">
-                Felder können vorausgefüllt werden (automatisch aus dem Profil oder manuell). Leere Felder füllt der Empfänger selbst aus.
-              </p>
+              <div className="flex items-start gap-2">
+                <p className="text-xs text-gray-500 flex-1">
+                  Felder werden automatisch vorausgefüllt. Leere Felder füllt der Empfänger selbst aus.
+                </p>
+                {reservation && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700">FK</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">UN</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">VM</span>
+                  </div>
+                )}
+              </div>
 
               {loadingPrefill ? (
                 <div className="flex items-center justify-center py-8">
@@ -700,21 +779,21 @@ export default function UnifiedSendDialog({
                         <div className="p-3 space-y-2.5">
                           {/* Auto-fill all button */}
                           {(() => {
-                            const auto = buildProfilePrefill(profile)
+                            const auto = allAutoPrefill
                             const autoFillable = fillableFields.filter(f => {
                               const v = f.prefillKey ? auto[f.prefillKey] : auto[f.id]
-                              return v && !values[f.id]
+                              return v !== undefined && v !== '' && !values[f.id]
                             })
                             return autoFillable.length > 0 ? (
                               <button
                                 onClick={() => {
                                   const next = { ...values }
-                                  autoFillable.forEach(f => { next[f.id] = f.prefillKey ? auto[f.prefillKey] : auto[f.id] })
+                                  autoFillable.forEach(f => { next[f.id] = f.prefillKey ? String(auto[f.prefillKey]) : String(auto[f.id]) })
                                   setPrefillValues(prev => ({ ...prev, [item.key]: next }))
                                 }}
                                 className="text-[11px] text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
                               >
-                                <Check className="h-3 w-3" />Alle {autoFillable.length} Felder aus Profil befüllen
+                                <Check className="h-3 w-3" />Alle {autoFillable.length} Felder automatisch befüllen
                               </button>
                             ) : null
                           })()}
@@ -722,13 +801,25 @@ export default function UnifiedSendDialog({
                           {/* 2-column compact grid */}
                           <div className="grid grid-cols-2 gap-2">
                             {fillableFields.map(field => {
-                              const auto = buildProfilePrefill(profile)
-                              const autoValue = field.prefillKey ? auto[field.prefillKey] : auto[field.id]
+                              const auto = allAutoPrefill
+                              const pk = field.prefillKey
+                              const autoValue = pk ? auto[pk] : auto[field.id]
                               const filled = !!(values[field.id] || '').trim()
+                              // Determine source badge
+                              const profPrefill = buildProfilePrefill(profile)
+                              const compPrefill = buildCompanyPrefill(company)
+                              const vmPrefill = buildVermittlungPrefill(reservation)
+                              const srcVal = pk ? auto[pk] : auto[field.id]
+                              const srcBadge = srcVal !== undefined && srcVal !== ''
+                                ? (pk ? (profPrefill[pk] !== undefined ? 'FK' : compPrefill[pk] !== undefined ? 'UN' : vmPrefill[pk] !== undefined ? 'VM' : null)
+                                       : (profPrefill[field.id] !== undefined ? 'FK' : compPrefill[field.id] !== undefined ? 'UN' : vmPrefill[field.id] !== undefined ? 'VM' : null))
+                                : null
+                              const badgeCls = srcBadge === 'FK' ? 'bg-green-100 text-green-700' : srcBadge === 'UN' ? 'bg-blue-100 text-blue-700' : srcBadge === 'VM' ? 'bg-purple-100 text-purple-700' : ''
                               return (
                                 <div key={field.id} className="space-y-0.5">
                                   <div className="flex items-center gap-1">
                                     <Label className="text-[11px] text-gray-500 flex-1 truncate">{field.label || field.id}</Label>
+                                    {srcBadge && <span className={`px-1 py-0.5 rounded text-[9px] font-bold shrink-0 ${badgeCls}`}>{srcBadge}</span>}
                                     {filled && <Check className="h-2.5 w-2.5 text-teal-500 shrink-0" />}
                                   </div>
                                   <Input
@@ -737,7 +828,7 @@ export default function UnifiedSendDialog({
                                       ...prev,
                                       [item.key]: { ...(prev[item.key] || {}), [field.id]: e.target.value }
                                     }))}
-                                    placeholder={autoValue ? autoValue : '–'}
+                                    placeholder={autoValue !== undefined && autoValue !== '' ? String(autoValue) : '–'}
                                     className="h-7 text-xs"
                                   />
                                 </div>
