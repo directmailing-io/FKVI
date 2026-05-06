@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CheckCircle2, ArrowRight, Loader2, Lock, ShieldCheck, BookOpen, Home, Clock, Users, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, ArrowRight, Loader2, Lock, ShieldCheck, Route, Languages, Briefcase, AlertTriangle } from 'lucide-react'
 
 const LANGUAGES = [
   { code: 'de', flag: '🇩🇪', nativeLabel: 'Deutsch' },
@@ -25,10 +25,10 @@ const T = {
     langLabel: 'Wähle deine Sprache',
     contentLabel: 'Das erwartet dich in der Broschüre',
     points: [
-      { title: 'Der Vermittlungsprozess', desc: 'Schritt für Schritt erklärt – von der Bewerbung bis zur Anstellung in Deutschland.' },
-      { title: 'Unterkunft & Ankommen', desc: 'Wir kümmern uns um deine Unterkunft und stehen dir beim Start in Deutschland zur Seite.' },
-      { title: '12 Monate Begleitung', desc: 'Nach deiner Ankunft begleiten wir dich ein ganzes Jahr – damit du dich sicher und gut aufgehoben fühlst.' },
-      { title: 'Deine Rechte & Pflichten', desc: 'Alles, was du als Pflegefachkraft in Deutschland wissen musst – rechtlich, sozial und im Berufsalltag.' },
+      { title: 'Der Vermittlungsprozess', desc: 'Anwerbung, Einreisewege und das Anerkennungsverfahren verständlich erklärt.' },
+      { title: 'Sprache & Qualifikation', desc: 'Welches Sprachniveau du brauchst und wie die Gleichwertigkeit deiner Ausbildung geprüft wird.' },
+      { title: 'Arbeiten in Deutschland', desc: 'Arbeitsvertrag, Tarif, Arbeitszeiten und Mitbestimmung im Betrieb.' },
+      { title: 'Deine Rechte & Pflichten', desc: 'Sozialversicherung, Familiennachzug und neutrale Beratungsstellen.' },
     ],
     privacy: 'Deine Daten werden vertraulich behandelt und nicht weitergegeben.',
     formTitle: 'Jetzt kostenlos anfordern',
@@ -65,10 +65,10 @@ const T = {
     langLabel: 'Choose your language',
     contentLabel: "What's inside the brochure",
     points: [
-      { title: 'The placement process', desc: 'Explained step by step – from application to employment in Germany.' },
-      { title: 'Accommodation & arrival', desc: 'We arrange your accommodation and support you when you start in Germany.' },
-      { title: '12 months of support', desc: 'After your arrival, we accompany you for a full year so you feel safe and well looked after.' },
-      { title: 'Your rights & duties', desc: 'Everything you need to know as a nursing professional in Germany – legally, socially and on the job.' },
+      { title: 'The placement process', desc: 'Recruitment, entry routes, and the recognition procedure explained clearly.' },
+      { title: 'Language & qualifications', desc: 'What language level you need and how the equivalence of your training is assessed.' },
+      { title: 'Working in Germany', desc: 'Employment contract, pay scales, working hours, and co-determination at the workplace.' },
+      { title: 'Your rights & duties', desc: 'Social insurance, family reunification, and neutral advisory services.' },
     ],
     privacy: 'Your data is treated confidentially and not passed on to third parties.',
     formTitle: 'Request for free now',
@@ -105,10 +105,10 @@ const T = {
     langLabel: 'Choisissez votre langue',
     contentLabel: 'Ce que contient la brochure',
     points: [
-      { title: 'Le processus de placement', desc: 'Expliqué étape par étape – de la candidature à l\'emploi en Allemagne.' },
-      { title: 'Logement & arrivée', desc: 'Nous nous occupons de votre logement et vous accompagnons lors de votre installation en Allemagne.' },
-      { title: '12 mois d\'accompagnement', desc: 'Après votre arrivée, nous vous accompagnons pendant toute une année pour que vous vous sentiez en sécurité.' },
-      { title: 'Vos droits & obligations', desc: 'Tout ce que vous devez savoir en tant que professionnel·le de santé en Allemagne – sur le plan juridique, social et professionnel.' },
+      { title: 'Le processus de placement', desc: 'Recrutement, voies d\'entrée et procédure de reconnaissance expliqués clairement.' },
+      { title: 'Langue & qualifications', desc: 'Le niveau de langue requis et comment l\'équivalence de votre formation est évaluée.' },
+      { title: 'Travailler en Allemagne', desc: 'Contrat de travail, conventions collectives, temps de travail et cogestion en entreprise.' },
+      { title: 'Vos droits & obligations', desc: 'Assurance sociale, regroupement familial et services de conseil neutres.' },
     ],
     privacy: 'Vos données sont traitées de manière confidentielle et ne sont pas transmises à des tiers.',
     formTitle: 'Demandez gratuitement maintenant',
@@ -145,10 +145,10 @@ const T = {
     langLabel: 'اختر لغتك',
     contentLabel: 'ما يتضمنه الكتيب',
     points: [
-      { title: 'عملية التوظيف', desc: 'موضحة خطوة بخطوة – من التقديم حتى العمل في ألمانيا.' },
-      { title: 'السكن والوصول', desc: 'نتولى ترتيب سكنك ونقف إلى جانبك عند بدايتك في ألمانيا.' },
-      { title: '12 شهراً من الدعم', desc: 'بعد وصولك، نرافقك طوال عام كامل حتى تشعر بالأمان والراحة.' },
-      { title: 'حقوقك وواجباتك', desc: 'كل ما تحتاج معرفته كممرض/ة متخصص/ة في ألمانيا – قانونياً واجتماعياً ومهنياً.' },
+      { title: 'عملية التوظيف والتأهيل', desc: 'التوظيف وطرق الدخول وإجراءات الاعتراف بالمؤهلات موضحة بشكل واضح ومبسط.' },
+      { title: 'اللغة والمؤهلات', desc: 'المستوى اللغوي المطلوب وكيفية تقييم مدى معادلة مؤهلاتك التعليمية.' },
+      { title: 'العمل في ألمانيا', desc: 'عقد العمل والأجور وساعات العمل والمشاركة في قرارات المؤسسة.' },
+      { title: 'حقوقك وواجباتك', desc: 'التأمين الاجتماعي ولمّ شمل الأسرة والجهات الاستشارية المحايدة.' },
     ],
     privacy: 'تُعامَل بياناتك بسرية تامة ولا تُشارك مع أطراف ثالثة.',
     formTitle: 'اطلب مجاناً الآن',
@@ -185,10 +185,10 @@ const T = {
     langLabel: 'Chọn ngôn ngữ của bạn',
     contentLabel: 'Nội dung tài liệu',
     points: [
-      { title: 'Quy trình tuyển dụng', desc: 'Giải thích từng bước – từ đơn ứng tuyển đến khi làm việc tại Đức.' },
-      { title: 'Chỗ ở & định cư', desc: 'Chúng tôi lo sắp xếp chỗ ở và đồng hành cùng bạn khi bắt đầu cuộc sống ở Đức.' },
-      { title: '12 tháng hỗ trợ', desc: 'Sau khi bạn đến nơi, chúng tôi đồng hành suốt một năm để bạn cảm thấy an toàn và được chăm sóc tốt.' },
-      { title: 'Quyền & nghĩa vụ của bạn', desc: 'Mọi điều bạn cần biết với tư cách là chuyên gia điều dưỡng tại Đức – pháp lý, xã hội và nghề nghiệp.' },
+      { title: 'Quy trình tuyển dụng', desc: 'Tuyển dụng, con đường nhập cảnh và thủ tục công nhận bằng cấp được giải thích rõ ràng.' },
+      { title: 'Ngôn ngữ & bằng cấp', desc: 'Trình độ ngôn ngữ bạn cần và cách đánh giá tương đương bằng cấp đào tạo của bạn.' },
+      { title: 'Làm việc tại Đức', desc: 'Hợp đồng lao động, thang lương, giờ làm việc và quyền tham gia quản lý nơi làm việc.' },
+      { title: 'Quyền & nghĩa vụ của bạn', desc: 'Bảo hiểm xã hội, đoàn tụ gia đình và các dịch vụ tư vấn trung lập.' },
     ],
     privacy: 'Dữ liệu của bạn được bảo mật và không được chia sẻ với bên thứ ba.',
     formTitle: 'Yêu cầu miễn phí ngay bây giờ',
@@ -218,10 +218,10 @@ const T = {
 }
 
 const POINT_ICONS = [
-  { Icon: BookOpen, color: 'text-teal-500', bg: 'bg-teal-50' },
-  { Icon: Home,     color: 'text-blue-500', bg: 'bg-blue-50' },
-  { Icon: Clock,    color: 'text-indigo-500', bg: 'bg-indigo-50' },
-  { Icon: Users,    color: 'text-purple-500', bg: 'bg-purple-50' },
+  { Icon: Route,       color: 'text-teal-600',   bg: 'bg-teal-50'   },  // Vermittlungsprozess
+  { Icon: Languages,   color: 'text-blue-600',   bg: 'bg-blue-50'   },  // Sprache & Qualifikation
+  { Icon: Briefcase,   color: 'text-indigo-600', bg: 'bg-indigo-50' },  // Arbeiten in Deutschland
+  { Icon: ShieldCheck, color: 'text-purple-600', bg: 'bg-purple-50' },  // Rechte & Pflichten
 ]
 
 export default function DownloadsPage() {

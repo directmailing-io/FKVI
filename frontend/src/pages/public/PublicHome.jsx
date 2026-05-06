@@ -1207,31 +1207,71 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
               ))}
             </div>
           ) : visible.length > 0 ? (
-            <div className="relative">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 overflow-hidden">
-                {visible.map((p, i) => (
+            <div>
+              {/* 3 real (anonymised) cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+                {visible.map((p) => (
                   <ProfileCard key={p.id} profile={p} onRequestAccess={() => setModalOpen(true)} />
                 ))}
               </div>
-              {/* Anschnitt-Indikator: weitere Kandidaten andeuten */}
-              <div className="hidden sm:flex absolute -right-10 top-0 bottom-0 w-40 pointer-events-none"
-                style={{ background: 'linear-gradient(to right, transparent 0%, rgba(248,250,252,0.7) 40%, rgba(248,250,252,0.97) 100%)' }}>
-                <div className="absolute right-12 top-1/2 -translate-y-1/2 flex flex-col gap-3 opacity-40">
-                  <div className="w-20 h-32 bg-white rounded-2xl border border-gray-200 shadow-sm" style={{ filter: 'blur(2px)' }} />
+
+              {/* Peek zone — 3 blurred placeholder cards, clipped + gradient overlay, 1:1 DemoPage */}
+              <div className="relative mt-4">
+                <div className="overflow-hidden" style={{ maxHeight: 190 }} aria-hidden="true">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 pointer-events-none select-none">
+                    {[
+                      { initials: 'SK', nat: '🇵🇭', edu: 'B. Sc. Nursing', exp: '5 J.', specs: ['Intensivpflege','Geriatrie'] },
+                      { initials: 'RL', nat: '🇮🇳', edu: 'General Nursing', exp: '7 J.', specs: ['Demenzpflege','Onkologie'] },
+                      { initials: 'MO', nat: '🇲🇦', edu: 'Pflegefachkraft', exp: '4 J.', specs: ['Altenpflege','Wundmanagement'] },
+                    ].map(({ initials, nat, edu, exp, specs }) => (
+                      <div key={initials} className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col">
+                        <div className="h-20 bg-gradient-to-br from-fkvi-blue/10 via-fkvi-teal/5 to-transparent shrink-0" />
+                        <div className="relative -mt-14 flex flex-col items-center">
+                          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-[3px] shadow-md"
+                            style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}>
+                            <div className="w-full h-full rounded-full overflow-hidden bg-fkvi-blue/10 flex items-center justify-center">
+                              <div className="text-xl font-bold text-fkvi-blue/20" style={{ filter: 'blur(4px)' }}>{initials}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm rounded-full px-2 py-0.5 mt-[-10px]">
+                            <EyeOff className="h-2.5 w-2.5 text-white/70" />
+                            <span className="text-[9px] text-white/80 font-medium">Anonymisiert</span>
+                          </div>
+                        </div>
+                        <div className="pt-3 pb-4 px-4 flex flex-col gap-2">
+                          <div className="text-center">
+                            <p className="blur-sm select-none font-medium text-gray-600 text-xs">Vorname Nachname</p>
+                            <p className="text-xs text-gray-400">{nat} · {exp} Erfahrung</p>
+                          </div>
+                          <p className="text-xs text-gray-500 text-center">{edu}</p>
+                          <div className="flex flex-wrap justify-center gap-1">
+                            {specs.map(s => (
+                              <span key={s} className="px-2 py-0.5 bg-fkvi-blue/8 text-fkvi-blue rounded-full text-[10px] font-medium">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Gradient + CTA overlay — same pattern as DemoPage */}
+                <div className="absolute inset-x-0 top-0 flex flex-col items-center justify-end pb-6"
+                  style={{
+                    height: 190,
+                    background: 'linear-gradient(to bottom, rgba(248,250,252,0.08) 0%, rgba(248,250,252,0.45) 20%, rgba(248,250,252,0.82) 40%, rgba(248,250,252,0.97) 58%, rgb(248,250,252) 72%)',
+                  }}>
+                  <button
+                    onClick={() => setModalOpen(true)}
+                    className="inline-flex items-center gap-2.5 bg-fkvi-teal hover:bg-fkvi-teal/90 text-white px-7 py-3 sm:px-9 sm:py-3.5 rounded-2xl font-bold text-sm sm:text-base shadow-2xl transition-all"
+                  >
+                    Zugang freischalten <ArrowRight className="h-4 w-4" />
+                  </button>
+                  <p className="text-xs text-gray-400 mt-2">Nur für verifizierte Einrichtungen</p>
                 </div>
               </div>
             </div>
           ) : null}
-
-          <div className="mt-10 text-center">
-            <button
-              onClick={() => setModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-fkvi-blue text-white px-8 py-3.5 rounded-xl font-semibold hover:bg-fkvi-blue/90 transition-all shadow-lg shadow-fkvi-blue/20"
-            >
-              Zugang freischalten <ArrowRight className="h-4 w-4" />
-            </button>
-            <p className="text-xs text-gray-400 mt-3">Zugang nur für verifizierte Einrichtungen</p>
-          </div>
         </div>
       </section>
     </>
