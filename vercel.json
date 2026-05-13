@@ -4,12 +4,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "experimentalServices": {
-    "web": {
-      "framework": "vite",
-      "buildCommand": "cd frontend && npm install && npm run build",
-      "outputDirectory": "frontend/dist"
-    }
-  }
+  ]
 }
