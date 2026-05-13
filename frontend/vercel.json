@@ -1,8 +1,4 @@
 {
-  "framework": "vite",
-  "buildCommand": "vite build",
-  "outputDirectory": "dist",
-  "installCommand": "npm install",
   "routes": [
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
@@ -12,5 +8,13 @@
       "path": "/api/cron/brochure-send-contracts",
       "schedule": "0 8 * * *"
     }
-  ]
+  ],
+  "experimentalServices": {
+    "web": {
+      "framework": "vite",
+      "buildCommand": "vite build",
+      "outputDirectory": "dist",
+      "installCommand": "npm install"
+    }
+  }
 }
