@@ -178,24 +178,21 @@ function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
   const handleFilesPicked = (e) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
-    setUploadFiles(prev => [
-      ...prev,
-      ...files.map(f => ({ file: f, name: f.name, uploading: false, url: null, error: null })),
-    ])
+    // Add files and immediately start uploading each
+    files.forEach(f => uploadFileDirect(f))
     e.target.value = ''
   }
 
-  const uploadFile = async (idx) => {
-    const item = uploadFiles[idx]
-    if (!item || item.uploading || item.url) return
-
-    setUploadFiles(prev => prev.map((f, i) => i === idx ? { ...f, uploading: true, error: null } : f))
+  const uploadFileDirect = async (file) => {
+    const key = `${Date.now()}-${file.name}`
+    // Add as uploading immediately
+    setUploadFiles(prev => [...prev, { key, file, name: file.name, uploading: true, url: null, error: null }])
     try {
       // 1. Get presigned upload URL
       const prepRes = await fetch('/api/admin/company-docs/prepare-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ filename: item.name }),
+        body: JSON.stringify({ filename: file.name }),
       })
       const prepData = await prepRes.json()
       if (!prepRes.ok) throw new Error(prepData.error || 'Upload-Vorbereitung fehlgeschlagen')
@@ -203,29 +200,42 @@ function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
       // 2. Upload file directly to Supabase storage via presigned URL
       const uploadRes = await fetch(prepData.uploadUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
-        body: item.file,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
       })
       if (!uploadRes.ok) throw new Error('Datei-Upload fehlgeschlagen')
 
-      // 3. Mark as uploaded with download URL
-      setUploadFiles(prev => prev.map((f, i) => i === idx ? { ...f, uploading: false, url: prepData.downloadUrl } : f))
-      // Auto-add to selectedDocs
+      // 3. Resolve download URL now that file exists in storage
+      const resolveRes = await fetch('/api/admin/company-docs/resolve-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ storagePath: prepData.storagePath }),
+      })
+      const resolveData = await resolveRes.json()
+      if (!resolveRes.ok) throw new Error(resolveData.error || 'Download-URL konnte nicht erstellt werden')
+
+      const downloadUrl = resolveData.downloadUrl
+
+      setUploadFiles(prev => prev.map(f => f.key === key ? { ...f, uploading: false, url: downloadUrl } : f))
       setSelectedDocs(prev => {
-        const doc = { title: item.name, doc_type: 'Hochgeladen', link: prepData.downloadUrl }
-        return prev.some(d => d.link === prepData.downloadUrl) ? prev : [...prev, doc]
+        const doc = { title: file.name, doc_type: 'Hochgeladen', link: downloadUrl }
+        return prev.some(d => d.link === downloadUrl) ? prev : [...prev, doc]
       })
     } catch (err) {
-      setUploadFiles(prev => prev.map((f, i) => i === idx ? { ...f, uploading: false, error: err.message } : f))
+      setUploadFiles(prev => prev.map(f => f.key === key ? { ...f, uploading: false, error: err.message } : f))
     }
   }
 
-  const removeUploadFile = (idx) => {
+  // Legacy: manual upload by index (kept for the "Hochladen" retry button)
+  const uploadFile = (idx) => {
     const item = uploadFiles[idx]
-    if (item?.url) {
-      setSelectedDocs(prev => prev.filter(d => d.link !== item.url))
-    }
-    setUploadFiles(prev => prev.filter((_, i) => i !== idx))
+    if (item?.file && !item.uploading && !item.url) uploadFileDirect(item.file)
+  }
+
+  const removeUploadFile = (key) => {
+    const item = uploadFiles.find(f => f.key === key)
+    if (item?.url) setSelectedDocs(prev => prev.filter(d => d.link !== item.url))
+    setUploadFiles(prev => prev.filter(f => f.key !== key))
   }
 
   const handleSkip = () => { onClose(); onConfirm({ emailSent: false }) }
@@ -383,21 +393,22 @@ function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
 
                   {uploadFiles.length > 0 && (
                     <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                      {uploadFiles.map((f, idx) => (
-                        <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg border text-sm ${f.url ? 'border-green-200 bg-green-50' : f.error ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
+                      {uploadFiles.map((f) => (
+                        <div key={f.key} className={`flex items-center gap-2 p-2 rounded-lg border text-sm ${f.url ? 'border-green-200 bg-green-50' : f.error ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'}`}>
                           <FileText className={`h-4 w-4 shrink-0 ${f.url ? 'text-green-500' : f.error ? 'text-red-400' : 'text-gray-400'}`} />
                           <span className="flex-1 truncate text-gray-700">{f.name}</span>
                           {f.url && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
-                          {f.error && <span className="text-xs text-red-500 shrink-0">{f.error}</span>}
-                          {!f.url && !f.uploading && !f.error && (
-                            <button onClick={() => uploadFile(idx)} className="text-xs text-[#1a3a5c] font-medium hover:underline shrink-0">
-                              Hochladen
+                          {f.error && (
+                            <button onClick={() => uploadFileDirect(f.file)} className="text-xs text-[#1a3a5c] font-medium hover:underline shrink-0">
+                              Nochmal
                             </button>
                           )}
                           {f.uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 shrink-0" />}
-                          <button onClick={() => removeUploadFile(idx)} className="text-gray-300 hover:text-gray-500 shrink-0">
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                          {!f.uploading && (
+                            <button onClick={() => removeUploadFile(f.key)} className="text-gray-300 hover:text-gray-500 shrink-0">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -39,17 +39,9 @@ export default withHandler(async (req, res) => {
     return res.status(500).json({ error: 'Upload-URL konnte nicht erstellt werden' })
   }
 
-  const { data: downloadData, error: dlError } = await supabaseAdmin.storage
-    .from('document-templates')
-    .createSignedUrl(storagePath, 60 * 60 * 24 * 90) // 90 days
-
-  if (dlError || !downloadData) {
-    return res.status(500).json({ error: 'Download-URL konnte nicht erstellt werden' })
-  }
-
+  // Download URL is generated AFTER upload via /api/admin/company-docs/resolve-upload-url
   return res.json({
     uploadUrl: uploadData.signedUrl,
     storagePath,
-    downloadUrl: downloadData.signedUrl,
   })
 })
