@@ -670,7 +670,6 @@ function ZusageDialogPF({ open, onClose, reservation, session, onConfirm, onGoTo
       .from('profile_documents')
       .select('*')
       .eq('profile_id', reservation.profile_id)
-      .eq('is_internal', false)
       .order('sort_order', { ascending: true })
       .then(({ data }) => { setProfileDocs(data || []); setLoadingDocs(false) })
   }, [open, reservation?.profile_id])
@@ -2403,7 +2402,25 @@ export default function ProfileForm() {
                 />
               </Field>
               <Field label="Pflegekompetenznachweis FKVI">
-                <Input value={profile.fkvi_competency_proof} onChange={e => set('fkvi_competency_proof', e.target.value)} placeholder="z.B. Bestanden am 01.01.2024" />
+                <Select
+                  value={(() => {
+                    const v = profile.fkvi_competency_proof || ''
+                    if (!v) return ''
+                    if (v === 'bestanden' || v.toLowerCase().includes('bestanden')) return 'bestanden'
+                    if (v === 'in_aneignung') return 'in_aneignung'
+                    return 'in_aneignung' // normalize any legacy non-empty value
+                  })()}
+                  onValueChange={v => set('fkvi_competency_proof', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status auswählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nicht gestartet</SelectItem>
+                    <SelectItem value="in_aneignung">In Aneignung</SelectItem>
+                    <SelectItem value="bestanden">Bestanden</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
           </TabsContent>
@@ -2805,6 +2822,7 @@ export default function ProfileForm() {
               <AddDocumentModal
                 profileId={id}
                 session={session}
+                linkedCompanies={reservation?.companies ? [reservation.companies] : []}
                 onAddDoc={async (doc) => {
                   const updated = [...documents, doc]
                   setDocuments(updated)
@@ -2837,7 +2855,14 @@ export default function ProfileForm() {
                 entityType="profile"
                 entityId={id}
                 profile={profile}
-                activeVermittlungen={[]}
+                activeVermittlungen={reservation?.companies ? [{
+                  profileId: id,
+                  profileName: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+                  profileEmail: profile?.contact_email || '',
+                  companyId: reservation.companies.id,
+                  companyName: reservation.companies.company_name,
+                  companyEmail: reservation.companies.email || '',
+                }] : []}
                 session={session}
                 fixedSource={sendDocInitial?.fixedSource || null}
                 onClose={() => { setSendTemplateDialog(false); setSendDocInitial(null) }}

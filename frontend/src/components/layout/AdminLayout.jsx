@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity, BookOpen, Library, Inbox } from 'lucide-react'
+import { LayoutDashboard, Users, Building2, LogOut, Menu, X, ChevronRight, Briefcase, Activity, BookOpen, Library, Inbox, Settings } from 'lucide-react'
 
 // ── localStorage helpers ────────────────────────────────────────────────────
 
@@ -102,6 +102,7 @@ export default function AdminLayout({ children }) {
     { label: 'Broschüre',           icon: BookOpen,        href: '/admin/broschuere' },
     { label: 'Dokumentenvorlagen',   icon: Library,         href: '/admin/mediathek' },
     { label: 'Postfach',            icon: Inbox,           href: '/admin/postfach',      badge: postfachCount },
+    { label: 'Einstellungen',       icon: Settings,        href: '/admin/einstellungen' },
   ]
 
   return (

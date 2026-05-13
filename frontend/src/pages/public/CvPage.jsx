@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase-public'
 import CvDocument from '@/components/matching/CvDocument'
 import { Button } from '@/components/ui/button'
 import { Printer, Link as LinkIcon, CheckCircle2, Loader2, AlertCircle, LogIn } from 'lucide-react'

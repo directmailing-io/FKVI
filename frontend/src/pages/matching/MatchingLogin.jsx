@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +13,7 @@ export default function MatchingLogin() {
   const [showPw, setShowPw]   = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
-  const { signIn, signOut } = useAuthStore()
+  const { signIn, signOut } = usePublicAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -24,7 +24,7 @@ export default function MatchingLogin() {
     try {
       await signIn(email, password)
       // signIn eagerly syncs store — read role immediately
-      const { isAdmin, companyId } = useAuthStore.getState()
+      const { isAdmin, companyId } = usePublicAuthStore.getState()
       if (isAdmin) {
         navigate('/admin')
         return

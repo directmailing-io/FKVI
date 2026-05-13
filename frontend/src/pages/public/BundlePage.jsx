@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { CheckCircle2, FileText, Clock, ChevronRight, Loader2, Package, Paperclip, ExternalLink } from 'lucide-react'
+import { CheckCircle2, FileText, Clock, ChevronRight, Loader2, Package, Paperclip, ExternalLink, Download } from 'lucide-react'
 
 const DOC_TYPE_LABELS = {
   lebenslauf: 'Lebenslauf', reisepass: 'Reisepass', zeugnis: 'Zeugnis',
@@ -29,6 +29,56 @@ function StatusBadge({ status }) {
       <Clock className="h-3.5 w-3.5" />
       Ausstehend
     </span>
+  )
+}
+
+function DownloadButton({ token, sourceUrl, small = false }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleDownload = async () => {
+    if (loading) return
+    // CV: open dokument page in new tab (user can print to PDF there)
+    if (sourceUrl?.startsWith('cv:')) {
+      window.open(`/dokument/${token}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+    // External URL — open directly
+    if (sourceUrl && sourceUrl.startsWith('http')) {
+      window.open(sourceUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/dokument/pdf-url?token=${token}`)
+      const data = await res.json()
+      if (data.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch {} finally {
+      setLoading(false)
+    }
+  }
+
+  if (small) {
+    return (
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="flex items-center gap-1.5 text-gray-500 hover:text-[#1a3a5c] text-xs font-medium transition-colors shrink-0 disabled:opacity-50"
+      >
+        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        PDF
+      </button>
+    )
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={loading}
+      className="flex items-center gap-1.5 text-gray-500 hover:text-[#1a3a5c] text-xs font-medium transition-colors shrink-0 disabled:opacity-50"
+    >
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      Herunterladen
+    </button>
   )
 }
 
@@ -149,7 +199,10 @@ export default function BundlePage() {
                       <div className="mt-1"><StatusBadge status={doc.status} /></div>
                     </div>
                     {isDone ? (
-                      <span className="text-xs text-green-600 font-medium shrink-0">Erledigt ✓</span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <DownloadButton token={doc.token} small />
+                        <span className="text-xs text-green-600 font-medium">Erledigt ✓</span>
+                      </div>
                     ) : (
                       <button onClick={() => navigate(`/dokument/${doc.token}?bundle=${token}`)}
                         className="flex items-center gap-1.5 bg-[#1a3a5c] hover:bg-[#1a3a5c]/90 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shrink-0">
@@ -177,10 +230,13 @@ export default function BundlePage() {
                     <p className="font-semibold text-sm text-gray-900 truncate">{doc.templateName}</p>
                     <p className="text-xs text-gray-400 mt-0.5">Zum Ansehen</p>
                   </div>
-                  <button onClick={() => navigate(`/dokument/${doc.token}`)}
-                    className="flex items-center gap-1.5 border border-[#1a3a5c] text-[#1a3a5c] hover:bg-[#1a3a5c] hover:text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors shrink-0">
-                    Ansehen <ExternalLink className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <DownloadButton token={doc.token} sourceUrl={doc.sourceUrl} small />
+                    <button onClick={() => navigate(`/dokument/${doc.token}`)}
+                      className="flex items-center gap-1.5 border border-[#1a3a5c] text-[#1a3a5c] hover:bg-[#1a3a5c] hover:text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+                      Ansehen <ExternalLink className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -27,18 +27,19 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Fachkraft = grün, Unternehmen = blau — gilt für alle Feldtypen
+// Fachkraft = grün, Unternehmen = blau, Admin = orange — gilt für alle Feldtypen
 const AUD = {
-  fachkraft:   { border: 'border-green-500', bg: 'bg-green-50',  text: 'text-green-700', ring: 'ring-green-400', labelBorder: 'border-green-200', labelIcon: 'text-green-500', labelText: 'text-green-700', dashedSelected: 'border-green-500 bg-green-50/60',  dashedNormal: 'border-green-400 bg-green-50/20 hover:bg-green-50/40',  optionSelected: 'border-green-500 bg-green-100', optionNormal: 'border-green-400 bg-green-50 hover:bg-green-100', optionInner: 'border-green-500', optionLabel: 'text-green-600' },
-  unternehmen: { border: 'border-blue-500',  bg: 'bg-blue-50',   text: 'text-blue-700',  ring: 'ring-blue-400',  labelBorder: 'border-blue-200',  labelIcon: 'text-blue-500',  labelText: 'text-blue-700',  dashedSelected: 'border-blue-500 bg-blue-50/60',   dashedNormal: 'border-blue-400 bg-blue-50/20 hover:bg-blue-50/40',   optionSelected: 'border-blue-500 bg-blue-100',   optionNormal: 'border-blue-400 bg-blue-50 hover:bg-blue-100',   optionInner: 'border-blue-500',  optionLabel: 'text-blue-600'  },
+  fachkraft:   { border: 'border-green-500',  bg: 'bg-green-50',   text: 'text-green-700',  ring: 'ring-green-400',  labelBorder: 'border-green-200',  labelIcon: 'text-green-500',  labelText: 'text-green-700',  dashedSelected: 'border-green-500 bg-green-50/60',   dashedNormal: 'border-green-400 bg-green-50/20 hover:bg-green-50/40',   optionSelected: 'border-green-500 bg-green-100',  optionNormal: 'border-green-400 bg-green-50 hover:bg-green-100',   optionInner: 'border-green-500',  optionLabel: 'text-green-600'  },
+  unternehmen: { border: 'border-blue-500',   bg: 'bg-blue-50',    text: 'text-blue-700',   ring: 'ring-blue-400',   labelBorder: 'border-blue-200',   labelIcon: 'text-blue-500',   labelText: 'text-blue-700',   dashedSelected: 'border-blue-500 bg-blue-50/60',    dashedNormal: 'border-blue-400 bg-blue-50/20 hover:bg-blue-50/40',    optionSelected: 'border-blue-500 bg-blue-100',    optionNormal: 'border-blue-400 bg-blue-50 hover:bg-blue-100',    optionInner: 'border-blue-500',   optionLabel: 'text-blue-600'   },
+  admin:       { border: 'border-orange-500', bg: 'bg-orange-50',  text: 'text-orange-700', ring: 'ring-orange-400', labelBorder: 'border-orange-200', labelIcon: 'text-orange-500', labelText: 'text-orange-700', dashedSelected: 'border-orange-500 bg-orange-50/60', dashedNormal: 'border-orange-400 bg-orange-50/20 hover:bg-orange-50/40', optionSelected: 'border-orange-500 bg-orange-100', optionNormal: 'border-orange-400 bg-orange-50 hover:bg-orange-100', optionInner: 'border-orange-500', optionLabel: 'text-orange-600' },
 }
 
 const FIELD_TYPES = [
-  { key: 'text',         label: 'Text',           icon: Type,        fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
-  { key: 'boolean_mark', label: 'Ja/Nein-Kreuz',  icon: XBoxIcon,    fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
-  { key: 'checkbox',     label: 'Checkbox',        icon: CheckSquare, fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
-  { key: 'signature',    label: 'Unterschrift',    icon: PenLine,     fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
-  { key: 'date',         label: 'Datum',           icon: Calendar,    fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen },
+  { key: 'text',         label: 'Text',           icon: Type,        fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen, admin: AUD.admin },
+  { key: 'boolean_mark', label: 'Ja/Nein-Kreuz',  icon: XBoxIcon,    fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen, admin: AUD.admin },
+  { key: 'checkbox',     label: 'Checkbox',        icon: CheckSquare, fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen, admin: AUD.admin },
+  { key: 'signature',    label: 'Unterschrift',    icon: PenLine,     fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen, admin: AUD.admin },
+  { key: 'date',         label: 'Datum',           icon: Calendar,    fachkraft: AUD.fachkraft, unternehmen: AUD.unternehmen, admin: AUD.admin },
 ]
 
 const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
@@ -139,6 +140,18 @@ const ALL_PREFILL = [
   { value: 'company.klassifizierung.tarifgebunden_mark',           label: 'Tarifgebundenheit (§3/§5 TVG)',        group: '☑ Ja/Nein-Kreuz (UN)', isMark: true },
   { value: 'company.klassifizierung.gegruendet_24m_mark',          label: 'Gegründet in letzten 24 Monaten',      group: '☑ Ja/Nein-Kreuz (UN)', isMark: true },
 
+  // ── Vermittler (FKVI) ──
+  { value: 'vermittler.company_name',       label: 'FKVI Firmenname',             group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.contact_name',       label: 'FKVI Ansprechperson',         group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.contact_first_name', label: 'FKVI Vorname',                group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.contact_last_name',  label: 'FKVI Nachname',               group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.email',              label: 'FKVI E-Mail',                 group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.phone',              label: 'FKVI Telefon',                group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.address',            label: 'FKVI Straße + Hausnummer',    group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.postal_code',        label: 'FKVI PLZ',                    group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.city',               label: 'FKVI Stadt',                  group: '🔵 Vermittler (FKVI)' },
+  { value: 'vermittler.website',            label: 'FKVI Website',                group: '🔵 Vermittler (FKVI)' },
+
   // ── Vermittlung: Arbeitsverhältnis ──
   { value: 'vermittlung.beginn',              label: 'Beginn Arbeitsverhältnis',  group: '📋 Vermittlung' },
   { value: 'vermittlung.berufsbezeichnung',   label: 'Berufsbezeichnung',         group: '📋 Vermittlung' },
@@ -168,12 +181,14 @@ const ALL_PREFILL = [
 const PREFILL_FACHKRAFT = ALL_PREFILL.filter(o =>
   o.group === null ||
   ['📅 Allgemein', '👤 Stammdaten', '🏠 Adresse FK', '📋 Erw. Stammdaten FK',
-   '🎓 Berufsqualifikation', '📄 Qualifikation (JSONB)', '☑ Ja/Nein-Kreuz (FK)', '📋 Vermittlung']
+   '🎓 Berufsqualifikation', '📄 Qualifikation (JSONB)', '☑ Ja/Nein-Kreuz (FK)',
+   '🔵 Vermittler (FKVI)', '📋 Vermittlung']
     .includes(o.group)
 )
 const PREFILL_UNTERNEHMEN = ALL_PREFILL.filter(o =>
   o.group === null ||
-  ['📅 Allgemein', '🏢 Unternehmen', '🏭 Klassifizierung', '☑ Ja/Nein-Kreuz (UN)', '📋 Vermittlung']
+  ['📅 Allgemein', '🏢 Unternehmen', '🏭 Klassifizierung', '☑ Ja/Nein-Kreuz (UN)',
+   '🔵 Vermittler (FKVI)', '📋 Vermittlung']
     .includes(o.group)
 )
 const BOOLEAN_MARK_KEYS = new Set(ALL_PREFILL.filter(o => o.isMark).map(o => o.value))
@@ -588,6 +603,7 @@ function FieldProperties({ field, onChange, onDelete }) {
           {[
             { val: 'fachkraft',   label: 'Fachkraft',   color: 'border-blue-400 bg-blue-50 text-blue-700' },
             { val: 'unternehmen', label: 'Unternehmen', color: 'border-emerald-400 bg-emerald-50 text-emerald-700' },
+            ...(field.type === 'signature' ? [{ val: 'admin', label: 'Vermittler (FKVI)', color: 'border-orange-400 bg-orange-50 text-orange-700' }] : []),
           ].map(({ val, label, color }) => (
             <button key={val} type="button"
               onClick={() => onChange({ ...field, audience: val })}
@@ -597,6 +613,11 @@ function FieldProperties({ field, onChange, onDelete }) {
             >{label}</button>
           ))}
         </div>
+        {field.type === 'signature' && audience === 'admin' && (
+          <p className="text-[10px] text-orange-600 bg-orange-50 border border-orange-200 rounded px-2 py-1 mt-1">
+            Diese Unterschrift wird vom <strong>FKVI-Admin vor dem Versand</strong> direkt im Signierlink-Dialog eingebettet.
+          </p>
+        )}
       </div>
 
       {/* 3. Vorausfüllen — toggle + searchable picker */}

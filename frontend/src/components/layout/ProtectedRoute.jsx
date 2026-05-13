@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Loader2 } from 'lucide-react'
 
 export function AdminRoute({ children }) {
@@ -15,7 +16,7 @@ export function AdminRoute({ children }) {
 }
 
 export function CompanyRoute({ children }) {
-  const { user, isAdmin, companyId, loading } = useAuthStore()
+  const { user, isAdmin, companyId, loading } = usePublicAuthStore()
   const location = useLocation()
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">

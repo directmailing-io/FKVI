@@ -78,7 +78,7 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
 
               {/* ══ LEFT COLUMN — Photo + Identity ══════════════════════════ */}
               <div
-                className="w-72 shrink-0 flex flex-col relative overflow-hidden"
+                className="w-72 shrink-0 flex flex-col relative overflow-hidden pb-6"
                 style={{ background: 'linear-gradient(170deg, #1a3a5c 0%, #134a46 55%, #0d9488 100%)' }}
               >
                 {/* Top glow */}
@@ -129,10 +129,15 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
 
                 {/* Name + basics */}
                 <div className="relative z-10 px-5 pb-5 text-center">
-                  <DialogTitle className="text-lg font-bold text-white leading-tight">
-                    {profile.nursing_education || 'Pflegefachkraft'}
+                  {/* Blurred placeholder name */}
+                  <DialogTitle className="text-xl font-bold text-white leading-tight select-none" style={{ filter: 'blur(6px)' }}>
+                    Vorname Nachname
                   </DialogTitle>
-                  <p className="text-sm text-white/55 mt-1">
+                  {/* Job title below name */}
+                  <p className="text-sm font-semibold text-white/80 mt-2">
+                    {profile.nursing_education || 'Pflegefachkraft'}
+                  </p>
+                  <p className="text-xs text-white/50 mt-1">
                     {[profile.gender, profile.age && `${profile.age} J.`, profile.nationality].filter(Boolean).join(' · ')}
                   </p>
 
@@ -175,8 +180,8 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
                 {/* Video link */}
                 {profile.vimeo_video_url && (
                   <button onClick={() => setVideoOpen(true)}
-                    className="relative z-10 mx-4 mt-3 w-[calc(100%-2rem)] flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/15 bg-white/10 text-white/70 text-xs hover:bg-white/20 hover:text-white transition-colors">
-                    <Video className="h-3.5 w-3.5" />Vorstellungsvideo
+                    className="relative z-10 mx-4 mt-4 mb-5 w-[calc(100%-2rem)] flex items-center justify-center gap-2 py-3 rounded-xl border border-white/25 bg-white/15 text-white text-sm font-medium hover:bg-white/25 hover:border-white/40 transition-all shadow-sm">
+                    <Video className="h-4 w-4" />Vorstellungsvideo ansehen
                   </button>
                 )}
 
@@ -189,7 +194,7 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
 
                   {/* Region + Einrichtung side by side */}
                   <div className="grid grid-cols-2 gap-x-6 border-b border-gray-100 pb-4 mb-0">
-                    <DataRow label="Region">
+                    <DataRow label="Bevorzugte Region">
                       {profile.nationwide
                         ? <span className="font-medium text-green-700">Bundesweit</span>
                         : states.length > 0
@@ -242,9 +247,15 @@ export default function ProfileDetailModal({ profile, open, onClose, isFavorite,
 
                   {profile.fkvi_competency_proof && (
                     <DataRow label="FKVI-Nachweis">
-                      <span className="text-green-700 font-medium flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4" />{profile.fkvi_competency_proof}
-                      </span>
+                      {(profile.fkvi_competency_proof === 'bestanden' || profile.fkvi_competency_proof.toLowerCase().includes('bestanden')) ? (
+                        <span className="text-green-700 font-medium flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4" />Bestanden
+                        </span>
+                      ) : (
+                        <span className="text-amber-700 font-medium flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 opacity-50" />In Aneignung
+                        </span>
+                      )}
                     </DataRow>
                   )}
 

@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase-public'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { PROCESS_STATUS_LABELS, formatDateTime } from '@/lib/utils'
+import { getProfileSpecializations, getProfileEinrichtungstypen, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 import {
   ArrowLeft, User, CheckCircle2, ChevronRight, Clock,
   Globe, FileText, Award, Stethoscope, Languages, MapPin, ExternalLink,
-  Baby, Car, Heart, Briefcase, BookOpen
+  Baby, Car, Heart, Briefcase, BookOpen, ClipboardList, Save, Loader2,
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { toast } from '@/hooks/use-toast'
 
 const STATUS_STEPS = Object.entries(PROCESS_STATUS_LABELS)
 
@@ -55,12 +61,14 @@ function InfoRow({ label, value }) {
 export default function StatustrackerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { companyId } = useAuthStore()
+  const { companyId } = usePublicAuthStore()
 
   const [reservation, setReservation] = useState(null)
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [documents, setDocuments] = useState([])
+  const [ff, setFf] = useState({ arbeitsverhaeltnis: {}, verguetung: {}, massnahme: {} })
+  const [savingFf, setSavingFf] = useState(false)
 
   const fetchData = async () => {
     if (!companyId) return
@@ -72,14 +80,16 @@ export default function StatustrackerDetail() {
         .from('reservations')
         .select(`
           id, process_status, created_at, updated_at,
+          arbeitsverhaeltnis, verguetung, massnahme, foerderung,
           profiles (
             id, first_name, last_name, gender, age, nationality, marital_status,
             children_count, has_drivers_license, profile_image_url, vimeo_video_url,
             nursing_education, education_duration, graduation_year, german_recognition,
-            education_notes, specializations, additional_qualifications,
+            education_notes, additional_qualifications,
             total_experience_years, germany_experience_years, experience_areas,
             language_skills, work_time_preference, state_preferences, nationwide,
-            preferred_facility_types, fkvi_competency_proof
+            fkvi_competency_proof,
+            ${ALL_SPECIALIZATION_FIELDS.join(', ')}
           )
         `)
         .eq('id', id)
@@ -93,6 +103,13 @@ export default function StatustrackerDetail() {
     ])
     // Always update reservation — null means it was deleted (decoupled)
     setReservation(res || null)
+    if (res) {
+      setFf({
+        arbeitsverhaeltnis: res.arbeitsverhaeltnis || {},
+        verguetung: res.verguetung || {},
+        massnahme: res.massnahme || {},
+      })
+    }
     if (res && token) {
       // Fetch documents via API (service role) to bypass potential RLS restrictions
       try {
@@ -236,6 +253,154 @@ export default function StatustrackerDetail() {
         </div>
       )}
 
+      {/* ── Förderfall-Daten (company-editable when freigegeben) ── */}
+      {reservation?.foerderung?.freigegeben && (
+        <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 bg-purple-50 border-b border-purple-100">
+            <ClipboardList className="h-5 w-5 text-purple-600 shrink-0" />
+            <div className="flex-1">
+              <h2 className="font-semibold text-purple-900 text-sm">Förderfall-Daten ausfüllen</h2>
+              <p className="text-xs text-purple-600 mt-0.5">Bitte füllen Sie die folgenden Angaben aus. Diese Daten werden für den Förderantrag benötigt.</p>
+            </div>
+            <Button
+              size="sm"
+              disabled={savingFf}
+              onClick={async () => {
+                setSavingFf(true)
+                try {
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/matching/save-foerderfall', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${session?.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      reservationId: id,
+                      arbeitsverhaeltnis: ff.arbeitsverhaeltnis,
+                      verguetung: ff.verguetung,
+                      massnahme: ff.massnahme,
+                    }),
+                  })
+                  const json = await res.json()
+                  if (!res.ok) toast({ title: 'Fehler beim Speichern', description: json.error, variant: 'destructive' })
+                  else toast({ title: 'Gespeichert', description: 'Ihre Angaben wurden gespeichert.', variant: 'success' })
+                } catch (e) {
+                  toast({ title: 'Fehler beim Speichern', description: e.message, variant: 'destructive' })
+                }
+                setSavingFf(false)
+              }}
+              className="bg-purple-600 hover:bg-purple-700 shrink-0"
+            >
+              {savingFf ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Speichern…</> : <><Save className="h-3.5 w-3.5 mr-1.5" />Speichern</>}
+            </Button>
+          </div>
+          <div className="p-6 space-y-6">
+            {/* Arbeitsverhältnis */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Daten zum Arbeitsverhältnis</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Beginn des Beschäftigungsverhältnisses</Label>
+                  <Input type="date" value={ff.arbeitsverhaeltnis.beginn || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, beginn: e.target.value } }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Befristung</Label>
+                  <Select value={ff.arbeitsverhaeltnis.befristung || ''} onValueChange={v => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, befristung: v } }))}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unbefristet">Unbefristet</SelectItem>
+                      <SelectItem value="befristet">Befristet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Berufsbezeichnung</Label>
+                  <Input value={ff.arbeitsverhaeltnis.berufsbezeichnung || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, berufsbezeichnung: e.target.value } }))} placeholder="z.B. Pflegefachkraft" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Wochenstunden</Label>
+                  <Input type="number" value={ff.arbeitsverhaeltnis.stunden_woche || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, stunden_woche: e.target.value } }))} placeholder="z.B. 38,5" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Urlaubstage / Jahr</Label>
+                  <Input type="number" value={ff.arbeitsverhaeltnis.urlaubstage || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, urlaubstage: e.target.value } }))} placeholder="z.B. 28" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Arbeitsort</Label>
+                  <Input value={ff.arbeitsverhaeltnis.arbeitsort || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, arbeitsort: e.target.value } }))} placeholder="PLZ, Ort" />
+                </div>
+              </div>
+            </div>
+            {/* Vergütung */}
+            <div className="space-y-3 pt-4 border-t border-gray-100">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Vergütung</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Grundgehalt brutto (€)</Label>
+                  <Input type="number" value={ff.verguetung.grundgehalt || ''} onChange={e => setFf(p => ({ ...p, verguetung: { ...p.verguetung, grundgehalt: e.target.value } }))} placeholder="z.B. 3200" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Einheit</Label>
+                  <Select value={ff.verguetung.grundgehalt_einheit || ''} onValueChange={v => setFf(p => ({ ...p, verguetung: { ...p.verguetung, grundgehalt_einheit: v } }))}>
+                    <SelectTrigger><SelectValue placeholder="pro…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monat">pro Monat</SelectItem>
+                      <SelectItem value="stunde">pro Stunde</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Entgeltart</Label>
+                  <Select value={ff.verguetung.entgeltart || ''} onValueChange={v => setFf(p => ({ ...p, verguetung: { ...p.verguetung, entgeltart: v } }))}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tariflich">Tariflich</SelectItem>
+                      <SelectItem value="ortsuesblich">Ortsüblich</SelectItem>
+                      <SelectItem value="frei">Frei verhandelt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Entgeltgruppe (bei Tarifbindung)</Label>
+                  <Input value={ff.verguetung.entgeltgruppe || ''} onChange={e => setFf(p => ({ ...p, verguetung: { ...p.verguetung, entgeltgruppe: e.target.value } }))} placeholder="z.B. P8 TVöD" />
+                </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs">Weitere Gehaltsbestandteile</Label>
+                  <Input value={ff.verguetung.weitere_bestandteile || ''} onChange={e => setFf(p => ({ ...p, verguetung: { ...p.verguetung, weitere_bestandteile: e.target.value } }))} placeholder="z.B. Zulagen, Boni (Bezeichnung + Betrag)" />
+                </div>
+              </div>
+            </div>
+            {/* Weiterbildungsmaßnahme */}
+            <div className="space-y-3 pt-4 border-t border-gray-100">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Weiterbildungsmaßnahme</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs">Maßnahmeziel / Bezeichnung der Weiterbildung</Label>
+                  <Input value={ff.massnahme.bezeichnung || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, bezeichnung: e.target.value } }))} placeholder="Lehrgang stattl. Anerkennung ausl. Krankenpflege" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Beginn der Maßnahme</Label>
+                  <Input type="date" value={ff.massnahme.beginn || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, beginn: e.target.value } }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Voraussichtliches Ende</Label>
+                  <Input type="date" value={ff.massnahme.ende || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, ende: e.target.value } }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Bildungsträger (Name)</Label>
+                  <Input value={ff.massnahme.bildungstraeger_name || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, bildungstraeger_name: e.target.value } }))} placeholder="Name des Maßnahmeträgers" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Bildungsträger (Adresse)</Label>
+                  <Input value={ff.massnahme.bildungstraeger_adresse || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, bildungstraeger_adresse: e.target.value } }))} placeholder="Straße, PLZ, Ort" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Full profile */}
         <div className="lg:col-span-2 space-y-5">
@@ -259,7 +424,12 @@ export default function StatustrackerDetail() {
                   {p?.marital_status && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"><Heart className="h-2.5 w-2.5 inline mr-0.5" />{p.marital_status}</span>}
                   {(p?.children_count > 0) && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"><Baby className="h-2.5 w-2.5 inline mr-0.5" />{p.children_count} {p.children_count === 1 ? 'Kind' : 'Kinder'}</span>}
                   {p?.has_drivers_license && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"><Car className="h-2.5 w-2.5 inline mr-0.5" />Führerschein</span>}
-                  {p?.fkvi_competency_proof && <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">✓ FKVI Kompetenznachweis</span>}
+                  {(p?.fkvi_competency_proof === 'bestanden' || p?.fkvi_competency_proof?.toLowerCase().includes('bestanden')) && (
+                    <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-medium">✓ FKVI Kompetenznachweis</span>
+                  )}
+                  {(p?.fkvi_competency_proof === 'in_aneignung' || (p?.fkvi_competency_proof && !p.fkvi_competency_proof.toLowerCase().includes('bestanden'))) && (
+                    <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">⏳ FKVI Kompetenznachweis</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -289,8 +459,8 @@ export default function StatustrackerDetail() {
               <InfoRow label="Abschlussjahr" value={p?.graduation_year ? String(p.graduation_year) : null} />
               <InfoRow label="Anerkennung (DE)"
                 value={
-                  p?.german_recognition === 'anerkannt' ? '✓ Anerkannt' :
-                  p?.german_recognition === 'in_bearbeitung' ? '⏳ In Bearbeitung' :
+                  p?.german_recognition === 'anerkannt' ? 'Anerkannt' :
+                  p?.german_recognition === 'in_bearbeitung' ? 'In Bearbeitung' :
                   p?.german_recognition === 'nicht_beantragt' ? 'Noch nicht beantragt' :
                   p?.german_recognition === 'abgelehnt' ? 'Abgelehnt' :
                   p?.german_recognition
@@ -311,11 +481,11 @@ export default function StatustrackerDetail() {
               <InfoRow label="Gesamterfahrung" value={p?.total_experience_years ? `${p.total_experience_years} Jahre` : null} />
               <InfoRow label="Erfahrung in DE" value={p?.germany_experience_years ? `${p.germany_experience_years} Jahre` : null} />
             </div>
-            {(p?.specializations || []).length > 0 && (
+            {getProfileSpecializations(p).length > 0 && (
               <div>
                 <p className="text-xs text-gray-400 mb-2">Spezialisierungen</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {p.specializations.map(s => (
+                  {getProfileSpecializations(p).map(s => (
                     <span key={s} className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">{s}</span>
                   ))}
                 </div>
@@ -370,11 +540,11 @@ export default function StatustrackerDetail() {
               <InfoRow label="Bundesländer"
                 value={p?.nationwide ? 'Deutschlandweit' : (p?.state_preferences || []).join(', ')}
               />
-              {(p?.preferred_facility_types || []).length > 0 && (
+              {getProfileEinrichtungstypen(p).length > 0 && (
                 <div className="flex gap-3">
                   <span className="text-xs text-gray-400 w-36 shrink-0 pt-0.5">Einrichtungstypen</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {p.preferred_facility_types.map(t => (
+                    {getProfileEinrichtungstypen(p).map(t => (
                       <span key={t} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{t}</span>
                     ))}
                   </div>

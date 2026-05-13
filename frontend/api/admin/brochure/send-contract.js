@@ -149,7 +149,7 @@ async function sendContractEmail({ signerName, signerEmail, signerUrl, lang = 'd
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Fachkraft Vermittlung International <noreply@fkvi-plattform.de>',
+      from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
       to: [signerEmail],
       subject: copy.subject,
       html,

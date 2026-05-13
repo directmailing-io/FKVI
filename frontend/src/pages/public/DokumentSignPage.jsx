@@ -121,7 +121,7 @@ function PdfViewer({ pdfUrl, fields, fieldValues, onToggle, prefilledFieldIds = 
   // Pre-filled text/date/initials fields with their resolved values for overlay rendering.
   // Use prefilledFields (includes admin-audience fields) + prefillData for value lookup.
   const prefilledTextFields = prefilledFields
-    .filter(f => f.type === 'text' || f.type === 'date' || f.type === 'initials')
+    .filter(f => f.type === 'text' || f.type === 'date' || f.type === 'initials' || f.type === 'boolean_mark')
     .map(f => {
       const value = prefillData[f.prefillKey] ?? prefillData[f.id] ?? fieldValues?.[f.id] ?? ''
       return { ...f, resolvedValue: String(value) }
@@ -402,7 +402,10 @@ export default function DokumentSignPage() {
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  const hasSignatureField = (data?.fields || []).some(f => f.type === 'signature')
+  // Only count non-admin signature fields — admin sigs are already baked into the prefilled PDF
+  const hasSignatureField = (data?.fields || []).some(
+    f => f.type === 'signature' && f.audience !== 'admin'
+  )
 
   const handleSubmit = async () => {
     if (submitting) return

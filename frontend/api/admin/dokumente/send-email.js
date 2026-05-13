@@ -147,7 +147,7 @@ export default withHandler(async (req, res) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Fachkraft Vermittlung International <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
       to: [recipientEmail],
       subject: `Dokument zum Unterschreiben: ${templateName}`,
       html: htmlBody,

@@ -427,6 +427,22 @@ export default function UnifiedSendDialog({
 
       setResults({ bundleUrl: data.bundleUrl, docCount: docsList.length })
       onSent?.()
+
+      // Auto-send email when signerEmail is provided
+      if (signerEmail.trim()) {
+        try {
+          await fetch('/api/admin/dokumente/share-email', {
+            method: 'POST', headers: authHeader,
+            body: JSON.stringify({
+              recipientEmail: signerEmail.trim(),
+              recipientName: signerName.trim(),
+              documentTitle: `Unterlagen für ${signerName.trim()}`,
+              documentUrl: data.bundleUrl,
+            }),
+          })
+          setEmailSent(true)
+        } catch {}
+      }
     } catch (err) {
       toast({ title: 'Versand fehlgeschlagen', description: err.message, variant: 'destructive' })
     } finally {

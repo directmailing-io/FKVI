@@ -44,6 +44,7 @@ export default function AddDocumentModal({
   session,
   entityType = 'profile', // 'profile' | 'company'
   activeVermittlungen = [], // [{ profileId, profileName }]
+  linkedCompanies = [],     // [{ id, company_name }] — linked via active reservation
   onAddDoc,       // (doc: { title, link, doc_type, is_internal }) => void
   onSendTemplate, // () => void — opens DocSendDialog with fixedSource='template'
   onClose,
@@ -92,9 +93,13 @@ export default function AddDocumentModal({
       .catch(() => setTemplatesLoading(false))
   }, [mode])
 
-  // Load all companies when company mode is activated
+  // Auto-select linked company when entering company mode (if exactly one linked)
   useEffect(() => {
     if (mode !== 'company') return
+    if (linkedCompanies.length === 1 && !selectedCompany) {
+      setSelectedCompany(linkedCompanies[0])
+      return
+    }
     setCompaniesLoading(true)
     fetch('/api/admin/entities/companies', {
       headers: { Authorization: `Bearer ${session?.access_token}` },
@@ -152,7 +157,11 @@ export default function AddDocumentModal({
         headers: { 'Content-Type': selectedFile.type || 'application/octet-stream' },
         body: selectedFile,
       })
-      if (!uploadRes.ok) throw new Error('Upload fehlgeschlagen')
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => '')
+        console.error('Storage PUT failed:', uploadRes.status, errText)
+        throw new Error(`Upload fehlgeschlagen (HTTP ${uploadRes.status})`)
+      }
 
       // Step 3: Resolve download URL now that the file exists
       const resolveRes = await fetch('/api/admin/profile-docs/resolve-url', {
@@ -304,7 +313,7 @@ export default function AddDocumentModal({
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             {(mode || uploadedDoc) && (
@@ -461,18 +470,17 @@ export default function AddDocumentModal({
                       })
                       onClose()
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-violet-300 hover:bg-violet-50/40 bg-white text-left transition-colors"
+                    className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-50 hover:bg-violet-50 border border-transparent hover:border-violet-200 text-left transition-all"
+                    style={{ overflow: 'hidden' }}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
-                      <FileText className="h-4 w-4 text-violet-500" />
+                    <div className="w-7 h-7 rounded-md bg-white border border-gray-200 flex items-center justify-center shrink-0 group-hover:border-violet-300 transition-colors shadow-sm">
+                      <FileText className="h-3.5 w-3.5 text-violet-400" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{tpl.name}</p>
-                      {tpl.description && (
-                        <p className="text-xs text-gray-400 truncate">{tpl.description}</p>
-                      )}
-                    </div>
-                    <Check className="h-4 w-4 text-violet-400 shrink-0 opacity-0 group-hover:opacity-100" />
+                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8125rem', fontWeight: 500, color: '#374151' }}
+                      title={tpl.name}>{tpl.name}</span>
+                    <span className="text-[10px] font-semibold text-gray-400 group-hover:text-violet-400 shrink-0 uppercase tracking-wide transition-colors">
+                      Vorlage
+                    </span>
                   </button>
                 ))}
               </div>
@@ -587,13 +595,31 @@ export default function AddDocumentModal({
           <div className="space-y-3 py-1">
             {!selectedCompany ? (
               <>
+                {/* Linked company quick-select */}
+                {linkedCompanies.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-0.5">Aktive Vermittlung</p>
+                    {linkedCompanies.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setSelectedCompany(c)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-amber-200 bg-amber-50 hover:border-amber-400 text-left text-sm transition-colors"
+                      >
+                        <Building2 className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span className="font-medium text-gray-800 truncate">{c.company_name || '—'}</span>
+                        <span className="text-xs text-amber-600 ml-auto shrink-0">Aktiv</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
                   <input
                     value={companySearch}
                     onChange={e => setCompanySearch(e.target.value)}
-                    placeholder="Unternehmen suchen..."
-                    autoFocus
+                    placeholder={linkedCompanies.length > 0 ? 'Anderes Unternehmen suchen...' : 'Unternehmen suchen...'}
+                    autoFocus={linkedCompanies.length === 0}
                     className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#1a3a5c]"
                   />
                   {companiesLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 animate-spin" />}
@@ -616,7 +642,7 @@ export default function AddDocumentModal({
                 {!companiesLoading && companySearch.trim() && filteredCompanies.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-4">Keine Unternehmen gefunden.</p>
                 )}
-                {!companiesLoading && !companySearch.trim() && allCompanies.length === 0 && (
+                {!companiesLoading && !companySearch.trim() && allCompanies.length === 0 && linkedCompanies.length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-4">Noch keine Unternehmen angelegt.</p>
                 )}
               </>

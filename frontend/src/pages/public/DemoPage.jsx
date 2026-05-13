@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase-public'
 import ProfileCard from '@/components/matching/ProfileCard'
 import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
 import { Button } from '@/components/ui/button'
@@ -243,10 +243,10 @@ function RegisterModal({ open, onClose }) {
                 </div>
               </div>
               <div>
-                <Label htmlFor="r_co" className="text-xs font-medium">Einrichtung / Unternehmen</Label>
+                <Label htmlFor="r_co" className="text-xs font-medium">Einrichtung / Unternehmen <span className="text-red-500">*</span></Label>
                 <Input id="r_co" value={form.company_name}
                   onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                  placeholder="Pflegezentrum GmbH" className="mt-1" />
+                  placeholder="Pflegezentrum GmbH" className="mt-1" required />
               </div>
               <div>
                 <Label htmlFor="r_em" className="text-xs font-medium">E-Mail-Adresse *</Label>

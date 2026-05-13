@@ -143,7 +143,7 @@ export default withHandler(async (req, res) => {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: process.env.RESEND_FROM_EMAIL || 'FKVI <no-reply@fkvi.de>',
+      from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
       to: [companyEmail],
       subject: hasDocs ? 'Zusage erteilt – Unterlagen der Fachkraft abrufbar' : 'Zusage erteilt – FKVI',
       html: emailHtml,

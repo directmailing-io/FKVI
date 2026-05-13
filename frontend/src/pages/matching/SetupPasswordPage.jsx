@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase-public'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -42,7 +42,7 @@ function PasswordStrength({ password }) {
 
 export default function SetupPasswordPage() {
   const navigate = useNavigate()
-  const setSession = useAuthStore(s => s.setSession)
+  const setSession = usePublicAuthStore(s => s.setSession)
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
@@ -104,7 +104,7 @@ export default function SetupPasswordPage() {
 
       // Sync auth store then determine role for redirect
       await setSession(currentSession)
-      const { isAdmin } = useAuthStore.getState()
+      const { isAdmin } = usePublicAuthStore.getState()
       setDone(true)
       setTimeout(() => navigate(isAdmin ? '/admin' : '/matching'), 2000)
     } catch (err) {

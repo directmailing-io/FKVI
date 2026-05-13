@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { useAuthStore } from '@/store/authStore'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Toaster } from '@/components/ui/toaster'
 import { AdminRoute, CompanyRoute } from '@/components/layout/ProtectedRoute'
 import AdminLayout from '@/components/layout/AdminLayout'
@@ -20,6 +21,7 @@ import BrochuerePage from '@/pages/admin/BrochuerePage'
 import MediathekPage from '@/pages/admin/MediathekPage'
 import TemplateEditorPage from '@/pages/admin/TemplateEditorPage'
 import PostfachPage from '@/pages/admin/PostfachPage'
+import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
 
 // Public pages
 import PublicHome from '@/pages/public/PublicHome'
@@ -48,9 +50,11 @@ import ForgotPasswordPage from '@/pages/matching/ForgotPasswordPage'
 
 export default function App() {
   const initialize = useAuthStore(s => s.initialize)
+  const initializePublic = usePublicAuthStore(s => s.initialize)
 
   useEffect(() => {
     initialize()
+    initializePublic()
   }, [])
 
   // Safety net: Radix UI sets pointer-events:none on document.body when a
@@ -104,6 +108,7 @@ export default function App() {
         <Route path="/admin/mediathek" element={<AdminRoute><AdminLayout><MediathekPage /></AdminLayout></AdminRoute>} />
         <Route path="/admin/dokumente/editor/:templateId" element={<AdminRoute><AdminLayout><TemplateEditorPage /></AdminLayout></AdminRoute>} />
         <Route path="/admin/postfach" element={<AdminRoute><AdminLayout><PostfachPage /></AdminLayout></AdminRoute>} />
+        <Route path="/admin/einstellungen" element={<AdminRoute><AdminLayout><AdminSettingsPage /></AdminLayout></AdminRoute>} />
 
         {/* Matching */}
         <Route path="/matching/login" element={<MatchingLogin />} />

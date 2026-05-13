@@ -34,7 +34,7 @@ export default withHandler(async (req, res) => {
   // Load bundle + its sends
   const { data: bundle, error: bundleErr } = await supabaseAdmin
     .from('document_bundles')
-    .select('token, title')
+    .select('token, title, attachments')
     .eq('id', bundleId)
     .single()
 
@@ -49,17 +49,29 @@ export default withHandler(async (req, res) => {
   const bundleUrl = `${PLATFORM_URL}/bundle/${bundle.token}`
   const firstName = recipientName.split(' ')[0]
   const bundleTitle = bundle.title || 'Dokument-Paket'
-  const docCount = (sends || []).length
+  const signDocs = sends || []
+  const attachments = Array.isArray(bundle.attachments) ? bundle.attachments : []
+  const docCount = signDocs.length
+  const attCount = attachments.length
 
-  const defaultMessage = `von Fachkraft Vermittlung International ist ein Paket mit ${docCount} ${docCount === 1 ? 'Dokument' : 'Dokumenten'} eingegangen, das ausgefüllt und unterschrieben werden muss.`
+  const defaultMessage = `von Fachkraft Vermittlung International ist ein Paket eingegangen${docCount > 0 ? ` mit ${docCount} ${docCount === 1 ? 'Dokument' : 'Dokumenten'} zum Unterschreiben` : ''}${attCount > 0 ? ` und ${attCount} ${attCount === 1 ? 'Anhang' : 'Anhängen'} zur Ansicht` : ''}.`
   const messageText = (customMessage || defaultMessage).trim()
 
-  // Build document list rows for email
-  const docListRows = (sends || []).map((s, i) => `
+  // Build sign-document rows
+  const docListRows = signDocs.map((s, i) => `
     <tr>
       <td style="padding:8px 0;color:#444;font-size:14px;border-bottom:1px solid #f0f0f0;">
         <span style="display:inline-block;width:22px;height:22px;background:#1a3a5c;color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:10px;">${i + 1}</span>
         ${s.document_templates?.name || 'Dokument'}
+      </td>
+    </tr>`).join('')
+
+  // Build attachment rows (view-only docs)
+  const attListRows = attachments.map(a => `
+    <tr>
+      <td style="padding:8px 0;color:#444;font-size:14px;border-bottom:1px solid #f0f0f0;">
+        <span style="display:inline-block;width:22px;height:22px;background:#6b7280;color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;margin-right:10px;">📎</span>
+        ${a.title || 'Anhang'}${a.url ? ` – <a href="${a.url}" style="color:#1a3a5c;font-size:13px;">Öffnen →</a>` : ''}
       </td>
     </tr>`).join('')
 
@@ -75,7 +87,7 @@ export default withHandler(async (req, res) => {
         <tr>
           <td style="background:#1a3a5c;padding:28px 36px;">
             <p style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Fachkraft Vermittlung International</p>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,0.6);font-size:12px;letter-spacing:0.5px;text-transform:uppercase;">${docCount} ${docCount === 1 ? 'Dokument' : 'Dokumente'} zum Ausfüllen &amp; Unterschreiben</p>
+            <p style="margin:6px 0 0;color:rgba(255,255,255,0.6);font-size:12px;letter-spacing:0.5px;text-transform:uppercase;">${docCount > 0 ? `${docCount} ${docCount === 1 ? 'Dokument' : 'Dokumente'} zum Unterschreiben` : ''}${docCount > 0 && attCount > 0 ? ' · ' : ''}${attCount > 0 ? `${attCount} ${attCount === 1 ? 'Anhang' : 'Anhänge'}` : ''}</p>
           </td>
         </tr>
 
@@ -84,15 +96,27 @@ export default withHandler(async (req, res) => {
             <p style="margin:0 0 20px;color:#1a1a1a;font-size:16px;font-weight:600;">Hallo ${firstName},</p>
             <p style="margin:0 0 24px;color:#444;font-size:15px;line-height:1.65;">${messageText.replace(/\n/g, '<br>')}</p>
 
-            <!-- Document list -->
-            <table cellpadding="0" cellspacing="0" width="100%" style="background:#f8fafc;border-radius:8px;margin:0 0 28px;">
+            <!-- Sign document list -->
+            ${docCount > 0 ? `
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#f8fafc;border-radius:8px;margin:0 0 16px;">
               <tr><td style="padding:16px 20px;">
-                <p style="margin:0 0 10px;color:#1a3a5c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Enthaltene Dokumente</p>
+                <p style="margin:0 0 10px;color:#1a3a5c;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Zum Unterschreiben</p>
                 <table cellpadding="0" cellspacing="0" width="100%">
                   ${docListRows}
                 </table>
               </td></tr>
-            </table>
+            </table>` : ''}
+
+            <!-- Attachments list -->
+            ${attCount > 0 ? `
+            <table cellpadding="0" cellspacing="0" width="100%" style="background:#f8fafc;border-radius:8px;margin:0 0 28px;">
+              <tr><td style="padding:16px 20px;">
+                <p style="margin:0 0 10px;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Beiliegende Dokumente</p>
+                <table cellpadding="0" cellspacing="0" width="100%">
+                  ${attListRows}
+                </table>
+              </td></tr>
+            </table>` : '<div style="margin-bottom:28px;"></div>'}
 
             <!-- CTA -->
             <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
@@ -159,9 +183,9 @@ export default withHandler(async (req, res) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Fachkraft Vermittlung International <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
       to: [recipientEmail],
-      subject: `${docCount} ${docCount === 1 ? 'Dokument' : 'Dokumente'} zum Unterschreiben – ${bundleTitle}`,
+      subject: `Dokument-Paket: ${bundleTitle}${docCount > 0 ? ` – ${docCount} zum Unterschreiben` : ''}${attCount > 0 ? ` + ${attCount} Anhang${attCount > 1 ? 'anhänge' : ''}` : ''}`,
       html: htmlBody,
     }),
   })

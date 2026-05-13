@@ -1,18 +1,24 @@
 import { X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { MultiSelect } from '@/components/ui/multi-select'
-import { GERMAN_STATES, FACILITY_TYPES, SPECIALIZATIONS, EXPERIENCE_AREAS } from '@/lib/utils'
+import { GERMAN_STATES, EXPERIENCE_AREAS } from '@/lib/utils'
+import {
+  BERUFSGRUPPEN,
+  SPECIALIZATIONS_BY_BERUFSGRUPPE,
+  EINRICHTUNGSTYPEN_BY_BERUFSGRUPPE,
+  getSpecializationsLabel,
+} from '@/lib/profileOptions'
 
 export const EMPTY_FILTERS = {
+  berufsgruppe: '',
   gender: '',
   german_recognition: '',
   specializations: [],
   additional_qualifications: [],
   experience_areas: [],
-  preferred_facility_types: [],
+  einrichtungstypen: [],
   work_time_preference: '',
   has_drivers_license: false,
   state_preferences: [],
@@ -20,12 +26,13 @@ export const EMPTY_FILTERS = {
 
 export function countActiveFilters(filters) {
   let count = 0
+  if (filters.berufsgruppe) count++
   if (filters.gender) count++
   if (filters.german_recognition) count++
   if (filters.specializations.length > 0) count++
   if (filters.additional_qualifications.length > 0) count++
   if (filters.experience_areas.length > 0) count++
-  if (filters.preferred_facility_types.length > 0) count++
+  if (filters.einrichtungstypen.length > 0) count++
   if (filters.work_time_preference) count++
   if (filters.has_drivers_license) count++
   if (filters.state_preferences.length > 0) count++
@@ -35,6 +42,11 @@ export function countActiveFilters(filters) {
 export default function FilterPanel({ filters, onChange, onReset }) {
   const set = (field, value) => onChange({ ...filters, [field]: value })
   const activeCount = countActiveFilters(filters)
+
+  const bg = filters.berufsgruppe
+  const specsOptions = bg ? (SPECIALIZATIONS_BY_BERUFSGRUPPE[bg] || []) : []
+  const facilityOptions = bg ? (EINRICHTUNGSTYPEN_BY_BERUFSGRUPPE[bg] || []) : []
+  const specsLabel = bg ? getSpecializationsLabel(bg) : 'Spezialisierungen'
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
@@ -51,6 +63,22 @@ export default function FilterPanel({ filters, onChange, onReset }) {
       </div>
 
       <div className="space-y-4">
+        {/* Berufsgruppe */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-gray-500">Berufsgruppe</Label>
+          <Select value={filters.berufsgruppe} onValueChange={v => {
+            onChange({ ...filters, berufsgruppe: v === '_all' ? '' : v, specializations: [], einrichtungstypen: [] })
+          }}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Alle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Alle</SelectItem>
+              {BERUFSGRUPPEN.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Geschlecht */}
         <div className="space-y-1.5">
           <Label className="text-xs text-gray-500">Geschlecht</Label>
@@ -82,16 +110,18 @@ export default function FilterPanel({ filters, onChange, onReset }) {
           </Select>
         </div>
 
-        {/* Spezialisierungen */}
-        <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Spezialisierungen</Label>
-          <MultiSelect
-            options={SPECIALIZATIONS}
-            value={filters.specializations}
-            onChange={v => set('specializations', v)}
-            placeholder="Alle"
-          />
-        </div>
+        {/* Spezialisierungen — only when berufsgruppe selected */}
+        {bg && specsOptions.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-gray-500">{specsLabel}</Label>
+            <MultiSelect
+              options={specsOptions}
+              value={filters.specializations}
+              onChange={v => set('specializations', v)}
+              placeholder="Alle"
+            />
+          </div>
+        )}
 
         {/* Erfahrungsbereiche */}
         <div className="space-y-1.5">
@@ -104,16 +134,18 @@ export default function FilterPanel({ filters, onChange, onReset }) {
           />
         </div>
 
-        {/* Einrichtungstyp */}
-        <div className="space-y-1.5">
-          <Label className="text-xs text-gray-500">Bevorzugte Einrichtung</Label>
-          <MultiSelect
-            options={FACILITY_TYPES}
-            value={filters.preferred_facility_types}
-            onChange={v => set('preferred_facility_types', v)}
-            placeholder="Alle"
-          />
-        </div>
+        {/* Einrichtungstyp — only when berufsgruppe selected */}
+        {bg && facilityOptions.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-gray-500">Bevorzugte Einrichtung</Label>
+            <MultiSelect
+              options={facilityOptions}
+              value={filters.einrichtungstypen}
+              onChange={v => set('einrichtungstypen', v)}
+              placeholder="Alle"
+            />
+          </div>
+        )}
 
         {/* Arbeitszeitpräferenz */}
         <div className="space-y-1.5">

@@ -87,7 +87,7 @@ async function sendEmail({ signerName, signerEmail, signerUrl, message }) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Fachkraft Vermittlung International <noreply@fkvi-plattform.de>',
+      from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
       to: [signerEmail],
       subject: 'Dokument unterzeichnen – Fachkraft Vermittlung International',
       html: htmlBody,
@@ -100,14 +100,14 @@ async function sendEmail({ signerName, signerEmail, signerUrl, message }) {
   }
 }
 
-// Draw pre-fill values into a PDF document (text/date/initials only, no signatures)
+// Draw pre-fill values into a PDF document (text/date/initials + admin signatures)
 async function applyPrefillToPdf(pdfDoc, templateFields, prefillFieldIds, resolvedValues) {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const pages = pdfDoc.getPages()
 
   for (const field of templateFields) {
     if (!prefillFieldIds.includes(field.id)) continue
-    if (field.type === 'signature' || field.type === 'checkbox') continue
+    if (field.type === 'checkbox') continue
 
     const pageIndex = (field.page || 1) - 1
     if (pageIndex < 0 || pageIndex >= pages.length) continue
@@ -120,6 +120,29 @@ async function applyPrefillToPdf(pdfDoc, templateFields, prefillFieldIds, resolv
     const absH = (field.height / 100) * pageHeight
     const absY = pageHeight - (field.y / 100) * pageHeight - absH
     const absW = (field.width / 100) * pageWidth
+
+    // ── Admin-Signatur als Bild einbetten ──────────────────────────────────
+    if (field.type === 'signature') {
+      const sigDataUrl = resolvedValues[field.id]
+      if (!sigDataUrl || !sigDataUrl.startsWith('data:image/')) continue
+      try {
+        const base64 = sigDataUrl.split(',')[1]
+        const imgBytes = Buffer.from(base64, 'base64')
+        const image = sigDataUrl.startsWith('data:image/png')
+          ? await pdfDoc.embedPng(imgBytes)
+          : await pdfDoc.embedJpg(imgBytes)
+        page.drawImage(image, {
+          x: absX,
+          y: absY,
+          width: absW,
+          height: absH,
+          opacity: 1,
+        })
+      } catch (imgErr) {
+        console.error('applyPrefillToPdf: Signatur-Bild konnte nicht eingebettet werden', imgErr)
+      }
+      continue
+    }
 
     const value = String(resolvedValues[field.id] || '')
     if (!value) continue
@@ -254,10 +277,19 @@ export default withHandler(async (req, res) => {
       const mergedPrefillData = prefillData || {}
 
       // Resolve which fields to prefill
-      // Build a resolved values map: field.id → actual string value
+      // Build a resolved values map: field.id → actual string value (or data URL for admin sigs)
       const resolvedValues = {}
       for (const field of templateFields) {
-        if (field.type === 'signature' || field.type === 'checkbox') continue
+        if (field.type === 'checkbox') continue
+
+        // Admin-audience signature fields: pull the data URL from prefillData by field.id
+        if (field.type === 'signature') {
+          if (field.audience === 'admin' && mergedPrefillData[field.id]?.startsWith?.('data:image/')) {
+            resolvedValues[field.id] = mergedPrefillData[field.id]
+          }
+          continue
+        }
+
         let value = null
         if (field.prefillKey && mergedPrefillData[field.prefillKey] !== undefined) {
           value = mergedPrefillData[field.prefillKey]
@@ -318,6 +350,12 @@ export default withHandler(async (req, res) => {
     }
   }
 
+  // Strip admin-sig data URLs (base64 blobs) before writing to DB — they're
+  // already baked into the prefilled PDF; storing them would bloat the row.
+  const prefillDataForDb = Object.fromEntries(
+    Object.entries(prefillData || {}).filter(([, v]) => typeof v !== 'string' || !v.startsWith('data:image/'))
+  )
+
   const { data: send, error: insertError } = await supabaseAdmin
     .from('document_sends')
     .insert({
@@ -327,7 +365,7 @@ export default withHandler(async (req, res) => {
       signer_name: signerName,
       signer_email: signerEmail || null,
       message: message || null,
-      prefill_data: prefillData || {},
+      prefill_data: prefillDataForDb,
       expires_at: expiresAt.toISOString(),
       sent_by: user.id,
       status: 'pending',

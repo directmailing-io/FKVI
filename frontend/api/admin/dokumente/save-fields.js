@@ -26,16 +26,22 @@ export default withHandler(async (req, res) => {
     return res.status(e.status || 401).json({ error: e.message })
   }
 
-  const { templateId, fields } = req.body || {}
+  const { templateId, fields, template_type } = req.body || {}
   if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
   if (!Array.isArray(fields)) return res.status(400).json({ error: 'fields muss ein Array sein' })
 
+  const VALID_TYPES = ['fachkraft', 'unternehmen', 'vermittlung']
+  const updatePayload = {
+    fields,
+    updated_at: new Date().toISOString(),
+  }
+  if (template_type && VALID_TYPES.includes(template_type)) {
+    updatePayload.template_type = template_type
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from('document_templates')
-    .update({
-      fields,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', templateId)
 
   if (updateError) {

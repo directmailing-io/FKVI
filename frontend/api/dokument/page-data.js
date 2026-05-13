@@ -29,6 +29,8 @@ export default withHandler(async (req, res) => {
       prefilled_field_ids,
       recipient_type,
       parent_send_id,
+      send_mode,
+      source_url,
       document_templates (
         name,
         description,
@@ -102,6 +104,24 @@ export default withHandler(async (req, res) => {
     return audience === recipientType
   })
 
+  const allPrefilledFieldIds = send.prefilled_field_ids || []
+
+  // Admin-audience signature fields are baked into the PDF silently —
+  // exclude them from the recipient-facing count (banner "X Felder ausgefüllt")
+  // but keep them in prefilledFields for PDF overlay rendering purposes.
+  const adminSigFieldIds = new Set(
+    allFields
+      .filter(f => f.type === 'signature' && f.audience === 'admin')
+      .map(f => f.id)
+  )
+  const prefilledFieldIds = allPrefilledFieldIds.filter(id => !adminSigFieldIds.has(id))
+
+  // Include full field definitions for pre-filled fields (even admin-audience ones)
+  // so the frontend can render their text overlays on the PDF canvas
+  const prefilledFields = allFields.filter(
+    f => allPrefilledFieldIds.includes(f.id) && f.x !== undefined && f.y !== undefined
+  )
+
   return res.json({
     sendId: send.id,
     templateName: tpl.name || null,
@@ -110,13 +130,16 @@ export default withHandler(async (req, res) => {
     message: send.message || null,
     prefillData: send.prefill_data || {},
     fields: visibleFields,
+    prefilledFields,
     pageCount: tpl.page_count || null,
     expiresAt: send.expires_at,
     status: isFirstOpen ? 'opened' : send.status,
     alreadySigned,
     prefillMode: send.prefill_mode || 'blank',
-    prefilledFieldIds: send.prefilled_field_ids || [],
+    prefilledFieldIds,
     recipientType,
     isForwarded: !!send.parent_send_id,
+    sendMode: send.send_mode || 'sign',
+    sourceUrl: send.source_url || null,
   })
 })

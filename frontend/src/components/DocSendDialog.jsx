@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,16 +12,10 @@ import {
 import { toast } from '@/hooks/use-toast'
 
 // ── Schritt-Anzeige ──────────────────────────────────────────────────────────
-const STEPS = [
-  { id: 1, label: 'Dokument' },
-  { id: 2, label: 'Empfänger' },
-  { id: 3, label: 'Zweck' },
-]
-
-function Stepper({ step }) {
+function Stepper({ step, steps }) {
   return (
     <div className="flex items-center gap-1 mb-5">
-      {STEPS.map((s, i) => (
+      {steps.map((s, i) => (
         <div key={s.id} className="flex items-center gap-1">
           <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-all ${
             step === s.id ? 'bg-[#1a3a5c] text-white' : step > s.id ? 'bg-[#0d9488] text-white' : 'bg-gray-100 text-gray-400'
@@ -30,9 +25,118 @@ function Stepper({ step }) {
           <span className={`text-xs font-medium ${step === s.id ? 'text-[#1a3a5c]' : step > s.id ? 'text-[#0d9488]' : 'text-gray-400'}`}>
             {s.label}
           </span>
-          {i < STEPS.length - 1 && <div className={`h-px w-5 mx-0.5 ${step > s.id ? 'bg-[#0d9488]' : 'bg-gray-200'}`} />}
+          {i < steps.length - 1 && <div className={`h-px w-5 mx-0.5 ${step > s.id ? 'bg-[#0d9488]' : 'bg-gray-200'}`} />}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Admin-Signatur-Pad ────────────────────────────────────────────────────────
+function AdminSignaturePad({ fieldLabel, onChange }) {
+  const canvasRef = useRef(null)
+  const isDrawingRef = useRef(false)
+  const hasDrawnRef = useRef(false)
+  const [hasSig, setHasSig] = useState(false)
+
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    ctx.strokeStyle = '#1a3a5c'
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+  }, [])
+
+  const getPos = (e) => {
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const src = e.touches ? e.touches[0] : e
+    return {
+      x: (src.clientX - rect.left) * scaleX,
+      y: (src.clientY - rect.top) * scaleY,
+    }
+  }
+
+  const startDraw = (e) => {
+    e.preventDefault()
+    const ctx = canvasRef.current.getContext('2d')
+    const pos = getPos(e)
+    ctx.beginPath()
+    ctx.moveTo(pos.x, pos.y)
+    isDrawingRef.current = true
+  }
+
+  const draw = (e) => {
+    e.preventDefault()
+    if (!isDrawingRef.current) return
+    const ctx = canvasRef.current.getContext('2d')
+    const pos = getPos(e)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.stroke()
+    if (!hasDrawnRef.current) {
+      hasDrawnRef.current = true
+      setHasSig(true)
+    }
+  }
+
+  const stopDraw = () => {
+    if (!isDrawingRef.current) return
+    isDrawingRef.current = false
+    if (hasDrawnRef.current) {
+      onChange(canvasRef.current.toDataURL('image/png'))
+    }
+  }
+
+  const clear = () => {
+    const canvas = canvasRef.current
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
+    hasDrawnRef.current = false
+    setHasSig(false)
+    onChange(null)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-gray-700">{fieldLabel}</p>
+        {hasSig && (
+          <button type="button" onClick={clear} className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+            Löschen
+          </button>
+        )}
+      </div>
+      <div className="relative border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-white hover:border-[#1a3a5c]/40 transition-colors">
+        <canvas
+          ref={canvasRef}
+          width={600}
+          height={140}
+          className="w-full cursor-crosshair touch-none block"
+          style={{ height: '100px' }}
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={stopDraw}
+          onMouseLeave={stopDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={stopDraw}
+        />
+        {!hasSig && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-1">
+            <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+            </svg>
+            <p className="text-xs text-gray-300">Hier mit der Maus oder dem Finger unterschreiben</p>
+          </div>
+        )}
+      </div>
+      {hasSig && (
+        <p className="text-xs text-[#0d9488] flex items-center gap-1">
+          <Check className="h-3 w-3" /> Unterschrift erfasst
+        </p>
+      )}
     </div>
   )
 }
@@ -117,6 +221,9 @@ export default function DocSendDialog({
   const [prefillPickerOpen, setPrefillPickerOpen] = useState(false)
   const [checkboxPrefills, setCheckboxPrefills] = useState({})
 
+  // ── Admin-Unterschriften ──────────────────────────────────────────────────
+  const [adminSigDataUrls, setAdminSigDataUrls] = useState({}) // { [fieldId]: dataUrl | null }
+
   // ── Ergebnis ─────────────────────────────────────────────────────────────
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
@@ -126,7 +233,75 @@ export default function DocSendDialog({
   const [useCustomMessage, setUseCustomMessage] = useState(false)
   const [customMessage, setCustomMessage] = useState('')
 
-  const prefillData = entityType === 'profile' ? buildProfilePrefill(profile) : {}
+  // ── Company-Daten für Prefill laden ──────────────────────────────────────
+  const [companyPrefillData, setCompanyPrefillData] = useState({})
+
+  const companyIdForPrefill = activeVermittlungen[0]?.companyId || (entityType === 'company' ? entityId : null)
+
+  useEffect(() => {
+    if (!companyIdForPrefill) return
+    supabase
+      .from('companies')
+      .select('*')
+      .eq('id', companyIdForPrefill)
+      .single()
+      .then(({ data: c }) => {
+        if (!c) return
+        const contactName = `${c.first_name || ''} ${c.last_name || ''}`.trim()
+        setCompanyPrefillData({
+          'company.company_name':       c.company_name || '',
+          'company.contact_name':       contactName,
+          'company.contact_first_name': c.first_name || '',
+          'company.contact_last_name':  c.last_name || '',
+          'company.email':              c.email || '',
+          'company.phone':              c.phone || '',
+          'company.address':            c.address || '',
+          'company.house_number':       c.house_number || '',
+          'company.adresszusatz':       c.adresszusatz || '',
+          'company.city':               c.city || '',
+          'company.postal_code':        c.postal_code || '',
+          'company.betriebsnummer':     c.betriebsnummer || '',
+          'company.ba_kundennummer':    c.ba_kundennummer || '',
+          'company.klassifizierung.kmu_kategorie':            c.klassifizierung?.kmu_kategorie || '',
+          'company.klassifizierung.beschaeftigte_gesamt':     c.klassifizierung?.beschaeftigte_gesamt || '',
+          'company.klassifizierung.jahresumsatz':             c.klassifizierung?.jahresumsatz || '',
+          'company.klassifizierung.tarifvertrag_bezeichnung': c.klassifizierung?.tarifvertrag_bezeichnung || '',
+        })
+      })
+  }, [companyIdForPrefill])
+
+  // ── FKVI-Stammdaten (Vermittler) laden ───────────────────────────────────
+  const [vermittlerPrefillData, setVermittlerPrefillData] = useState({})
+
+  useEffect(() => {
+    fetch('/api/admin/fkvi-settings', {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const s = d?.settings || {}
+        if (!Object.keys(s).length) return
+        setVermittlerPrefillData({
+          'vermittler.company_name':       s.company_name || '',
+          'vermittler.contact_first_name': s.contact_first_name || '',
+          'vermittler.contact_last_name':  s.contact_last_name || '',
+          'vermittler.contact_name':       `${s.contact_first_name || ''} ${s.contact_last_name || ''}`.trim(),
+          'vermittler.email':              s.email || '',
+          'vermittler.phone':              s.phone || '',
+          'vermittler.address':            s.address || '',
+          'vermittler.city':               s.city || '',
+          'vermittler.postal_code':        s.postal_code || '',
+          'vermittler.website':            s.website || '',
+        })
+      })
+      .catch(() => {})
+  }, [session?.access_token])
+
+  const prefillData = {
+    ...(entityType === 'profile' ? buildProfilePrefill(profile) : {}),
+    ...companyPrefillData,
+    ...vermittlerPrefillData,
+  }
 
   // ── Templates laden ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -138,15 +313,24 @@ export default function DocSendDialog({
       .catch(() => setTemplatesLoading(false))
   }, [])
 
-  // ── Template-Details laden ───────────────────────────────────────────────
+  // ── Template-Details laden + recipientType auto-sync ────────────────────
   useEffect(() => {
-    if (!selectedTemplateId) { setSelectedTemplate(null); return }
+    if (!selectedTemplateId) { setSelectedTemplate(null); setAdminSigDataUrls({}); return }
     setTemplateLoading(true)
+    setAdminSigDataUrls({}) // Reset admin sigs when template changes
     fetch(`/api/admin/dokumente/get?templateId=${selectedTemplateId}`, {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     })
       .then(r => r.json())
-      .then(d => { setSelectedTemplate(d.template || null); setTemplateLoading(false) })
+      .then(d => {
+        const tpl = d.template || null
+        setSelectedTemplate(tpl)
+        setTemplateLoading(false)
+        // Auto-set recipientType from template_type
+        if (tpl?.template_type && tpl.template_type !== 'vermittlung') {
+          setRecipientType(tpl.template_type === 'unternehmen' ? 'unternehmen' : 'fachkraft')
+        }
+      })
       .catch(() => setTemplateLoading(false))
   }, [selectedTemplateId])
 
@@ -205,11 +389,42 @@ export default function DocSendDialog({
   )
   const activePrefillFieldIds = prefillableFields.filter(f => !disabledPrefillIds.has(f.id)).map(f => f.id)
 
+  // ── Template-Signatur-Warnung ─────────────────────────────────────────────
+  const allSignatureFields = (selectedTemplate?.fields || []).filter(f => f.type === 'signature')
+  const hasSignatureField = allSignatureFields.some(f => f.audience !== 'admin')
+  const showSignatureWarning = selectedTemplate && sendMode === 'sign' && !hasSignatureField
+
+  // ── Admin-Signatur-Felder ─────────────────────────────────────────────────
+  const adminSigFields = (selectedTemplate?.fields || []).filter(
+    f => f.type === 'signature' && f.audience === 'admin'
+  )
+  const needsAdminSig = sendMode === 'sign' && docSource === 'template' && adminSigFields.length > 0
+  const adminSigComplete = !needsAdminSig || adminSigFields.every(f => !!adminSigDataUrls[f.id])
+
+  // ── Dynamische Schritte ───────────────────────────────────────────────────
+  const STEPS_BASE = [
+    { id: 1, label: 'Dokument' },
+    { id: 2, label: 'Empfänger' },
+    { id: 3, label: 'Zweck' },
+  ]
+  const steps = needsAdminSig
+    ? [...STEPS_BASE, { id: 4, label: 'Ihre Unterschrift' }]
+    : STEPS_BASE
+  const totalSteps = steps.length
+
+  // ── Template-Typ Badge ────────────────────────────────────────────────────
+  const TEMPLATE_TYPE_BADGE = {
+    fachkraft:   { label: 'Fachkraft',   className: 'bg-green-50 text-green-700 border-green-200' },
+    unternehmen: { label: 'Unternehmen', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+    vermittlung: { label: 'Vermittlung', className: 'bg-purple-50 text-purple-700 border-purple-200' },
+  }
+
   // ── Validierung ───────────────────────────────────────────────────────────
   const isMultiSend = showExtraDocs && extraTemplateIds.length > 0
   const step1Valid = docSource === 'template' ? !!selectedTemplateId : (!!sourceUrl.trim() && !!sourceTitle.trim())
   const step2Valid = !!signerName.trim()
-  const canGoNext = step === 1 ? step1Valid : step === 2 ? step2Valid : true
+  const step4Valid = adminSigComplete
+  const canGoNext = step === 1 ? step1Valid : step === 2 ? step2Valid : step === 3 ? true : step4Valid
 
   const isOtherParty =
     (entityType === 'profile' && recipientType === 'unternehmen') ||
@@ -224,7 +439,7 @@ export default function DocSendDialog({
         const body = {
           templateIds: [selectedTemplateId, ...extraTemplateIds],
           signerName: signerName.trim(),
-          prefillData: { ...prefillData, ...checkboxPrefills },
+          prefillData: { ...prefillData, ...checkboxPrefills, ...adminSigDataUrls },
           message: useCustomMessage ? customMessage : undefined,
         }
         if (entityType === 'profile') body.profileId = entityId
@@ -245,7 +460,7 @@ export default function DocSendDialog({
           signerEmail: signerEmail.trim() || null,
           sendMode,
           recipientType,
-          prefillData: { ...prefillData, ...checkboxPrefills },
+          prefillData: { ...prefillData, ...checkboxPrefills, ...adminSigDataUrls },
           message: useCustomMessage ? customMessage : undefined,
         }
         if (entityType === 'profile') body.profileId = entityId
@@ -254,8 +469,15 @@ export default function DocSendDialog({
         if (docSource === 'template') {
           body.templateId = selectedTemplateId
           if (sendMode === 'sign') {
-            body.prefillMode = prefillMode
-            if (prefillMode === 'prefilled') body.prefillFieldIds = activePrefillFieldIds
+            // If admin has signed, force prefillMode='prefilled' so the PDF is generated with the sig embedded.
+            // Only include text prefillFieldIds if the admin explicitly chose 'prefilled' mode —
+            // not when it was forced just to bake in the admin sig.
+            const hasAdminSigs = Object.keys(adminSigDataUrls).length > 0
+            const effectivePrefillMode = hasAdminSigs ? 'prefilled' : prefillMode
+            body.prefillMode = effectivePrefillMode
+            if (effectivePrefillMode === 'prefilled') {
+              body.prefillFieldIds = prefillMode === 'prefilled' ? activePrefillFieldIds : []
+            }
           }
         } else {
           body.sourceUrl = sourceUrl.trim()
@@ -399,7 +621,7 @@ export default function DocSendDialog({
         ) : (
           /* ── SCHRITTE ── */
           <div>
-            <Stepper step={step} />
+            <Stepper step={step} steps={steps} />
 
             <div className="space-y-4 max-h-[55vh] overflow-y-auto">
 
@@ -436,11 +658,40 @@ export default function DocSendDialog({
                         <div className="space-y-1.5">
                           <Label>Vorlage <span className="text-red-500">*</span></Label>
                           <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                            <SelectTrigger><SelectValue placeholder="Vorlage auswählen..." /></SelectTrigger>
+                            <SelectTrigger>
+                              {selectedTemplateId ? (
+                                <div className="flex items-center gap-2 truncate">
+                                  <span className="truncate">{templates.find(t => t.id === selectedTemplateId)?.name}</span>
+                                  {(() => {
+                                    const ttype = templates.find(t => t.id === selectedTemplateId)?.template_type
+                                    const badge = TEMPLATE_TYPE_BADGE[ttype]
+                                    return badge ? (
+                                      <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${badge.className}`}>
+                                        {badge.label}
+                                      </span>
+                                    ) : null
+                                  })()}
+                                </div>
+                              ) : (
+                                <SelectValue placeholder="Vorlage auswählen..." />
+                              )}
+                            </SelectTrigger>
                             <SelectContent>
-                              {templates.map(t => (
-                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                              ))}
+                              {templates.map(t => {
+                                const badge = TEMPLATE_TYPE_BADGE[t.template_type]
+                                return (
+                                  <SelectItem key={t.id} value={t.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate">{t.name}</span>
+                                      {badge && (
+                                        <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${badge.className}`}>
+                                          {badge.label}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                )
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
@@ -697,6 +948,22 @@ export default function DocSendDialog({
                     </button>
                   </div>
 
+                  {/* Warnung: kein Unterschriftenfeld */}
+                  {showSignatureWarning && (
+                    <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+                      <svg className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800">Kein Unterschriftenfeld vorhanden</p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                          Diese Vorlage hat kein Signaturfeld – das Dokument kann ohne rechtsgültige Unterschrift nicht unterzeichnet werden.
+                          Bitte füge im Template-Editor ein Unterschriftenfeld hinzu.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Vorausfüllen (nur Signieren + Vorlage) */}
                   {sendMode === 'sign' && docSource === 'template' && selectedTemplateId && !templateLoading && (
                     <div className="space-y-2 pt-1">
@@ -811,6 +1078,37 @@ export default function DocSendDialog({
                   )}
                 </div>
               )}
+
+              {/* ─── Schritt 4: Admin-Unterschrift ─────────────────────── */}
+              {step === 4 && needsAdminSig && (
+                <div className="space-y-5">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Ihre Unterschrift (FKVI / Vermittler)</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Diese Vorlage enthält ein Signaturfeld für den Vermittler. Bitte unterschreiben Sie unten — die Unterschrift wird direkt in das PDF eingebettet, bevor es an den Empfänger verschickt wird.
+                    </p>
+                  </div>
+
+                  {adminSigFields.map(field => (
+                    <AdminSignaturePad
+                      key={field.id}
+                      fieldLabel={field.label || 'Unterschrift Vermittler (FKVI)'}
+                      onChange={dataUrl => setAdminSigDataUrls(prev => {
+                        const next = { ...prev }
+                        if (dataUrl) next[field.id] = dataUrl
+                        else delete next[field.id]
+                        return next
+                      })}
+                    />
+                  ))}
+
+                  {!adminSigComplete && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      Bitte unterschreiben Sie alle Felder, um das Dokument verschicken zu können.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ── Footer-Navigation ── */}
@@ -821,7 +1119,7 @@ export default function DocSendDialog({
               >
                 {step === 1 ? 'Abbrechen' : <><ChevronLeft className="h-4 w-4 mr-1" />Zurück</>}
               </Button>
-              {step < 3 ? (
+              {step < totalSteps ? (
                 <Button
                   onClick={() => setStep(s => s + 1)}
                   disabled={!canGoNext}
@@ -832,7 +1130,7 @@ export default function DocSendDialog({
               ) : (
                 <Button
                   onClick={handleSend}
-                  disabled={sending}
+                  disabled={sending || !adminSigComplete}
                   className="bg-[#0d9488] hover:bg-[#0d9488]/90 text-white"
                 >
                   {sending

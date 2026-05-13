@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase-public'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import ProfileCard from '@/components/matching/ProfileCard'
 import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
 import FilterPanel, { EMPTY_FILTERS, countActiveFilters } from '@/components/matching/FilterPanel'
@@ -25,7 +25,7 @@ export default function MatchingBrowse() {
   const [detailProfile, setDetailProfile] = useState(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [bookingLoading, setBookingLoading] = useState(false)
-  const { companyId, session } = useAuthStore()
+  const { companyId, session } = usePublicAuthStore()
 
   useEffect(() => {
     let mounted = true

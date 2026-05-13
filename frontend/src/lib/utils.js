@@ -44,18 +44,6 @@ export const GERMAN_STATES = [
   'Thüringen'
 ]
 
-export const FACILITY_TYPES = [
-  'Stationäre Pflege / Pflegeheim',
-  'Ambulante Pflege',
-  'Intensivpflege',
-  'Krankenhaus',
-  'Rehabilitationszentrum',
-  'Psychiatrie',
-  'Hospiz',
-  'Behinderteneinrichtung',
-  'Tagespflege',
-]
-
 export const WORK_TIME_OPTIONS = [
   'Vollzeit',
   'Teilzeit',
@@ -63,21 +51,6 @@ export const WORK_TIME_OPTIONS = [
   'Frühdienst bevorzugt',
   'Spätdienst bevorzugt',
   'Nachtdienst möglich',
-]
-
-export const SPECIALIZATIONS = [
-  'Altenpflege',
-  'Krankenpflege',
-  'Kinderkrankenpflege',
-  'Intensivpflege',
-  'Onkologie',
-  'Palliativpflege',
-  'Psychiatrie',
-  'Neurologie',
-  'Orthopädie',
-  'Geriatrie',
-  'Demenzpflege',
-  'Wundmanagement',
 ]
 
 export const EXPERIENCE_AREAS = [

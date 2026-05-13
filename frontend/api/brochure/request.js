@@ -145,7 +145,7 @@ async function sendConfirmationEmail({ first_name, email, opt_in_token, lang = '
   const copy = EMAIL_CONFIRM_COPY[lang] || EMAIL_CONFIRM_COPY.de
 
   const { error } = await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+    from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
     to: email,
     subject: copy.subject,
     html: `<!DOCTYPE html>

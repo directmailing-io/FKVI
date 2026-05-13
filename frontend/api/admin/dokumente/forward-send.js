@@ -79,7 +79,7 @@ async function sendEmail({ signerName, signerEmail, signerUrl, message }) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Fachkraft Vermittlung International <noreply@fkvi-plattform.de>',
+      from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
       to: [signerEmail],
       subject: 'Dokument unterzeichnen – Fachkraft Vermittlung International',
       html: htmlBody,

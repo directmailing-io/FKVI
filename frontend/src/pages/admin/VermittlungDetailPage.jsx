@@ -16,9 +16,10 @@ import {
   ArrowLeft, User, Building2, Mail, Phone, CheckCircle2,
   Circle, Loader2, AlertTriangle, Send, Clock, ChevronRight,
   ExternalLink, FileText, Upload, X, MailX, MailCheck, FolderOpen,
-  ClipboardList, Save
+  ClipboardList, Save, Link2,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import UnifiedSendDialog from '@/components/UnifiedSendDialog'
 
 // Steps that trigger an AUTOMATIC email via update-reservation (no dialog)
 // Step 4 is handled separately via ZusageDialog → create-link API
@@ -480,6 +481,7 @@ export default function VermittlungDetailPage() {
   const [activeTab, setActiveTab] = useState('prozess')
   const [foerderfall, setFoerderfall] = useState({ arbeitsverhaeltnis: {}, verguetung: {}, massnahme: {}, foerderung: {} })
   const [savingFF, setSavingFF] = useState(false)
+  const [showSendDialog, setShowSendDialog] = useState(false)
 
   useEffect(() => { fetchData() }, [id])
 
@@ -514,10 +516,14 @@ export default function VermittlungDetailPage() {
 
       if (resRes.data) {
         setReservation(resRes.data)
+        const ms = resRes.data.massnahme || {}
         setFoerderfall({
           arbeitsverhaeltnis: resRes.data.arbeitsverhaeltnis || {},
           verguetung: resRes.data.verguetung || {},
-          massnahme: resRes.data.massnahme || {},
+          massnahme: {
+            ...ms,
+            bezeichnung: ms.bezeichnung || 'Lehrgang stattl. Anerkennung ausl. Krankenpflege',
+          },
           foerderung: resRes.data.foerderung || {},
         })
       }
@@ -659,6 +665,22 @@ export default function VermittlungDetailPage() {
   const p = reservation.profiles
   const c = reservation.companies
   const step = reservation.process_status
+
+  // Foerderfall completion: key fields across all sections
+  const FF_KEY_FIELDS = [
+    foerderfall.arbeitsverhaeltnis.beginn,
+    foerderfall.arbeitsverhaeltnis.befristung,
+    foerderfall.arbeitsverhaeltnis.berufsbezeichnung,
+    foerderfall.arbeitsverhaeltnis.arbeitszeit_art,
+    foerderfall.arbeitsverhaeltnis.stunden_woche,
+    foerderfall.verguetung.grundgehalt,
+    foerderfall.verguetung.entgeltart,
+    foerderfall.massnahme.bezeichnung,
+    foerderfall.massnahme.beginn,
+    foerderfall.massnahme.bildungstraeger_name,
+  ]
+  const ffFilledCount = FF_KEY_FIELDS.filter(v => v !== undefined && v !== '' && v !== null).length
+  const ffPct = Math.round((ffFilledCount / FF_KEY_FIELDS.length) * 100)
   const isDone = step === 11
   const nextStep = step + 1
   const nextEmailTrigger = EMAIL_TRIGGER_STEPS.has(nextStep)
@@ -683,6 +705,14 @@ export default function VermittlungDetailPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSendDialog(true)}
+              className="text-purple-600 border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+            >
+              <Link2 className="h-3.5 w-3.5 mr-1.5" />Dokument senden
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -717,7 +747,7 @@ export default function VermittlungDetailPage() {
         <div className="flex gap-1 border-b border-gray-200">
           {[
             { id: 'prozess', label: 'Prozessübersicht' },
-            { id: 'foerderfall', label: 'Förderfall-Daten' },
+            { id: 'foerderfall', label: 'Förderfall-Daten', badge: ffPct },
           ].map(tab => (
             <button
               key={tab.id}
@@ -729,14 +759,45 @@ export default function VermittlungDetailPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               )}
             >
-              {tab.label}
+              <span className="flex items-center gap-1.5">
+                {tab.label}
+                {tab.badge !== undefined && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    tab.badge >= 80 ? 'bg-green-100 text-green-700' :
+                    tab.badge >= 40 ? 'bg-amber-100 text-amber-700' :
+                    'bg-gray-100 text-gray-500'
+                  }`}>
+                    {tab.badge}%
+                  </span>
+                )}
+              </span>
             </button>
           ))}
         </div>
 
         {activeTab === 'foerderfall' && (
         <div className="space-y-6">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            {/* Freigabe toggle */}
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${foerderfall.foerderung?.freigegeben ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900">Unternehmen kann Daten einsehen & ausfüllen</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {foerderfall.foerderung?.freigegeben
+                    ? 'Aktiviert — Unternehmen sieht das Formular im Status-Tracker.'
+                    : 'Deaktiviert — nur Admins sehen diese Daten.'}
+                </p>
+              </div>
+              <Switch
+                checked={!!foerderfall.foerderung?.freigegeben}
+                onCheckedChange={async (v) => {
+                  setFF('foerderung', 'freigegeben', v)
+                  await supabase.from('reservations').update({
+                    foerderung: { ...foerderfall.foerderung, freigegeben: v }
+                  }).eq('id', id)
+                }}
+              />
+            </div>
             <Button onClick={handleSaveFF} disabled={savingFF}>
               {savingFF ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Förderfall speichern</>}
             </Button>
@@ -868,7 +929,7 @@ export default function VermittlungDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>Maßnahmeziel / Bezeichnung der Weiterbildung</Label>
-                <Input value={foerderfall.massnahme.bezeichnung || ''} onChange={e => setFF('massnahme', 'bezeichnung', e.target.value)} placeholder="z.B. Anpassungsqualifizierung Pflegefachkraft" />
+                <Input value={foerderfall.massnahme.bezeichnung || ''} onChange={e => setFF('massnahme', 'bezeichnung', e.target.value)} placeholder="Lehrgang stattl. Anerkennung ausl. Krankenpflege" />
               </div>
               <div className="space-y-1.5">
                 <Label>Maßnahmenummer</Label>
@@ -1193,9 +1254,35 @@ export default function VermittlungDetailPage() {
             </div>
           </div>
         </div>
-      )}
+        )}
 
       </div>
+
+      {/* Send documents dialog */}
+      {showSendDialog && (
+        <UnifiedSendDialog
+          docs={[]}
+          entityType="profile"
+          entityId={reservation.profile_id}
+          profile={p ? {
+            ...p,
+            contact_email: p.email || '',
+            street: p.street || '', house_number: p.house_number || '',
+            postal_code: p.postal_code || '', city: p.city || '',
+          } : null}
+          company={c || null}
+          reservation={{
+            ...reservation,
+            arbeitsverhaeltnis: foerderfall.arbeitsverhaeltnis,
+            verguetung: foerderfall.verguetung,
+            massnahme: foerderfall.massnahme,
+            foerderung: foerderfall.foerderung,
+          }}
+          session={session}
+          onClose={() => setShowSendDialog(false)}
+          onSent={() => setShowSendDialog(false)}
+        />
+      )}
 
       {/* Zusage dialog (step 4) */}
       <ZusageDialog

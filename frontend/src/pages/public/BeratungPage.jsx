@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { Phone, Mail, MapPin, Clock, Video, CheckCircle2, Users, FileText, Info } from 'lucide-react'
@@ -5,6 +6,16 @@ import { Phone, Mail, MapPin, Clock, Video, CheckCircle2, Users, FileText, Info 
 const CALENDLY_URL = 'https://calendly.com/fachkraft-vermittlung/beratungsgesprach-fachkrafte-aus-dem-ausland'
 
 export default function BeratungPage() {
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = 'https://assets.calendly.com/assets/external/widget.js'
+    script.async = true
+    document.head.appendChild(script)
+    return () => {
+      if (document.head.contains(script)) document.head.removeChild(script)
+    }
+  }, [])
+
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       <Helmet>
@@ -115,9 +126,9 @@ export default function BeratungPage() {
             {/* Contact */}
             <div className="pt-4 border-t border-gray-100 space-y-2.5">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Oder direkt melden</p>
-              <a href="tel:+491605562142" className="flex items-center gap-2.5 text-sm text-gray-600 hover:text-teal-600 transition-colors">
+              <a href="tel:+496980884364" className="flex items-center gap-2.5 text-sm text-gray-600 hover:text-teal-600 transition-colors">
                 <Phone className="h-4 w-4 text-teal-500 shrink-0" />
-                +49 160 5562142
+                +49 69 8088 4364
               </a>
               <a href="mailto:info@fachkraft-vermittlung.de" className="flex items-center gap-2.5 text-sm text-gray-600 hover:text-teal-600 transition-colors">
                 <Mail className="h-4 w-4 text-teal-500 shrink-0" />
@@ -131,15 +142,13 @@ export default function BeratungPage() {
 
           </div>
 
-          {/* ── Right: Calendly iframe ── */}
+          {/* ── Right: Calendly inline widget ── */}
           <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-100 overflow-hidden"
             style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06)' }}>
-            <iframe
-              src={`${CALENDLY_URL}?hide_gdpr_banner=1&background_color=ffffff&text_color=1a1a2e&primary_color=0d9488`}
-              width="100%"
-              style={{ display: 'block', height: 'clamp(580px, 80vh, 800px)' }}
-              frameBorder="0"
-              title="Termin vereinbaren"
+            <div
+              className="calendly-inline-widget"
+              data-url={`${CALENDLY_URL}?hide_gdpr_banner=1&hide_event_type_details=1&primary_color=0d9488&background_color=ffffff&text_color=1a1a2e`}
+              style={{ minWidth: '320px', height: 'clamp(580px, 80vh, 800px)' }}
             />
           </div>
 

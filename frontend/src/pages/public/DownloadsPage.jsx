@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CheckCircle2, ArrowRight, Loader2, Lock, ShieldCheck, Route, Languages, Briefcase, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, ArrowRight, Loader2, Lock, ShieldCheck, BookOpen, Route, Languages, Briefcase, AlertTriangle } from 'lucide-react'
 
 const LANGUAGES = [
   { code: 'de', flag: '🇩🇪', nativeLabel: 'Deutsch' },

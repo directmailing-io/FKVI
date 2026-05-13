@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { Link, useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase-public'
 import { Phone, ChevronDown, ChevronUp, Lock, Star, Users, User, EyeOff, ArrowRight, Play, CheckCircle2, Info, X, Menu, Loader2, ShieldCheck, Building2, MapPin, Banknote, Home, Award, Heart, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
@@ -77,6 +77,7 @@ function InfoTooltip({ text }) {
 function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundenstimmenRef }) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const navigate = useNavigate()
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', fn)
@@ -126,13 +127,17 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundens
               { label: 'Fachkräfte-Pool',       ref: poolRef },
               { label: 'Praxisberichte',        ref: kundenstimmenRef },
               { label: 'Ablauf',                ref: prozessRef },
-              { label: 'Matching-Plattform',    ref: poolRef },
             ].map(({ label, ref }) => (
               <button key={label} onClick={() => scroll(ref)}
                 className="px-3 py-2 rounded-lg hover:bg-gray-50 hover:text-fkvi-blue transition-colors whitespace-nowrap">
                 {label}
               </button>
             ))}
+            <span className="w-px h-4 bg-gray-200 mx-1" />
+            <Link to="/matching/login"
+              className="px-3 py-2 rounded-lg hover:bg-gray-50 hover:text-fkvi-blue transition-colors whitespace-nowrap">
+              Matching-Plattform
+            </Link>
             <span className="w-px h-4 bg-gray-200 mx-1" />
             <Link to="/downloads"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-fkvi-teal/30 bg-fkvi-teal/5 hover:bg-fkvi-teal/10 text-fkvi-teal transition-colors whitespace-nowrap">
@@ -166,7 +171,7 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundens
               <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Fachkräfte-Pool</button>
               <button onClick={() => scroll(kundenstimmenRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Praxisberichte</button>
               <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
-              <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</button>
+              <button onClick={() => { navigate('/matching/login'); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</button>
               <div className="border-t border-gray-100 my-1" />
               <Link to="/downloads" className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-fkvi-teal hover:bg-teal-50 transition-colors">
                 Broschüre <span className="text-[9px] font-bold bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full">FACHKRAFT</span>
@@ -829,15 +834,14 @@ function KpassCard({ card, accentColor, accentBg }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className="flex sm:flex-col gap-4 sm:gap-0"
       style={{
         background: '#1e293b',
         border: `1px solid ${hovered ? accentColor : '#334155'}`,
         transform: hovered ? 'translateY(-5px)' : 'translateY(0)',
         boxShadow: hovered ? `0 10px 20px rgba(0,0,0,0.25)` : 'none',
         borderRadius: 16,
-        padding: 24,
-        display: 'flex',
-        flexDirection: 'column',
+        padding: 20,
         transition: 'all 0.3s ease',
         cursor: 'default',
       }}
@@ -847,16 +851,19 @@ function KpassCard({ card, accentColor, accentBg }) {
         background: hovered ? accentColor : accentBg,
         color: hovered ? '#fff' : accentColor,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: 16,
         flexShrink: 0,
         transition: 'all 0.3s ease',
-      }}>
+      }}
+        className="mb-0 sm:mb-4"
+      >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="24" height="24">
           {card.icon}
         </svg>
       </div>
-      <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', marginBottom: 8, marginTop: 0 }}>{card.title}</h3>
-      <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.55, margin: 0 }}>{card.desc}</p>
+      <div className="flex flex-col justify-center sm:block">
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginBottom: 6, marginTop: 0 }}>{card.title}</h3>
+        <p style={{ fontSize: '0.875rem', color: '#94a3b8', lineHeight: 1.55, margin: 0 }}>{card.desc}</p>
+      </div>
     </div>
   )
 }
@@ -1078,7 +1085,7 @@ function KompetenzpassCarouselSection({ kpassRef }) {
         </div>
 
         {/* Card grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           {cards.map((card, i) => (
             <KpassCard key={`${tab}-${i}`} card={card} accentColor={accentColor} accentBg={accentBg} />
           ))}
@@ -1110,8 +1117,7 @@ function KompetenzpassSection({ funnelRef }) {
           <p className="text-xs font-semibold tracking-widest uppercase text-blue-300 mb-3">Matching-Faktoren</p>
           <h2 className="text-2xl sm:text-4xl font-bold text-white mb-4">Unser Matching-Filter</h2>
           <p className="text-white/60 max-w-xl mx-auto">
-            6 Stufen bis zur perfekten Passung. Jede Stufe filtert gezielt,
-            damit nur Fachkräfte vermittelt werden, die wirklich passen und langfristig bleiben.
+            6 Stufen bis zur perfekten Passung. Jede Stufe filtert gezielt, damit nur Auszubildende vermittelt werden, die <strong className="text-white font-bold">wirklich passen</strong> und ihre Ausbildung erfolgreich abschließen.
           </p>
         </div>
 
@@ -1190,7 +1196,7 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
           </div>
 
           {profilesLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {[...Array(3)].map((_,i) => (
                 <div key={i} className="bg-white rounded-3xl border border-gray-100 overflow-hidden animate-pulse">
                   <div className="h-24 bg-gray-100" />
@@ -1208,29 +1214,62 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
             </div>
           ) : visible.length > 0 ? (
             <div>
-              {/* 3 real (anonymised) cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+              {/* 3 real (anonymised) cards — 1 col on mobile, 3 col on desktop */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                 {visible.map((p) => (
                   <ProfileCard key={p.id} profile={p} onRequestAccess={() => setModalOpen(true)} />
                 ))}
               </div>
 
-              {/* Peek zone — 3 blurred placeholder cards, clipped + gradient overlay, 1:1 DemoPage */}
+              {/* Peek zone — blurred placeholder cards, clipped + gradient overlay */}
               <div className="relative mt-4">
-                <div className="overflow-hidden" style={{ maxHeight: 190 }} aria-hidden="true">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 pointer-events-none select-none">
+
+                {/* Mobile: 1 blurred card peeking */}
+                <div className="sm:hidden overflow-hidden" style={{ maxHeight: 130 }} aria-hidden="true">
+                  <div className="grid grid-cols-1 gap-4 pointer-events-none select-none">
+                    {[{ photo: '/demo/nurse-1.png', nat: '🇵🇭', edu: 'B. Sc. Nursing', exp: '5 J.', specs: ['Intensivpflege','Geriatrie'] }].map(({ photo, nat, edu, exp, specs }, idx) => (
+                      <div key={idx} className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col">
+                        <div className="h-20 bg-gradient-to-br from-fkvi-blue/10 via-fkvi-teal/5 to-transparent shrink-0" />
+                        <div className="relative -mt-14 flex flex-col items-center">
+                          <div className="w-24 h-24 rounded-full p-[3px] shadow-md"
+                            style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}>
+                            <div className="w-full h-full rounded-full overflow-hidden">
+                              <img src={photo} alt="Fachkraft" className="w-full h-full object-cover"
+                                style={{ filter: 'blur(6px) brightness(0.92)', transform: 'scale(1.15)' }} />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm rounded-full px-2 py-0.5 mt-[-10px]">
+                            <EyeOff className="h-2.5 w-2.5 text-white/70" />
+                            <span className="text-[9px] text-white/80 font-medium">Anonymisiert</span>
+                          </div>
+                        </div>
+                        <div className="pt-3 pb-4 px-4 flex flex-col gap-2">
+                          <div className="text-center">
+                            <p className="blur-sm select-none font-medium text-gray-600 text-xs">Vorname Nachname</p>
+                            <p className="text-xs text-gray-400">{nat} · {exp} Erfahrung</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Desktop: 3 blurred cards peeking */}
+                <div className="hidden sm:block overflow-hidden" style={{ maxHeight: 190 }} aria-hidden="true">
+                  <div className="grid grid-cols-3 gap-6 pointer-events-none select-none">
                     {[
-                      { initials: 'SK', nat: '🇵🇭', edu: 'B. Sc. Nursing', exp: '5 J.', specs: ['Intensivpflege','Geriatrie'] },
-                      { initials: 'RL', nat: '🇮🇳', edu: 'General Nursing', exp: '7 J.', specs: ['Demenzpflege','Onkologie'] },
-                      { initials: 'MO', nat: '🇲🇦', edu: 'Pflegefachkraft', exp: '4 J.', specs: ['Altenpflege','Wundmanagement'] },
-                    ].map(({ initials, nat, edu, exp, specs }) => (
-                      <div key={initials} className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col">
+                      { photo: '/demo/nurse-1.png', nat: '🇵🇭', edu: 'B. Sc. Nursing', exp: '5 J.', specs: ['Intensivpflege','Geriatrie'] },
+                      { photo: '/demo/nurse-2.png', nat: '🇮🇳', edu: 'General Nursing', exp: '7 J.', specs: ['Demenzpflege','Onkologie'] },
+                      { photo: '/demo/nurse-3.png', nat: '🇲🇦', edu: 'Pflegefachkraft', exp: '4 J.', specs: ['Altenpflege','Wundmanagement'] },
+                    ].map(({ photo, nat, edu, exp, specs }, idx) => (
+                      <div key={idx} className="bg-white rounded-2xl border border-gray-200 overflow-hidden flex flex-col">
                         <div className="h-20 bg-gradient-to-br from-fkvi-blue/10 via-fkvi-teal/5 to-transparent shrink-0" />
                         <div className="relative -mt-14 flex flex-col items-center">
                           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-[3px] shadow-md"
                             style={{ background: 'linear-gradient(135deg, #0d9488, #1a3a5c)' }}>
-                            <div className="w-full h-full rounded-full overflow-hidden bg-fkvi-blue/10 flex items-center justify-center">
-                              <div className="text-xl font-bold text-fkvi-blue/20" style={{ filter: 'blur(4px)' }}>{initials}</div>
+                            <div className="w-full h-full rounded-full overflow-hidden">
+                              <img src={photo} alt="Fachkraft" className="w-full h-full object-cover"
+                                style={{ filter: 'blur(6px) brightness(0.92)', transform: 'scale(1.15)' }} />
                             </div>
                           </div>
                           <div className="flex items-center gap-1 bg-gray-800/80 backdrop-blur-sm rounded-full px-2 py-0.5 mt-[-10px]">
@@ -1255,17 +1294,26 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
                   </div>
                 </div>
 
-                {/* Gradient + CTA overlay — same pattern as DemoPage */}
-                <div className="absolute inset-x-0 top-0 flex flex-col items-center justify-end pb-6"
+                {/* Gradient + CTA overlay — mobile */}
+                <div className="sm:hidden absolute inset-x-0 top-0 flex flex-col items-center justify-end pb-5"
+                  style={{
+                    height: 130,
+                    background: 'linear-gradient(to bottom, rgba(248,250,252,0.08) 0%, rgba(248,250,252,0.55) 25%, rgba(248,250,252,0.97) 55%, rgb(248,250,252) 70%)',
+                  }}
+                >
+                  <button onClick={() => setModalOpen(true)}
+                    className="inline-flex items-center gap-2 bg-fkvi-teal hover:bg-fkvi-teal/90 text-white px-6 py-2.5 rounded-2xl font-bold text-sm shadow-xl transition-all">
+                    <Lock className="h-4 w-4" /> Zugang freischalten <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="absolute inset-x-0 top-0 flex-col items-center justify-end pb-6 hidden sm:flex"
                   style={{
                     height: 190,
                     background: 'linear-gradient(to bottom, rgba(248,250,252,0.08) 0%, rgba(248,250,252,0.45) 20%, rgba(248,250,252,0.82) 40%, rgba(248,250,252,0.97) 58%, rgb(248,250,252) 72%)',
                   }}>
-                  <button
-                    onClick={() => setModalOpen(true)}
-                    className="inline-flex items-center gap-2.5 bg-fkvi-teal hover:bg-fkvi-teal/90 text-white px-7 py-3 sm:px-9 sm:py-3.5 rounded-2xl font-bold text-sm sm:text-base shadow-2xl transition-all"
-                  >
-                    Zugang freischalten <ArrowRight className="h-4 w-4" />
+                  <button onClick={() => setModalOpen(true)}
+                    className="inline-flex items-center gap-2.5 bg-fkvi-teal hover:bg-fkvi-teal/90 text-white px-9 py-3.5 rounded-2xl font-bold text-base shadow-2xl transition-all">
+                    <Lock className="h-4 w-4" /> Zugang freischalten <ArrowRight className="h-4 w-4" />
                   </button>
                   <p className="text-xs text-gray-400 mt-2">Nur für verifizierte Einrichtungen</p>
                 </div>
@@ -2005,43 +2053,49 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
 
       {/* ── Footer links ── */}
       <div className="max-w-7xl mx-auto py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-8">
-          <div>
-            <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-14 w-auto mb-4"
-              style={{ filter: 'brightness(0) invert(1)', opacity: 0.85 }} />
-            <p className="text-slate-500 text-xs leading-relaxed">
-              Fachkraft Vermittlung International<br />GmbH &amp; Co. KG<br />
-              Ammelburgstraße 34<br />60320 Frankfurt am Main
-            </p>
-          </div>
+        {/* Logo + Address — full width on mobile */}
+        <div className="mb-8 pb-8 border-b border-white/10">
+          <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-12 w-auto mb-3"
+            style={{ filter: 'brightness(0) invert(1)', opacity: 0.85 }} />
+          <p className="text-slate-500 text-xs leading-relaxed">
+            Fachkraft Vermittlung International GmbH &amp; Co. KG · Ammelburgstraße 34 · 60320 Frankfurt am Main
+          </p>
+        </div>
+
+        {/* Nav + Kontakt — 2-col on mobile, 3-col on md */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 mb-8">
           <div>
             <p className="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-3">Navigation</p>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <button onClick={() => scroll(vorteileRef)} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Vorteile</button>
               <button onClick={() => scroll(kpassRef)} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Kompetenzpass</button>
               <button onClick={() => scroll(prozessRef)} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Ablauf</button>
-              <Link to="/downloads" className="flex items-center gap-2 text-slate-400 text-sm hover:text-white transition-colors">
-                Informationsbroschüre
-                <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal/15 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FACHKRAFT</span>
+              <Link to="/downloads" className="flex items-center gap-1.5 text-slate-400 text-sm hover:text-white transition-colors flex-wrap">
+                Broschüre
+                <span className="text-[9px] font-bold tracking-widest bg-fkvi-teal/15 text-fkvi-teal px-1.5 py-0.5 rounded-full leading-none">FK</span>
               </Link>
               <Link to="/matching/login" className="block text-slate-400 text-sm hover:text-white transition-colors">Matching-Plattform</Link>
             </div>
           </div>
           <div>
             <p className="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-3">Kontakt</p>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <a href="tel:+496980884364" className="block text-slate-400 text-sm hover:text-white transition-colors">+49 69 8088 4364</a>
-              <a href="mailto:info@fachkraft-vermittlung.de" className="block text-slate-400 text-sm hover:text-white transition-colors">info@fachkraft-vermittlung.de</a>
+              <a href="mailto:info@fachkraft-vermittlung.de" className="block text-slate-400 text-sm hover:text-white transition-colors break-all">info@fachkraft-vermittlung.de</a>
+            </div>
+          </div>
+          <div className="col-span-2 md:col-span-1">
+            <p className="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-3">Rechtliches</p>
+            <div className="space-y-2.5">
+              <Link to="/impressum" className="block text-slate-400 text-sm hover:text-white transition-colors">Impressum</Link>
+              <Link to="/datenschutzerklaerung" className="block text-slate-400 text-sm hover:text-white transition-colors">Datenschutzerklärung</Link>
+              <Link to="/matching/login" className="block text-slate-400 text-sm hover:text-white transition-colors">Zum Login</Link>
             </div>
           </div>
         </div>
-        <div className="border-t border-white/10 pt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
-          <span>© 2026 Fachkraft Vermittlung International GmbH &amp; Co. KG</span>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link to="/impressum" className="hover:text-white transition-colors">Impressum</Link>
-            <Link to="/datenschutzerklaerung" className="hover:text-white transition-colors">Datenschutzerklärung</Link>
-            <Link to="/matching/login" className="hover:text-white transition-colors">Zum Login</Link>
-          </div>
+
+        <div className="border-t border-white/10 pt-6 text-center sm:text-left">
+          <span className="text-xs text-slate-600">© 2026 Fachkraft Vermittlung International GmbH &amp; Co. KG</span>
         </div>
       </div>
 

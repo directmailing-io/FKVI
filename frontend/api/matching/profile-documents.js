@@ -69,5 +69,29 @@ export default async function handler(req, res) {
 
   if (docsError) return res.status(500).json({ error: docsError.message })
 
-  return res.status(200).json({ documents: docs || [] })
+  // Also fetch shared company_document_links for this reservation
+  const { data: linkRows } = await supabaseAdmin
+    .from('company_document_links')
+    .select('documents, created_at')
+    .eq('reservation_id', reservationId)
+    .order('created_at', { ascending: false })
+
+  const sharedDocs = []
+  if (linkRows?.length > 0) {
+    // Use the most recent link's documents (or merge all unique ones)
+    const seen = new Set()
+    for (const row of linkRows) {
+      for (const d of (row.documents || [])) {
+        const key = d.link || d.title
+        if (!seen.has(key)) {
+          seen.add(key)
+          sharedDocs.push(d)
+        }
+      }
+    }
+  }
+
+  // Only return documents that were explicitly shared with this company.
+  // Profile documents are internal and must not be auto-exposed to the company.
+  return res.status(200).json({ documents: sharedDocs })
 }

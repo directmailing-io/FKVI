@@ -14,7 +14,7 @@ export default withHandler(async (req, res) => {
 
   const { data: send, error: sendError } = await supabaseAdmin
     .from('document_sends')
-    .select('id, status, expires_at, template_id, prefill_mode, prefilled_storage_path')
+    .select('id, status, expires_at, template_id, prefill_mode, prefilled_storage_path, signed_storage_path, source_url')
     .eq('token', token)
     .single()
 
@@ -28,6 +28,16 @@ export default withHandler(async (req, res) => {
 
   if (send.expires_at && new Date(send.expires_at) < new Date()) {
     return res.status(410).json({ error: 'Dieser Link ist abgelaufen' })
+  }
+
+  // If signed, serve the completed signed PDF first
+  if (send.signed_storage_path) {
+    const { data: signedData, error: signedError } = await supabaseAdmin.storage
+      .from('signed-documents')
+      .createSignedUrl(send.signed_storage_path, 3600)
+    if (!signedError && signedData) {
+      return res.json({ signedUrl: signedData.signedUrl, isSigned: true })
+    }
   }
 
   // If prefilled mode and we have a prefilled PDF, serve that instead of the blank template
