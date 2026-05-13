@@ -28,7 +28,7 @@ export default withHandler(async (req, res) => {
   if (!storagePath?.trim()) return res.status(400).json({ error: 'storagePath ist erforderlich' })
 
   const { data, error } = await supabaseAdmin.storage
-    .from('document-templates')
+    .from('signed-documents')
     .createSignedUrl(storagePath, 60 * 60 * 24 * 90) // 90 days
 
   if (error || !data) {

@@ -383,6 +383,12 @@ function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
                 <div className="space-y-2">
                   <div
                     onClick={() => fileInputRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault()
+                      const files = Array.from(e.dataTransfer.files || [])
+                      files.forEach(f => uploadFileDirect(f))
+                    }}
                     className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer hover:border-[#1a3a5c]/40 hover:bg-gray-50 transition-colors"
                   >
                     <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />

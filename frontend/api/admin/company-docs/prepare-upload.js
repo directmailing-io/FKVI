@@ -27,11 +27,15 @@ export default withHandler(async (req, res) => {
   const { filename } = req.body || {}
   if (!filename?.trim()) return res.status(400).json({ error: 'filename ist erforderlich' })
 
-  const sanitized = filename.replace(/[^a-zA-Z0-9._\-äöüÄÖÜß ]/g, '_').trim()
-  const storagePath = `zusage-temp/${Date.now()}-${sanitized}`
+  const sanitized = filename
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue')
+    .replace(/Ä/g, 'Ae').replace(/Ö/g, 'Oe').replace(/Ü/g, 'Ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-zA-Z0-9._\- ()]/g, '_').trim()
+  const storagePath = `zusage-uploads/${Date.now()}-${sanitized}`
 
   const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-    .from('document-templates')
+    .from('signed-documents')
     .createSignedUploadUrl(storagePath)
 
   if (uploadError || !uploadData) {
