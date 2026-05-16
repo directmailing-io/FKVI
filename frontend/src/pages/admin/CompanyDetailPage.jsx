@@ -12,11 +12,12 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil, History } from 'lucide-react'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil, History, ArrowUpRight } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import DocSendDialog from '@/components/DocSendDialog'
 import AddDocumentModal from '@/components/AddDocumentModal'
 import UnifiedSendDialog from '@/components/UnifiedSendDialog'
+import JobCreateDialog from '@/components/JobCreateDialog'
 
 const COMPANY_TYPE_LABELS = {
   lead: 'Lead',
@@ -75,6 +76,9 @@ export default function CompanyDetailPage() {
   const [showSendDialog, setShowSendDialog] = useState(false)
   const [sendDocInitial, setSendDocInitial] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showJobCreate, setShowJobCreate] = useState(false)
+  const [initialTemplateForJob, setInitialTemplateForJob] = useState(null)
+  const [forwardFromSendId, setForwardFromSendId] = useState(null)
   const [companyDocuments, setCompanyDocuments] = useState([])
   const [companyDocSaving, setCompanyDocSaving] = useState(false)
   const [deletingStoredDocIdx, setDeletingStoredDocIdx] = useState(null)
@@ -565,7 +569,7 @@ export default function CompanyDetailPage() {
         {[
           { id: 'stammdaten', label: 'Stammdaten' },
           { id: 'notizen', label: 'Notizen' },
-          { id: 'dokumente', label: `Dokumente${companyDocuments.length > 0 ? ` (${companyDocuments.length})` : ''}` },
+          { id: 'dokumente', label: `Dokumente${(companyDocuments.length + docSends.length) > 0 ? ` (${companyDocuments.length + docSends.length})` : ''}` },
           { id: 'versandhistorie', label: `Versandhistorie${docSends.length > 0 ? ` (${docSends.length})` : ''}` },
           { id: 'vermittlungen', label: `Vermittlungen${reservations.length > 0 ? ` (${reservations.length})` : ''}` },
         ].map(tab => (
@@ -1072,7 +1076,11 @@ export default function CompanyDetailPage() {
             bundleMap[s.bundle_id].sends.push(s)
           })
           const bundles = Object.values(bundleMap)
-          const totalCount = companyDocuments.length
+          const coveredSendIds = new Set(
+            companyDocuments.filter(d => d.doc_type === 'send_ref' && d.link?.startsWith('send:')).map(d => d.link.replace('send:', ''))
+          )
+          const uncoveredCompanySends = docSends.filter(s => !coveredSendIds.has(s.id))
+          const totalCount = companyDocuments.length + uncoveredCompanySends.length
 
           return (
             <div className="bg-white rounded-xl border border-gray-200">
@@ -1092,7 +1100,20 @@ export default function CompanyDetailPage() {
                       <Button size="sm" variant="outline" className="text-gray-500" onClick={() => setSelectedDocIndices(new Set())}>
                         <X className="h-3 w-3 mr-1" />Auswahl
                       </Button>
-                      <Button size="sm" className="bg-[#0d9488] hover:bg-[#0d9488]/90 text-white" onClick={() => setShowUnifiedSend(true)}>
+                      <Button size="sm" className="bg-[#0d9488] hover:bg-[#0d9488]/90 text-white" onClick={() => {
+                        const selectedDocs = [...selectedDocIndices].map(i => companyDocuments[i]).filter(Boolean)
+                        // Single send_ref doc → open JobCreateDialog in forward mode
+                        if (selectedDocs.length === 1 && selectedDocs[0]?.doc_type === 'send_ref') {
+                          const sendId = selectedDocs[0].link?.replace('send:', '')
+                          if (sendId) {
+                            setForwardFromSendId(sendId)
+                            setShowJobCreate(true)
+                            setSelectedDocIndices(new Set())
+                            return
+                          }
+                        }
+                        setShowUnifiedSend(true)
+                      }}>
                         <Send className="h-3.5 w-3.5 mr-1.5" />Versenden ({selectedDocIndices.size})
                       </Button>
                     </>
@@ -1144,13 +1165,18 @@ export default function CompanyDetailPage() {
 
                   const iconBg = isCvRef ? 'bg-teal-50' : isSendRef ? 'bg-green-50' : 'bg-blue-50'
 
-                  const subtitle = doc.description || (isSendRef ? 'Signiertes Dokument (FK)' : isCvRef ? 'Lebenslauf (FK)' : 'Hochgeladen')
+                  const subtitle = doc.description || (isSendRef ? 'Von FK unterzeichnet – klicken zum Weiterleiten ans Unternehmen' : isCvRef ? 'Lebenslauf (FK)' : 'Hochgeladen')
+
+                  // send_ref docs open forward dialog directly instead of being selected for Versenden
+                  const handleRowClick = isSendRef && sendId
+                    ? () => { setForwardFromSendId(sendId); setShowJobCreate(true) }
+                    : toggleSelect
 
                   return (
                     <div
                       key={idx}
                       className={`relative flex items-center gap-3 px-4 py-3 transition-colors group cursor-pointer ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}
-                      onClick={toggleSelect}
+                      onClick={handleRowClick}
                     >
                       {/* Hover tooltip */}
                       {tooltipLines.length > 0 && (
@@ -1171,16 +1197,25 @@ export default function CompanyDetailPage() {
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
                         {isSendRef && sendId && (
-                          <button
-                            onClick={() => handleDownloadSend(sendId)}
-                            disabled={downloadingSendId === sendId}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
-                            title="Signiertes PDF herunterladen"
-                          >
-                            {downloadingSendId === sendId
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              : <Download className="h-3.5 w-3.5" />}
-                          </button>
+                          <>
+                            <button
+                              onClick={() => { setForwardFromSendId(sendId); setShowJobCreate(true) }}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Dokument an Unternehmen weiterleiten"
+                            >
+                              <ArrowUpRight className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadSend(sendId)}
+                              disabled={downloadingSendId === sendId}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
+                              title="Signiertes PDF herunterladen"
+                            >
+                              {downloadingSendId === sendId
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <Download className="h-3.5 w-3.5" />}
+                            </button>
+                          </>
                         )}
                         {isCvRef && cvProfileId && (
                           <a
@@ -1209,6 +1244,73 @@ export default function CompanyDetailPage() {
                 })}
 
 
+                {/* ── Zugewiesene Vorlagen (uncovered sends) ── */}
+                {uncoveredCompanySends.map(send => {
+                  const isSigned = send.status === 'submitted' || send.status === 'signed'
+                  const isPending = send.status === 'pending' || send.status === 'opened'
+                  const isRevoked = send.status === 'revoked'
+
+                  const iconBg = isSigned ? 'bg-green-100' : isPending ? 'bg-violet-50' : 'bg-gray-100'
+                  const iconEl = isSigned
+                    ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    : <FileText className="h-4 w-4 text-violet-500" />
+
+                  const statusEl = isSigned
+                    ? <span className="text-green-600 font-medium">Unterzeichnet – {new Date(send.signed_at || send.submitted_at).toLocaleDateString('de-DE')} {new Date(send.signed_at || send.submitted_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                    : send.status === 'opened'
+                    ? <span className="text-amber-600">Geöffnet, noch nicht ausgefüllt</span>
+                    : isRevoked
+                    ? <span className="text-gray-400">Widerrufen</span>
+                    : <span className="text-amber-600">Versendet, noch ausstehend</span>
+
+                  return (
+                    <div
+                      key={`send-${send.id}`}
+                      className={`relative flex items-center gap-3 px-4 py-3 transition-colors group ${isSigned ? 'bg-green-50/30 hover:bg-green-50/50' : 'hover:bg-gray-50/50'}`}
+                    >
+                      <div className="w-4 h-4 shrink-0" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                        {iconEl}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{send.display_title || send.template_name || send.bundle_title || '–'}</p>
+                        <p className="text-xs text-gray-400 truncate">{statusEl}</p>
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        {isSigned && send.send_mode !== 'view' && (
+                          <button
+                            onClick={() => handleDownloadSend(send.id)}
+                            disabled={downloadingSendId === send.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-green-700 bg-green-100 hover:bg-green-200 transition-colors text-xs font-medium"
+                            title="Unterzeichnetes PDF herunterladen"
+                          >
+                            {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            PDF
+                          </button>
+                        )}
+                        {!isSigned && send.signer_url && (
+                          <a
+                            href={send.signer_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors"
+                            title="Signierlink öffnen"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        <button
+                          onClick={() => setDeletingSendId(send.id)}
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Löschen"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+
                 {/* Empty state */}
                 {totalCount === 0 && !docSendsLoading && (
                   <div className="text-center py-10 px-6 text-gray-400">
@@ -1220,7 +1322,7 @@ export default function CompanyDetailPage() {
               </div>
 
               {/* Send hint */}
-              {companyDocuments.length === 0 && selectedDocIndices.size === 0 && (
+              {companyDocuments.length === 0 && uncoveredCompanySends.length === 0 && selectedDocIndices.size === 0 && (
                 <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
                   <p className="text-xs text-gray-400">Dokumente auswählen und dann „Versenden" klicken, oder über „Hinzufügen" neue hinzufügen.</p>
                 </div>
@@ -1260,8 +1362,30 @@ export default function CompanyDetailPage() {
               setCompanyDocuments(updated)
               await saveCompanyDocuments(updated)
             }}
-            onSendTemplate={() => { setSendDocInitial({ fixedSource: 'template' }); setShowSendDialog(true) }}
+            onSendTemplate={(tplId) => { setInitialTemplateForJob(tplId || null); setShowAddModal(false); setShowJobCreate(true) }}
             onClose={() => setShowAddModal(false)}
+          />
+        )}
+
+        {/* JobCreateDialog — opened from "Aus Vorlage" or "Weiterleiten" */}
+        {showJobCreate && (
+          <JobCreateDialog
+            entityType="company"
+            entityId={id}
+            company={company}
+            initialTemplateId={initialTemplateForJob}
+            forwardFromSendId={forwardFromSendId}
+            activeVermittlungen={reservations.map(r => ({
+              companyId: id,
+              companyName: company?.company_name || '',
+              companyEmail: company?.email || '',
+              profileId: r.profiles?.id,
+              profileName: r.profiles ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim() : '',
+              profileEmail: '',
+            }))}
+            session={session}
+            onClose={() => { setShowJobCreate(false); setInitialTemplateForJob(null); setForwardFromSendId(null) }}
+            onCreated={() => { setShowJobCreate(false); setInitialTemplateForJob(null); setForwardFromSendId(null); loadDocSends() }}
           />
         )}
 

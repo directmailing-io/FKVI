@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import VimeoPlayer from '@/components/VimeoPlayer'
 import DocSendDialog from '@/components/DocSendDialog'
+import JobCreateDialog from '@/components/JobCreateDialog'
 import AddDocumentModal from '@/components/AddDocumentModal'
 import CvPreviewModal from '@/components/CvPreviewModal'
 import UnifiedSendDialog from '@/components/UnifiedSendDialog'
@@ -812,13 +813,13 @@ function ZusageDialogPF({ open, onClose, reservation, session, onConfirm, onGoTo
                   const key = doc.link || doc.title
                   const isOn = selectedKeys.includes(key)
                   return (
-                    <label key={key} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                    <label key={key} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors overflow-hidden ${
                       isOn ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
                     }`}>
                       <input type="checkbox" checked={isOn} onChange={() => toggleDoc(key)}
                         className="h-4 w-4 rounded border-gray-300 accent-green-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-900 truncate">{doc.title}</p>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <p className="font-medium text-sm text-gray-900 truncate" title={doc.title}>{doc.title}</p>
                         {doc.doc_type && <p className="text-xs text-gray-400">{doc.doc_type}</p>}
                       </div>
                     </label>
@@ -907,6 +908,10 @@ export default function ProfileForm() {
   const [docSendsLoading, setDocSendsLoading] = useState(false)
   const [sendTemplateDialog, setSendTemplateDialog] = useState(false)
   const [sendDocInitial, setSendDocInitial] = useState(null)
+  const [showJobCreate, setShowJobCreate] = useState(false)
+  const [initialTemplateForJob, setInitialTemplateForJob] = useState(null)
+  const [documentJobs, setDocumentJobs] = useState([])
+  const [documentJobsLoading, setDocumentJobsLoading] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showCvModal, setShowCvModal] = useState(false)
   const [selectedDocIndices, setSelectedDocIndices] = useState(new Set())
@@ -922,6 +927,7 @@ export default function ProfileForm() {
   const [decoupling, setDecoupling] = useState(false)
   const [decoupleDialog, setDecoupleDialog] = useState(false)
   const [pendingAdvance, setPendingAdvance] = useState(null) // { newStatus, needsDate, emailAlreadySent }
+  const [vermittlungExpanded, setVermittlungExpanded] = useState(false)
   const [stepDate, setStepDate] = useState('')
   const [resendEmail, setResendEmail] = useState(false)
 
@@ -933,7 +939,7 @@ export default function ProfileForm() {
   const videoRef = useRef()
 
   useEffect(() => {
-    if (isEdit) { fetchProfile(); loadDocSends() }
+    if (isEdit) { fetchProfile(); loadDocSends(); loadDocumentJobs() }
   }, [id, session])
 
   // Auto-refresh Versandhistorie every 15s when there are pending/opened sends
@@ -958,7 +964,15 @@ export default function ProfileForm() {
       supabase.from('profile_documents').select('*').eq('profile_id', id).order('sort_order'),
     ])
     if (p) {
-      setProfile({ ...EMPTY_PROFILE, ...p })
+      // DB can return null for array columns — ensure they stay arrays so
+      // MultiSelect (value.includes / value.map) never crashes with a white screen.
+      const merged = { ...EMPTY_PROFILE, ...p }
+      Object.keys(EMPTY_PROFILE).forEach(k => {
+        if (Array.isArray(EMPTY_PROFILE[k]) && !Array.isArray(merged[k])) {
+          merged[k] = []
+        }
+      })
+      setProfile(merged)
       setImagePreview(p.profile_image_url)
       if (p.status === 'reserved') {
         const { data: res } = await supabase
@@ -1373,6 +1387,22 @@ export default function ProfileForm() {
     }
   }
 
+  const loadDocumentJobs = async () => {
+    if (!id || !session) return
+    setDocumentJobsLoading(true)
+    try {
+      const res = await fetch(`/api/admin/dokumente/job-list?profileId=${id}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const data = await res.json()
+      setDocumentJobs(data.jobs || [])
+    } catch {
+      // non-critical
+    } finally {
+      setDocumentJobsLoading(false)
+    }
+  }
+
   const handleDeleteSend = async (sendId) => {
     setDeletingSendBusy(true)
     try {
@@ -1457,6 +1487,18 @@ export default function ProfileForm() {
       <div className="h-8 w-48 animate-pulse bg-gray-200 rounded" />
       <div className="h-96 animate-pulse bg-gray-200 rounded-xl" />
     </div>
+  )
+
+  // Compute sends not already referenced in profile_documents
+  const coveredSendIds = new Set(
+    documents.filter(d => d.doc_type === 'send_ref' && d.link?.startsWith('send:')).map(d => d.link.replace('send:', ''))
+  )
+  const coveredTemplateIds = new Set(
+    documents.filter(d => d.doc_type === 'template' && d.link?.startsWith('template:')).map(d => d.link.replace('template:', ''))
+  )
+  const uncoveredSends = docSends.filter(s =>
+    !coveredSendIds.has(s.id) &&
+    !(s.template_id && coveredTemplateIds.has(s.template_id))
   )
 
   return (
@@ -1688,21 +1730,29 @@ export default function ProfileForm() {
 
           {/* ── Vermittlungsprozess card ─────────────────────────────────── */}
           <div className="bg-white rounded-xl border border-green-300 shadow-sm overflow-hidden">
-            {/* Header */}
-            <div className="bg-green-600 px-6 py-4 flex items-center justify-between">
+            {/* Header — clickable to expand/collapse */}
+            <button
+              type="button"
+              className="w-full bg-green-600 hover:bg-green-700 transition-colors px-6 py-4 flex items-center justify-between cursor-pointer"
+              onClick={() => setVermittlungExpanded(v => !v)}
+            >
               <div className="flex items-center gap-3">
                 <Building2 className="h-5 w-5 text-white" />
-                <div>
+                <div className="text-left">
                   <p className="text-white font-bold text-base">Vermittlung aktiv</p>
                   <p className="text-green-100 text-sm">{reservation.companies.company_name}</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-white font-bold text-xl">{reservation.process_status}/11</p>
-                <p className="text-green-100 text-xs">Schritt</p>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-white font-bold text-xl">{reservation.process_status}/11</p>
+                  <p className="text-green-100 text-xs">Schritt</p>
+                </div>
+                <ChevronDown className={`h-5 w-5 text-green-200 transition-transform duration-200 ${vermittlungExpanded ? 'rotate-180' : ''}`} />
               </div>
-            </div>
+            </button>
 
+            {vermittlungExpanded && (
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left: Steps + Actions */}
               <div className="space-y-4">
@@ -1803,6 +1853,7 @@ export default function ProfileForm() {
                 )}
               </div>
             </div>
+            )}
           </div>
           </> /* end reservation two-card block */
         )}
@@ -1969,7 +2020,7 @@ export default function ProfileForm() {
                 <Field label="Bevorzugte Bundesländer">
                   <MultiSelect
                     options={GERMAN_STATES}
-                    value={profile.state_preferences}
+                    value={profile.state_preferences || []}
                     onChange={v => set('state_preferences', v)}
                     placeholder="Bundesländer auswählen..."
                   />
@@ -2377,7 +2428,7 @@ export default function ProfileForm() {
                 </Field>
               </div>
               <Field label="Erfahrung in Bereichen">
-                <MultiSelect options={EXPERIENCE_AREAS} value={profile.experience_areas} onChange={v => set('experience_areas', v)} placeholder="Erfahrungsbereiche auswählen..." />
+                <MultiSelect options={EXPERIENCE_AREAS} value={profile.experience_areas || []} onChange={v => set('experience_areas', v)} placeholder="Erfahrungsbereiche auswählen..." />
               </Field>
             </div>
 
@@ -2396,7 +2447,7 @@ export default function ProfileForm() {
               <Field label="Zusatzqualifikationen">
                 <MultiSelect
                   options={['Wundmanagement', 'Kinästhetik', 'Diabetes-Beratung', 'Palliative Care', 'Basale Stimulation', 'Aromapflege', 'Sturzprävention']}
-                  value={profile.additional_qualifications}
+                  value={profile.additional_qualifications || []}
                   onChange={v => set('additional_qualifications', v)}
                   placeholder="Zusatzqualifikationen auswählen..."
                 />
@@ -2602,9 +2653,9 @@ export default function ProfileForm() {
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <FileText className="h-4 w-4 text-gray-400" />
                   Dokumente
-                  {documents.length > 0 && (
+                  {(documents.length + uncoveredSends.length) > 0 && (
                     <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                      {documents.length}
+                      {documents.length + uncoveredSends.length}
                     </span>
                   )}
                   {(docSaving || (isEdit && docSendsLoading)) && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
@@ -2792,8 +2843,86 @@ export default function ProfileForm() {
                 })}
 
 
+                {/* ── Zugewiesene Vorlagen (uncovered sends) ── */}
+                {uncoveredSends.map(send => {
+                  const isSigned = send.status === 'submitted' || send.status === 'signed'
+                  const isPending = send.status === 'pending' || send.status === 'opened'
+                  const isRevoked = send.status === 'revoked'
+
+                  const iconBg = isSigned ? 'bg-green-100' : isPending ? 'bg-violet-50' : 'bg-gray-100'
+                  const iconEl = isSigned
+                    ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    : <FileText className="h-4 w-4 text-violet-500" />
+
+                  const statusEl = isSigned
+                    ? <span className="text-green-600 font-medium">Unterzeichnet – {new Date(send.signed_at || send.submitted_at).toLocaleDateString('de-DE')} {new Date(send.signed_at || send.submitted_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                    : send.status === 'opened'
+                    ? <span className="text-amber-600">Geöffnet, noch nicht ausgefüllt</span>
+                    : isRevoked
+                    ? <span className="text-gray-400">Widerrufen</span>
+                    : <span className="text-amber-600">Versendet, noch ausstehend</span>
+
+                  return (
+                    <div
+                      key={`send-${send.id}`}
+                      className={`relative flex items-center gap-3 px-4 py-3 transition-colors group ${isSigned ? 'bg-green-50/30 hover:bg-green-50/50' : 'hover:bg-gray-50/50'}`}
+                    >
+                      <div className="w-4 h-4 shrink-0" /> {/* spacer where checkbox would be */}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                        {iconEl}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm truncate">{send.display_title || send.template_name || send.bundle_title || '–'}</p>
+                        <p className="text-xs text-gray-400 truncate">{statusEl}</p>
+                      </div>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        {isSigned && send.send_mode !== 'view' && (
+                          <button
+                            onClick={() => handleDownloadSend(send.id)}
+                            disabled={downloadingSendId === send.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-green-700 bg-green-100 hover:bg-green-200 transition-colors text-xs font-medium"
+                            title="Unterzeichnetes PDF herunterladen"
+                          >
+                            {downloadingSendId === send.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            PDF
+                          </button>
+                        )}
+                        {!isSigned && send.signer_url && (
+                          <a
+                            href={send.signer_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a3a5c] hover:bg-blue-50 transition-colors"
+                            title="Signierlink öffnen"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        {deletingSendId === send.id ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleDeleteSend(send.id)} disabled={deletingSendBusy}
+                              className="text-xs text-red-600 font-semibold hover:text-red-700 disabled:opacity-50">
+                              {deletingSendBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Löschen'}
+                            </button>
+                            <span className="text-gray-300 text-xs">|</span>
+                            <button onClick={() => setDeletingSendId(null)} className="text-xs text-gray-500 hover:text-gray-700">Nein</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeletingSendId(send.id)}
+                            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Löschen"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
                 {/* ── Empty state ── */}
-                {documents.length === 0 && (
+                {documents.length === 0 && uncoveredSends.length === 0 && (
                   <div className="text-center py-10 text-gray-400">
                     <FileText className="h-8 w-8 mx-auto mb-2 text-gray-200" />
                     <p className="text-sm font-medium text-gray-500">Noch keine Dokumente hinzugefügt</p>
@@ -2803,7 +2932,7 @@ export default function ProfileForm() {
               </div>
 
               {/* ── Send hint ── */}
-              {isEdit && documents.length === 0 && !cvSelected && selectedDocIndices.size === 0 && (
+              {isEdit && documents.length === 0 && uncoveredSends.length === 0 && !cvSelected && selectedDocIndices.size === 0 && (
                 <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
                   <p className="text-xs text-gray-400">Dokumente auswählen und dann „Versenden" klicken, oder über „Hinzufügen" neue hinzufügen.</p>
                 </div>
@@ -2828,7 +2957,7 @@ export default function ProfileForm() {
                   setDocuments(updated)
                   if (isEdit) await saveDocumentsToApi(updated)
                 }}
-                onSendTemplate={() => { setSendDocInitial({ fixedSource: 'template' }); setSendTemplateDialog(true) }}
+                onSendTemplate={(tplId) => { setInitialTemplateForJob(tplId || null); setShowJobCreate(true) }}
                 onClose={() => setShowAddModal(false)}
               />
             )}
@@ -2849,12 +2978,13 @@ export default function ProfileForm() {
               />
             )}
 
-            {/* DocSendDialog for templates with form fields */}
-            {sendTemplateDialog && (
-              <DocSendDialog
+            {/* JobCreateDialog for template-based multi-party document sends */}
+            {showJobCreate && (
+              <JobCreateDialog
                 entityType="profile"
                 entityId={id}
                 profile={profile}
+                initialTemplateId={initialTemplateForJob}
                 activeVermittlungen={reservation?.companies ? [{
                   profileId: id,
                   profileName: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
@@ -2864,20 +2994,134 @@ export default function ProfileForm() {
                   companyEmail: reservation.companies.email || '',
                 }] : []}
                 session={session}
-                fixedSource={sendDocInitial?.fixedSource || null}
-                onClose={() => { setSendTemplateDialog(false); setSendDocInitial(null) }}
-                onSent={loadDocSends}
+                onClose={() => { setShowJobCreate(false); setInitialTemplateForJob(null) }}
+                onCreated={() => { setShowJobCreate(false); setInitialTemplateForJob(null); loadDocumentJobs() }}
               />
             )}
           </TabsContent>
 
           {/* ── TAB: Versandhistorie ─────────────────────────────────── */}
           <TabsContent value="versandhistorie" className="space-y-4 mt-6">
+
+            {/* ── Dokument-Jobs (new multi-party flow) ── */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-violet-400" />
+                  Dokument-Jobs
+                  {documentJobs.length > 0 && (
+                    <span className="bg-violet-100 text-violet-700 text-xs font-medium px-2 py-0.5 rounded-full">{documentJobs.length}</span>
+                  )}
+                  {documentJobsLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setShowJobCreate(true)} className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1 transition-colors">
+                    <Plus className="h-3 w-3" />Neuer Job
+                  </button>
+                  <button onClick={loadDocumentJobs} disabled={documentJobsLoading} className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1 disabled:opacity-50">
+                    <Loader2 className={`h-3 w-3 ${documentJobsLoading ? 'animate-spin' : ''}`} />Aktualisieren
+                  </button>
+                </div>
+              </div>
+
+              {documentJobs.length === 0 && !documentJobsLoading ? (
+                <div className="text-center py-10 text-gray-400">
+                  <FileText className="h-7 w-7 mx-auto mb-2 text-gray-200" />
+                  <p className="text-sm font-medium text-gray-500">Noch keine Dokument-Jobs</p>
+                  <p className="text-xs mt-1">Erstellen Sie einen Job über &quot;Dokumentenvorlage&quot; in den Dokumenten.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {documentJobs.map(job => {
+                    const statusColor = {
+                      completed: 'bg-green-100 text-green-700',
+                      in_progress: 'bg-blue-100 text-blue-700',
+                      pending: 'bg-amber-100 text-amber-700',
+                      cancelled: 'bg-gray-100 text-gray-500',
+                    }[job.status] || 'bg-gray-100 text-gray-500'
+                    const statusLabel = {
+                      completed: 'Abgeschlossen',
+                      in_progress: 'In Bearbeitung',
+                      pending: 'Ausstehend',
+                      cancelled: 'Abgebrochen',
+                    }[job.status] || job.status
+                    return (
+                      <div key={job.id} className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
+                              <FileText className="h-3.5 w-3.5 text-violet-500" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-800 text-sm truncate">{job.title}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{job.templateName}</p>
+                              {/* Party statuses */}
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                {job.parties.includes('fachkraft') && (
+                                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                    job.fachkraftStatus === 'submitted' ? 'bg-green-100 text-green-700' :
+                                    job.fachkraftStatus === 'sent' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    FK: {job.fachkraftStatus === 'submitted' ? 'Ausgefüllt' : job.fachkraftStatus === 'sent' ? 'Versendet' : 'Ausstehend'}
+                                  </span>
+                                )}
+                                {job.parties.includes('unternehmen') && (
+                                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                    job.unternehmenStatus === 'submitted' ? 'bg-green-100 text-green-700' :
+                                    job.unternehmenStatus === 'sent' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    UN: {job.unternehmenStatus === 'submitted' ? 'Ausgefüllt' : job.unternehmenStatus === 'sent' ? 'Versendet' : 'Ausstehend'}
+                                  </span>
+                                )}
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${statusColor}`}>{statusLabel}</span>
+                              </div>
+                              {/* Send links */}
+                              {job.sends?.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {job.sends.map(s => (
+                                    <div key={s.id} className="flex items-center gap-2">
+                                      <span className="text-[10px] text-gray-400 w-16 shrink-0">{s.recipient_type === 'fachkraft' ? 'Fachkraft' : 'Unternehmen'}:</span>
+                                      <a href={s.signerUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-violet-600 hover:text-violet-800 truncate max-w-[180px]">
+                                        {s.signerUrl}
+                                      </a>
+                                      <button
+                                        onClick={() => { navigator.clipboard.writeText(s.signerUrl); toast({ title: 'Link kopiert', variant: 'success' }) }}
+                                        className="shrink-0 text-gray-300 hover:text-gray-500 transition-colors"
+                                        title="Link kopieren"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {job.currentPdfUrl && (
+                              <a href={job.currentPdfUrl} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1 transition-colors">
+                                <Download className="h-3 w-3" />PDF
+                              </a>
+                            )}
+                            <span className="text-[10px] text-gray-300">{new Date(job.createdAt).toLocaleDateString('de-DE')}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Signierlinks (legacy single-party sends) ── */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
                   <Send className="h-4 w-4 text-gray-400" />
-                  Versandhistorie
+                  Signierlinks (Legacy)
                   {docSends.length > 0 && (
                     <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">{docSends.length}</span>
                   )}

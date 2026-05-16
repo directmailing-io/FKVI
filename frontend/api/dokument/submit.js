@@ -1,5 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, PDFName, rgb, StandardFonts } from 'pdf-lib'
+
+// Remove native AcroForm from PDF to prevent 'Expected instance of PDFDict' errors
+// when saving PDFs that contain native interactive form fields.
+function removeAcroForm(pdfDoc) {
+  try {
+    if (pdfDoc.catalog.has(PDFName.of('AcroForm'))) {
+      pdfDoc.catalog.delete(PDFName.of('AcroForm'))
+    }
+  } catch (_) {}
+}
 import { withHandler } from '../_lib/withHandler.js'
 
 const supabaseAdmin = createClient(
@@ -26,9 +36,12 @@ export default withHandler(async (req, res) => {
         prefill_mode,
         prefilled_storage_path,
         parent_send_id,
+        recipient_type,
+        job_id,
         document_templates (
           storage_path,
-          fields
+          fields,
+          template_type
         )
       `)
       .eq('token', token)
@@ -59,6 +72,8 @@ export default withHandler(async (req, res) => {
     const templateFields = tpl.fields || []
     const storagePath = tpl.storage_path
     const prefillData = send.prefill_data || {}
+    // Determine which audience this send is for (fall back to template type, then 'fachkraft')
+    const recipientType = send.recipient_type || tpl.template_type || 'fachkraft'
 
     // Build resolved prefill map: field.id → actual value
     // prefillData may be keyed by prefillKey (e.g. 'profile.first_name') OR by field.id
@@ -76,9 +91,31 @@ export default withHandler(async (req, res) => {
       return res.status(500).json({ error: 'Kein Template-PDF gefunden' })
     }
 
-    // 3. Download base PDF — prefer prefilled (FK-signed) if available (forward flow)
+    // 2b. For job-based sends: load job to check if another party already submitted
+    let jobCurrentPdfPath = null
+    if (send.job_id) {
+      const { data: job } = await supabaseAdmin
+        .from('document_jobs')
+        .select('current_pdf_path, base_pdf_path, parties, fachkraft_status, unternehmen_status')
+        .eq('id', send.job_id)
+        .single()
+      if (job) {
+        const currentPath = job.current_pdf_path || job.base_pdf_path
+        // Only use job's current PDF as merge base if it's not just the base (= someone already signed)
+        if (currentPath && currentPath !== (send.prefilled_storage_path || '')) {
+          jobCurrentPdfPath = currentPath
+        }
+      }
+    }
+
+    // 3. Download base PDF
+    // For multi-party jobs: if another party already signed, merge on top of their PDF
     let pdfBlob, pdfError
-    if (send.prefill_mode === 'prefilled' && send.prefilled_storage_path) {
+    if (jobCurrentPdfPath) {
+      ;({ data: pdfBlob, error: pdfError } = await supabaseAdmin.storage
+        .from('signed-documents')
+        .download(jobCurrentPdfPath))
+    } else if (send.prefill_mode === 'prefilled' && send.prefilled_storage_path) {
       ;({ data: pdfBlob, error: pdfError } = await supabaseAdmin.storage
         .from('signed-documents')
         .download(send.prefilled_storage_path))
@@ -115,7 +152,8 @@ export default withHandler(async (req, res) => {
     }
 
     // 5. Process PDF with pdf-lib
-    const pdfDoc = await PDFDocument.load(templateBytes)
+    const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true })
+    removeAcroForm(pdfDoc)
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
     let sigImage = null
@@ -136,6 +174,13 @@ export default withHandler(async (req, res) => {
     const pages = pdfDoc.getPages()
 
     for (const field of templateFields) {
+      const fieldAudience = field.audience || 'fachkraft'
+      // Admin fields are pre-filled server-side — skip here
+      if (fieldAudience === 'admin') continue
+      // Only render fields belonging to this send's recipient; other parties' fields
+      // are either already baked (forwarded PDF base) or will be filled in a separate send
+      if (fieldAudience !== recipientType) continue
+
       const pageIndex = (field.page || 1) - 1
       if (pageIndex < 0 || pageIndex >= pages.length) continue
 
@@ -163,7 +208,7 @@ export default withHandler(async (req, res) => {
           })
         }
       } else if (field.type === 'text' || field.type === 'date') {
-        const maxFontSize = Math.min(10, absH * 0.65)
+        const maxFontSize = Math.min(absH * 0.72, absH)
         const textValue = String(value || '')
         if (textValue) {
           const availWidth = absW - 4
@@ -235,7 +280,7 @@ export default withHandler(async (req, res) => {
           }
         }
       } else if (field.type === 'initials') {
-        const fontSize = Math.min(10, absH * 0.65)
+        const fontSize = Math.min(absH * 0.72, absH)
         const initialsValue = String(value || '')
         if (initialsValue) {
           page.drawText(initialsValue, {
@@ -296,6 +341,70 @@ export default withHandler(async (req, res) => {
         .eq('id', send.parent_send_id)
     }
 
+    // 8c. If this send belongs to a Document-Job: update the job's state
+    if (send.job_id) {
+      try {
+        const partyKey   = send.recipient_type === 'fachkraft' ? 'fachkraft' : 'unternehmen'
+        const valuesField = `${partyKey}_field_values`
+        const statusField = `${partyKey}_status`
+        const sigField    = `${partyKey}_sig_path`
+
+        // Aktuellen Job laden
+        const { data: job } = await supabaseAdmin
+          .from('document_jobs')
+          .select('*')
+          .eq('id', send.job_id)
+          .single()
+
+        if (job) {
+          const submittedValues = fieldValues || {}
+          const mergedAll = {
+            ...job.admin_field_values,
+            ...job.fachkraft_field_values,
+            ...job.unternehmen_field_values,
+            ...submittedValues,
+          }
+
+          const fkDone  = partyKey === 'fachkraft'  ? true : job.fachkraft_status  === 'submitted'
+          const unDone  = partyKey === 'unternehmen' ? true : job.unternehmen_status === 'submitted'
+          const fkRequired  = (job.parties || []).includes('fachkraft')
+          const unRequired  = (job.parties || []).includes('unternehmen')
+          const allDone = (!fkRequired || fkDone) && (!unRequired || unDone)
+
+          const jobUpdate = {
+            [valuesField]: submittedValues,
+            [statusField]: 'submitted',
+            all_field_values: mergedAll,
+            current_pdf_path: signedPath,
+            status: allDone ? 'completed' : 'in_progress',
+            updated_at: now,
+          }
+
+          // Signatur-Pfad aufbewahren (für spätere Merge-Generierung; NICHT sofort löschen)
+          if (signaturePath) {
+            jobUpdate[sigField] = signaturePath
+          }
+
+          await supabaseAdmin
+            .from('document_jobs')
+            .update(jobUpdate)
+            .eq('id', send.job_id)
+
+          // When job is fully complete: update ALL sends in this job to the final merged PDF
+          // so every party can download the complete document
+          if (allDone) {
+            await supabaseAdmin
+              .from('document_sends')
+              .update({ signed_storage_path: signedPath, updated_at: now })
+              .eq('job_id', send.job_id)
+              .neq('id', send.id) // current send already updated above
+          }
+        }
+      } catch (jobErr) {
+        console.error('dokument/submit: Job-Update fehlgeschlagen (non-fatal)', jobErr)
+      }
+    }
+
     // 9. Insert audit log
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || null
     const userAgent = req.headers['user-agent'] || null
@@ -309,7 +418,8 @@ export default withHandler(async (req, res) => {
     })
 
     // 10. Delete signature image (fire and forget)
-    if (signaturePath) {
+    // Bei Job-basierten Sends: Signatur aufbewahren (für finale Merged-PDF-Generierung)
+    if (signaturePath && !send.job_id) {
       supabaseAdmin.storage
         .from('signature-images')
         .remove([signaturePath])

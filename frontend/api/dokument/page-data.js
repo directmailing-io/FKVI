@@ -35,7 +35,8 @@ export default withHandler(async (req, res) => {
         name,
         description,
         fields,
-        page_count
+        page_count,
+        template_type
       )
     `)
     .eq('token', token)
@@ -93,7 +94,8 @@ export default withHandler(async (req, res) => {
 
   const tpl = send.document_templates || {}
   const alreadySigned = send.status === 'signed' || send.status === 'submitted'
-  const recipientType = send.recipient_type || 'fachkraft'
+  // Prefer explicit recipient_type on the send; fall back to the template's own type
+  const recipientType = send.recipient_type || tpl.template_type || 'fachkraft'
 
   // Filter fields to only those relevant to the recipient
   // 'admin'-audience fields are always handled as prefills (never shown to signer)
@@ -116,11 +118,15 @@ export default withHandler(async (req, res) => {
   )
   const prefilledFieldIds = allPrefilledFieldIds.filter(id => !adminSigFieldIds.has(id))
 
-  // Include full field definitions for pre-filled fields (even admin-audience ones)
-  // so the frontend can render their text overlays on the PDF canvas
-  const prefilledFields = allFields.filter(
-    f => allPrefilledFieldIds.includes(f.id) && f.x !== undefined && f.y !== undefined
-  )
+  // Include full field definitions for pre-filled fields so the frontend can render
+  // text overlays on the PDF canvas — but only for admin-audience fields or fields
+  // matching the recipient's own audience (never show the other party's data)
+  const prefilledFields = allFields.filter(f => {
+    if (!allPrefilledFieldIds.includes(f.id)) return false
+    if (f.x === undefined || f.y === undefined) return false
+    const audience = f.audience || 'fachkraft'
+    return audience === 'admin' || audience === recipientType
+  })
 
   return res.json({
     sendId: send.id,
