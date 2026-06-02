@@ -2042,18 +2042,18 @@ export default function ProfileForm() {
                 <Select
                   value={(() => {
                     const v = profile.fkvi_competency_proof || ''
-                    if (!v) return ''
+                    if (!v) return 'none'
                     if (v === 'bestanden' || v.toLowerCase().includes('bestanden')) return 'bestanden'
                     if (v === 'in_aneignung') return 'in_aneignung'
-                    return 'in_aneignung' // normalize any legacy non-empty value
+                    return 'in_aneignung'
                   })()}
-                  onValueChange={v => set('fkvi_competency_proof', v)}
+                  onValueChange={v => set('fkvi_competency_proof', v === 'none' ? '' : v)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Status auswählen..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nicht gestartet</SelectItem>
+                    <SelectItem value="none">Nicht gestartet</SelectItem>
                     <SelectItem value="in_aneignung">In Aneignung</SelectItem>
                     <SelectItem value="bestanden">Bestanden</SelectItem>
                   </SelectContent>
