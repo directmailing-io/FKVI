@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase-public'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PROCESS_STATUS_LABELS } from '@/lib/utils'
 import { BookMarked, User, ChevronRight, CheckCircle2 } from 'lucide-react'
@@ -9,7 +9,7 @@ import { BookMarked, User, ChevronRight, CheckCircle2 } from 'lucide-react'
 export default function ReservedProfiles() {
   const [reservations, setReservations] = useState([])
   const [loading, setLoading] = useState(true)
-  const { companyId } = useAuthStore()
+  const { companyId } = usePublicAuthStore()
   const navigate = useNavigate()
 
   const fetchReservations = async () => {

@@ -29,14 +29,18 @@ export default async function handler(req, res) {
       company_name,
       email,
       phone,
+      language,
       created_at,
       email_confirmed_at,
       access_token,
       company_id,
+      contract_send_id,
+      contract_sent_at,
       brochure_version_id,
       brochure_versions (
         version_number,
-        file_name
+        file_name,
+        language
       )
     `)
     .order('created_at', { ascending: false })
@@ -50,6 +54,21 @@ export default async function handler(req, res) {
   const { data: confirmations } = await supabaseAdmin
     .from('brochure_confirmations')
     .select('request_id, confirmed_at')
+
+  // Fetch contract send statuses
+  const contractSendIds = (rawRequests || [])
+    .map(r => r.contract_send_id)
+    .filter(Boolean)
+  const contractSendMap = {}
+  if (contractSendIds.length > 0) {
+    const { data: sends } = await supabaseAdmin
+      .from('document_sends')
+      .select('id, status, first_opened_at, signed_at')
+      .in('id', contractSendIds)
+    for (const s of sends || []) {
+      contractSendMap[s.id] = s
+    }
+  }
 
   // Fetch access log
   const { data: accessLog } = await supabaseAdmin
@@ -85,14 +104,21 @@ export default async function handler(req, res) {
       company_name: r.company_name,
       email: r.email,
       phone: r.phone,
+      language: r.language || 'de',
       created_at: r.created_at,
       email_confirmed_at: r.email_confirmed_at,
       access_token: r.access_token,
       company_id: r.company_id,
+      contract_send_id: r.contract_send_id,
+      contract_sent_at: r.contract_sent_at,
+      contract_send: r.contract_send_id ? (contractSendMap[r.contract_send_id]
+        ? { ...contractSendMap[r.contract_send_id], opened_at: contractSendMap[r.contract_send_id].first_opened_at }
+        : null) : null,
       brochure_version: r.brochure_versions
         ? {
             version_number: r.brochure_versions.version_number,
             file_name: r.brochure_versions.file_name,
+            language: r.brochure_versions.language,
           }
         : null,
       confirmation: confirmation

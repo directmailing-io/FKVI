@@ -1,878 +1,748 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import { useNavigate, useParams } from 'react-router-dom'
-import * as pdfjsLib from 'pdfjs-dist'
-
+import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/hooks/use-toast'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import {
-  Type, CheckSquare, PenLine, Calendar, Fingerprint,
-  Trash2, Save, ChevronLeft, ChevronRight, Loader2,
-  ArrowLeft, AlertCircle, Plus, CheckCircle2, X,
-} from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Type, AlignLeft, PenLine, Trash2, FileEdit, Pencil, Star, Zap } from 'lucide-react'
+import * as pdfjsLib from 'pdfjs-dist'
+import { cn } from '@/lib/utils'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
-
-// ─── Constants ────────────────────────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
 
 const FIELD_TYPES = [
-  { key: 'text',      label: 'Text',        icon: Type,        border: 'border-blue-500',   bg: 'bg-blue-50',   text: 'text-blue-700',   ring: 'ring-blue-400'   },
-  { key: 'checkbox',  label: 'Checkbox',    icon: CheckSquare, border: 'border-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400' },
-  { key: 'signature', label: 'Unterschrift', icon: PenLine,    border: 'border-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400' },
-  { key: 'date',      label: 'Datum',       icon: Calendar,    border: 'border-green-500',  bg: 'bg-green-50',  text: 'text-green-700',  ring: 'ring-green-400'  },
-  { key: 'initials',  label: 'Initialen',   icon: Fingerprint, border: 'border-pink-500',   bg: 'bg-pink-50',   text: 'text-pink-700',   ring: 'ring-pink-400'   },
+  { value: 'text',      label: 'Einzeiliger Text',  Icon: Type,      color: '#3b82f6', bg: '#eff6ff' },
+  { value: 'multiline', label: 'Mehrzeiliger Text', Icon: AlignLeft, color: '#8b5cf6', bg: '#f5f3ff' },
+  { value: 'signature', label: 'Unterschrift',      Icon: PenLine,   color: '#f59e0b', bg: '#fffbeb' },
 ]
 
-const FIELD_TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.key, t]))
+function getType(value) { return FIELD_TYPES.find(t => t.value === value) || FIELD_TYPES[0] }
 
-const PREFILL_OPTIONS = [
-  { value: '',                    label: 'Kein' },
-  { value: 'profile.first_name',  label: 'Vorname (Fachkraft)' },
-  { value: 'profile.last_name',   label: 'Nachname (Fachkraft)' },
-  { value: 'profile.nationality', label: 'Nationalität' },
-  { value: 'profile.education',   label: 'Ausbildung' },
-  { value: 'today',               label: 'Heutiges Datum' },
-  { value: 'signer.name',         label: 'Unterzeichner Name' },
+const ROLES = [
+  { value: 'fachkraft',  label: 'Fachkraft',   color: '#3b82f6', bg: '#eff6ff' },
+  { value: 'unternehmen', label: 'Unternehmen', color: '#10b981', bg: '#f0fdf4' },
+  { value: 'fkvi',       label: 'FKVI',         color: '#8b5cf6', bg: '#f5f3ff' },
+]
+function getRole(value) { return ROLES.find(r => r.value === value) || ROLES[2] }
+
+const PROFILE_AUTO_FILL_PROPS = [
+  { value: 'first_name',     label: 'Vorname' },
+  { value: 'last_name',      label: 'Nachname' },
+  { value: 'birth_date',     label: 'Geburtsdatum' },
+  { value: 'nationality',    label: 'Nationalität' },
+  { value: 'marital_status', label: 'Familienstand' },
+  { value: 'phone',          label: 'Telefon' },
+  { value: 'city',           label: 'Stadt' },
+  { value: 'address',        label: 'Adresse' },
+  { value: 'postal_code',    label: 'PLZ' },
+  { value: 'email',          label: 'E-Mail' },
+  { value: 'gender',         label: 'Geschlecht' },
 ]
 
-function cfg(type) { return FIELD_TYPE_MAP[type] || FIELD_TYPES[0] }
+const COMPANY_AUTO_FILL_PROPS = [
+  { value: 'company_name', label: 'Unternehmensname' },
+  { value: 'email',        label: 'E-Mail' },
+  { value: 'address',      label: 'Adresse' },
+  { value: 'postal_code',  label: 'PLZ' },
+  { value: 'city',         label: 'Stadt' },
+  { value: 'website_url',  label: 'Webseite' },
+  { value: 'phone',        label: 'Telefon' },
+]
 
-// ─── Inline naming popup (Portal) ─────────────────────────────────────────────
-// Appears directly on-canvas after field is drawn, pre-focused
-
-function FieldNamePopup({ x, y, label, onChange, onDone, isCheckboxGroup }) {
-  const inputRef = useRef(null)
-
-  useEffect(() => {
-    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 30)
-  }, [])
-
-  return createPortal(
-    <div
-      style={{ position: 'fixed', left: x, top: y, zIndex: 9999, pointerEvents: 'all' }}
-      onMouseDown={e => e.stopPropagation()}
-    >
-      <div className="bg-white rounded-xl shadow-2xl border-2 border-[#1a3a5c] p-3 w-64">
-        <p className="text-xs font-semibold text-[#1a3a5c] mb-2">
-          {isCheckboxGroup ? '🗂 Gruppenname (z. B. Geschlecht)' : '✏️ Wie soll das Feld heißen?'}
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={label}
-            onChange={e => onChange(e.target.value)}
-            placeholder={isCheckboxGroup ? 'Gruppenname...' : 'Feldname...'}
-            className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a3a5c]"
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onDone() }}
-          />
-          <button
-            onClick={onDone}
-            className="shrink-0 bg-[#1a3a5c] text-white rounded-lg w-9 h-9 flex items-center justify-center hover:bg-[#1a3a5c]/90 transition-colors font-bold"
-          >
-            ✓
-          </button>
-        </div>
-        <p className="text-[10px] text-gray-400 mt-1.5">Enter oder ✓ zum Bestätigen</p>
-      </div>
-    </div>,
-    document.body
-  )
+function getAutoFillProps(role) {
+  if (role === 'fachkraft') return PROFILE_AUTO_FILL_PROPS
+  if (role === 'unternehmen') return COMPANY_AUTO_FILL_PROPS
+  return null
 }
 
-// ─── Option name popup (for checkbox option after drawing) ────────────────────
+// ── Resize handle positions ───────────────────────────────────────────────────
 
-function OptionNamePopup({ x, y, label, onChange, onDone }) {
-  const inputRef = useRef(null)
+const RESIZE_HANDLES = [
+  { id: 'nw', cursor: 'nw-resize', style: { top: -4,         left: -4 } },
+  { id: 'n',  cursor: 'n-resize',  style: { top: -4,         left: '50%', transform: 'translateX(-50%)' } },
+  { id: 'ne', cursor: 'ne-resize', style: { top: -4,         right: -4 } },
+  { id: 'e',  cursor: 'e-resize',  style: { top: '50%',      right: -4, transform: 'translateY(-50%)' } },
+  { id: 'se', cursor: 'se-resize', style: { bottom: -4,      right: -4 } },
+  { id: 's',  cursor: 's-resize',  style: { bottom: -4,      left: '50%', transform: 'translateX(-50%)' } },
+  { id: 'sw', cursor: 'sw-resize', style: { bottom: -4,      left: -4 } },
+  { id: 'w',  cursor: 'w-resize',  style: { top: '50%',      left: -4, transform: 'translateY(-50%)' } },
+]
 
-  useEffect(() => {
-    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 30)
-  }, [])
+// ── Field overlay box shown on PDF ───────────────────────────────────────────
 
-  return createPortal(
-    <div
-      style={{ position: 'fixed', left: x, top: y, zIndex: 9999, pointerEvents: 'all' }}
-      onMouseDown={e => e.stopPropagation()}
-    >
-      <div className="bg-white rounded-xl shadow-2xl border-2 border-orange-400 p-3 w-56">
-        <p className="text-xs font-semibold text-orange-700 mb-2">☑ Option benennen</p>
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={label}
-            onChange={e => onChange(e.target.value)}
-            placeholder="z. B. männlich..."
-            className="flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onDone() }}
-          />
-          <button
-            onClick={onDone}
-            className="shrink-0 bg-orange-500 text-white rounded-lg w-9 h-9 flex items-center justify-center hover:bg-orange-600 transition-colors font-bold"
-          >
-            ✓
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  )
-}
-
-// ─── Field overlay on canvas ──────────────────────────────────────────────────
-
-function FieldOverlay({ field, isSelected, onClick, onDelete }) {
-  const c = cfg(field.type)
-  const Icon = c.icon
-
-  const style = {
-    position: 'absolute',
-    left: `${field.x}%`, top: `${field.y}%`,
-    width: `${field.width}%`, height: `${field.height}%`,
-    userSelect: 'none',
-  }
-
-  if (field.type === 'checkbox') {
-    return (
-      <div
-        style={style}
-        onClick={e => { e.stopPropagation(); onClick(field.id) }}
-        className={`cursor-pointer border-2 border-dashed rounded transition-all ${
-          isSelected ? 'border-orange-500 bg-orange-50/50' : 'border-orange-300 bg-orange-50/20 hover:bg-orange-50/40'
-        }`}
-      >
-        <div className="absolute -top-5 left-0 flex items-center gap-1 bg-white/90 rounded px-1.5 py-0.5 border border-orange-200 shadow-sm">
-          <Icon className="h-2.5 w-2.5 text-orange-500 shrink-0" />
-          <span className="text-[9px] font-semibold text-orange-600 whitespace-nowrap truncate max-w-[100px]">
-            {field.label || 'Checkbox-Gruppe'}
-          </span>
-        </div>
-        {isSelected && (
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(field.id) }}
-            className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 z-10 text-[10px] leading-none"
-          >×</button>
-        )}
-      </div>
-    )
-  }
+function FieldBox({ field, onDelete, onEdit, selected, onClick, onMoveStart, onResizeStart }) {
+  const ft = getType(field.type)
+  const rl = getRole(field.role || 'fkvi')
+  const Icon = ft.Icon
 
   return (
     <div
-      style={style}
-      onClick={e => { e.stopPropagation(); onClick(field.id) }}
-      className={`cursor-pointer border-2 rounded overflow-hidden transition-all ${c.border} ${c.bg} ${c.text} ${
-        isSelected ? `ring-2 ${c.ring} ring-offset-1` : 'opacity-80 hover:opacity-100'
-      }`}
-    >
-      <div className="w-full h-full flex items-center justify-center gap-1 px-1">
-        <Icon className="h-3 w-3 shrink-0 opacity-60" />
-        {field.label && <span className="text-[10px] font-medium truncate leading-none">{field.label}</span>}
-      </div>
-      {isSelected && (
-        <button
-          onClick={e => { e.stopPropagation(); onDelete(field.id) }}
-          className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 z-10 text-[10px] leading-none"
-        >×</button>
-      )}
-    </div>
-  )
-}
-
-// ─── Option marker (positioned checkbox option on canvas) ─────────────────────
-
-function OptionMarker({ option, field, isGroupSelected, onClick }) {
-  return (
-    <div
+      onMouseDown={(e) => {
+        e.stopPropagation()
+        if (e.button !== 0) return
+        onMoveStart?.(field, e)
+      }}
+      onClick={(e) => { e.stopPropagation(); onClick?.(field.id) }}
       style={{
         position: 'absolute',
-        left: `${option.x}%`, top: `${option.y}%`,
-        width: `${option.width}%`, height: `${option.height}%`,
-        userSelect: 'none',
+        left: `${field.x}%`, top: `${field.y}%`,
+        width: `${field.width}%`, height: `${field.height}%`,
+        border: `2px solid ${rl.color}`,
+        background: selected ? `${rl.color}22` : `${rl.color}11`,
+        borderRadius: 3,
+        cursor: onMoveStart ? 'grab' : 'pointer',
+        boxSizing: 'border-box',
+        display: 'flex', alignItems: 'flex-start', padding: '2px 4px', gap: 3,
+        overflow: 'visible',
+        transition: 'background 0.1s',
       }}
-      onClick={e => { e.stopPropagation(); onClick(field.id) }}
-      className={`cursor-pointer border-2 rounded flex items-center justify-center transition-all ${
-        isGroupSelected ? 'border-orange-500 bg-orange-100' : 'border-orange-300 bg-orange-50 hover:bg-orange-100'
-      }`}
-      title={option.label}
     >
-      <div className={`w-3/5 h-3/5 border-2 border-orange-400 bg-white ${field.multiple ? 'rounded-sm' : 'rounded-full'}`} />
-      {option.label && (
-        <span className="absolute -bottom-4 left-0 text-[8px] text-orange-600 whitespace-nowrap bg-white/80 px-0.5 rounded">
-          {option.label}
+      {/* Clipped label content */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 3, width: '100%', overflow: 'hidden', pointerEvents: 'none' }}>
+        <Icon style={{ width: 10, height: 10, color: rl.color, flexShrink: 0, marginTop: 1 }} />
+        <span style={{ fontSize: 10, color: rl.color, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, flex: 1 }}>
+          {field.label || '(kein Name)'}
+          {field.required && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}
         </span>
-      )}
-    </div>
-  )
-}
-
-// ─── Sidebar field properties ──────────────────────────────────────────────────
-
-function FieldProperties({ field, onChange, onDelete, onAddOption, onDrawOption }) {
-  if (!field) {
-    return (
-      <div className="text-center py-8 text-gray-400 text-sm">
-        <p>Kein Feld ausgewählt</p>
-        <p className="text-xs mt-1">Feld zeichnen oder anklicken</p>
-      </div>
-    )
-  }
-
-  const c = cfg(field.type)
-  const Icon = c.icon
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <div className={`w-6 h-6 rounded flex items-center justify-center ${c.bg}`}>
-          <Icon className={`h-3.5 w-3.5 ${c.text}`} />
-        </div>
-        <span className="text-sm font-medium text-gray-700">
-          {field.type === 'checkbox' ? 'Checkbox-Gruppe' : `${c.label}-Feld`}
+        {field.autoFill && (
+          <Zap style={{ width: 8, height: 8, color: rl.color, opacity: 0.8, flexShrink: 0, marginTop: 2 }} />
+        )}
+        <span style={{ fontSize: 8, color: rl.color, opacity: 0.7, flexShrink: 0, lineHeight: 1.2 }}>
+          {rl.label}
         </span>
       </div>
 
-      {/* Name */}
-      <div className="space-y-1">
-        <Label className="text-xs text-gray-500">
-          {field.type === 'checkbox' ? 'Gruppenname' : 'Beschriftung'}
-        </Label>
-        <input
-          value={field.label || ''}
-          onChange={e => onChange({ ...field, label: e.target.value })}
-          placeholder={field.type === 'checkbox' ? 'z. B. Geschlecht...' : 'Feldname...'}
-          className="w-full h-8 text-sm border border-input rounded-md px-2.5 focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-
-      {/* Pflichtfeld */}
-      <div className="flex items-center gap-3">
-        <Label className="text-xs text-gray-500 flex-1">Pflichtfeld</Label>
-        <button
-          type="button"
-          onClick={() => onChange({ ...field, required: !field.required })}
-          className={`relative inline-flex w-11 h-6 rounded-full transition-colors ${field.required ? 'bg-[#0d9488]' : 'bg-gray-200'}`}
-        >
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${field.required ? 'translate-x-5' : 'translate-x-0'}`} />
-        </button>
-      </div>
-
-      {/* Checkbox options */}
-      {field.type === 'checkbox' && (
+      {selected && (
         <>
-          <div className="flex gap-1.5">
-            {[{ val: false, label: 'Einfachauswahl' }, { val: true, label: 'Mehrfachauswahl' }].map(({ val, label }) => (
-              <button key={String(val)} type="button"
-                onClick={() => onChange({ ...field, multiple: val })}
-                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  field.multiple === val ? 'bg-orange-50 border-orange-400 text-orange-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-                }`}
-              >{label}</button>
-            ))}
-          </div>
+          {/* Action buttons */}
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onEdit(field) }}
+            style={{
+              position: 'absolute', top: -8, right: 12,
+              width: 18, height: 18, borderRadius: '50%',
+              background: rl.color, border: '2px solid white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', zIndex: 2,
+            }}
+          >
+            <Pencil style={{ width: 9, height: 9, color: 'white' }} />
+          </button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onDelete(field.id) }}
+            style={{
+              position: 'absolute', top: -8, right: -8,
+              width: 18, height: 18, borderRadius: '50%',
+              background: '#ef4444', border: '2px solid white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', zIndex: 2,
+            }}
+          >
+            <Trash2 style={{ width: 9, height: 9, color: 'white' }} />
+          </button>
 
-          <div className="space-y-1">
-            <Label className="text-xs text-gray-500">Optionen</Label>
-            {(field.options || []).length === 0 && (
-              <p className="text-xs text-gray-400 italic py-1">Noch keine Optionen — füge welche hinzu und zeichne ihre Position</p>
-            )}
-            <ul className="space-y-2">
-              {(field.options || []).map((opt) => (
-                <li key={opt.id} className="rounded-lg border border-gray-100 p-2 space-y-1.5 bg-gray-50">
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-3 h-3 border border-gray-300 shrink-0 ${field.multiple ? 'rounded-sm' : 'rounded-full'}`} />
-                    <input
-                      value={opt.label || ''}
-                      onChange={e => onChange({
-                        ...field,
-                        options: field.options.map(o => o.id === opt.id ? { ...o, label: e.target.value } : o),
-                      })}
-                      placeholder="Option..."
-                      className="h-6 text-xs flex-1 border border-input rounded px-2 focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                    <button type="button"
-                      onClick={() => onChange({ ...field, options: field.options.filter(o => o.id !== opt.id) })}
-                      className="text-gray-300 hover:text-red-400 transition-colors shrink-0"
-                    ><X className="h-3 w-3" /></button>
-                  </div>
-                  {opt.x !== undefined ? (
-                    <div className="flex items-center gap-1 text-[10px] text-green-600 pl-1">
-                      <CheckCircle2 className="h-3 w-3 shrink-0" />
-                      <span>Seite {opt.page} · positioniert</span>
-                      <button type="button"
-                        onClick={() => {
-                          const { x, y, width, height, page, ...rest } = opt
-                          onChange({ ...field, options: field.options.map(o => o.id === opt.id ? rest : o) })
-                        }}
-                        className="ml-auto text-gray-400 hover:text-red-400"
-                      >entfernen</button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onDrawOption(field.id, opt.id, opt.label)}
-                      className="w-full text-[11px] font-medium text-orange-600 bg-orange-50 border border-orange-300 rounded-lg py-1.5 hover:bg-orange-100 transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <CheckSquare className="h-3 w-3" />
-                      Im Dokument einzeichnen
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={() => onChange({ ...field, options: [...(field.options || []), { id: crypto.randomUUID(), label: '' }] })}
-              className="w-full text-xs text-[#0d9488] border border-dashed border-[#0d9488]/40 rounded-lg py-1.5 hover:bg-[#0d9488]/5 transition-colors flex items-center justify-center gap-1"
-            >
-              <Plus className="h-3 w-3" />Option hinzufügen
-            </button>
-          </div>
+          {/* Resize handles */}
+          {RESIZE_HANDLES.map(h => (
+            <div
+              key={h.id}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                onResizeStart?.(field, h.id, e)
+              }}
+              style={{
+                position: 'absolute',
+                width: 8, height: 8,
+                background: 'white',
+                border: `2px solid ${rl.color}`,
+                borderRadius: 2,
+                cursor: h.cursor,
+                zIndex: 2,
+                ...h.style,
+              }}
+            />
+          ))}
         </>
       )}
-
-      {/* Prefill */}
-      {field.type !== 'checkbox' && field.type !== 'signature' && (
-        <div className="space-y-1">
-          <Label className="text-xs text-gray-500">Vorausfüllen mit</Label>
-          <select
-            value={field.prefillKey || ''}
-            onChange={e => onChange({ ...field, prefillKey: e.target.value })}
-            className="w-full h-8 text-sm border border-input rounded-md px-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {PREFILL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => onDelete(field.id)}
-        className="w-full flex items-center justify-center gap-1.5 text-xs text-red-500 border border-red-200 rounded-lg py-1.5 hover:bg-red-50 transition-colors"
-      >
-        <Trash2 className="h-3.5 w-3.5" />Feld löschen
-      </button>
     </div>
   )
 }
 
-// ─── Compute popup position near a drawn field ─────────────────────────────────
-function computePopupPos(overlayEl, xPct, yPct, wPct, hPct) {
-  const rect = overlayEl.getBoundingClientRect()
-  const fieldLeft = rect.left + (xPct / 100) * rect.width
-  const fieldBottom = rect.top + ((yPct + hPct) / 100) * rect.height
-  const fieldTop = rect.top + (yPct / 100) * rect.height
-
-  const popupH = 110
-  const popupW = 270
-  let top = fieldBottom + 8
-  if (top + popupH > window.innerHeight - 16) top = fieldTop - popupH - 8
-  top = Math.max(70, top)
-  const left = Math.min(Math.max(8, fieldLeft), window.innerWidth - popupW - 8)
-  return { x: left, y: top }
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ── Main Editor Page ──────────────────────────────────────────────────────────
 
 export default function TemplateEditorPage() {
-  const { templateId } = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
   const { session } = useAuthStore()
+  const token = session?.access_token
 
   const [template, setTemplate] = useState(null)
   const [fields, setFields] = useState([])
-  const [pdfUrl, setPdfUrl] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [loadError, setLoadError] = useState(null)
-
-  // PDF
-  const [pdfDoc, setPdfDoc] = useState(null)
-  const [pageAspects, setPageAspects] = useState([])
   const [numPages, setNumPages] = useState(0)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pdfLoading, setPdfLoading] = useState(false)
-  const [pageRendering, setPageRendering] = useState(false)
+  const [pdfState, setPdfState] = useState('loading') // loading | rendering | done | error
+  const [saving, setSaving] = useState(false)
+
+  const [drawType, setDrawType] = useState('text')
+  const [drawMode, setDrawMode] = useState(false)
+  const [drawState, setDrawState] = useState(null) // { page, startX, startY, currentX, currentY }
+  const [pendingField, setPendingField] = useState(null)
+  const [editingField, setEditingField] = useState(null) // field being edited
+  const [pendingLabel, setPendingLabel] = useState('')
+  const [pendingRole, setPendingRole] = useState('fkvi')
+  const [pendingRequired, setPendingRequired] = useState(false)
+  const [pendingAutoFill, setPendingAutoFill] = useState(null)
+  const [selectedFieldId, setSelectedFieldId] = useState(null)
+  const [manipState, setManipState] = useState(null) // { type: 'move'|handle, fieldId, page, startX, startY, origField }
+  const manipRef = useRef(null) // always-current ref for use inside global handlers
 
   const canvasRefs = useRef([])
-  const renderTasksRef = useRef([])
+  const overlayRefs = useRef([])
+  const pdfDocRef = useRef(null)
+  const labelInputRef = useRef(null)
 
-  // Interaction
-  const [activeTool, setActiveTool] = useState(null)
-  const [selectedFieldId, setSelectedFieldId] = useState(null)
-  const [drawing, setDrawing] = useState(null)
+  const authHeaders = { Authorization: `Bearer ${token}` }
 
-  // Inline popup after placing a field
-  const [fieldPopup, setFieldPopup] = useState(null)
-  // { fieldId, x, y, isCheckboxGroup }
-
-  // Option placement mode + popup
-  const [placingOption, setPlacingOption] = useState(null)
-  // { fieldId, optionId, label }
-  const [optionPopup, setOptionPopup] = useState(null)
-  // { fieldId, optionId, label, x, y }
-
-  // ── Load template ──────────────────────────────────────────────────────────
-  useEffect(() => { if (templateId && session) loadTemplate() }, [templateId, session])
-
-  const loadTemplate = async () => {
-    try {
-      const res = await fetch(`/api/admin/dokumente/get?templateId=${templateId}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Vorlage konnte nicht geladen werden')
-      setTemplate(data.template)
-      setFields(Array.isArray(data.template?.fields) ? data.template.fields : [])
-      setPdfUrl(data.pdfSignedUrl)
-    } catch (err) { setLoadError(err.message) }
-  }
-
-  // ── Load PDF ───────────────────────────────────────────────────────────────
-  useEffect(() => { if (pdfUrl) loadPdf() }, [pdfUrl])
-
-  const loadPdf = async () => {
-    setPdfLoading(true)
-    try {
-      renderTasksRef.current.forEach(t => t.cancel?.())
-      renderTasksRef.current = []
-      const doc = await pdfjsLib.getDocument(pdfUrl).promise
-      setPdfDoc(doc)
-      setNumPages(doc.numPages)
-      setCurrentPage(1)
-      const aspects = []
-      for (let i = 1; i <= doc.numPages; i++) {
-        const page = await doc.getPage(i)
-        const vp = page.getViewport({ scale: 1 })
-        aspects.push({ width: vp.width, height: vp.height })
-      }
-      setPageAspects(aspects)
-    } catch { toast({ title: 'PDF-Fehler', variant: 'destructive' }) }
-    finally { setPdfLoading(false) }
-  }
-
-  // ── Render pages ───────────────────────────────────────────────────────────
-  useEffect(() => { if (pdfDoc && pageAspects.length > 0) renderAllPages() }, [pdfDoc, pageAspects])
-
-  const renderAllPages = async () => {
-    if (!pdfDoc) return
-    setPageRendering(true)
-    renderTasksRef.current.forEach(t => t.cancel?.())
-    renderTasksRef.current = []
-    try {
-      for (let i = 1; i <= pdfDoc.numPages; i++) {
-        const canvas = canvasRefs.current[i - 1]
-        if (!canvas || !pageAspects[i - 1]) continue
-        const aspect = pageAspects[i - 1]
-        const displayWidth = canvas.parentElement?.clientWidth || 800
-        const dpr = window.devicePixelRatio || 1
-        canvas.width = Math.round(displayWidth * dpr)
-        canvas.height = Math.round(displayWidth * (aspect.height / aspect.width) * dpr)
-        const page = await pdfDoc.getPage(i)
-        const scale = (displayWidth / aspect.width) * dpr
-        const viewport = page.getViewport({ scale })
-        const task = page.render({ canvasContext: canvas.getContext('2d'), viewport })
-        renderTasksRef.current.push(task)
-        try { await task.promise } catch (e) { if (e?.name !== 'RenderingCancelledException') throw e }
-      }
-    } catch (err) {
-      if (err?.name !== 'RenderingCancelledException')
-        toast({ title: 'Render-Fehler', variant: 'destructive' })
-    } finally { setPageRendering(false) }
-  }
-
-  // ── Global mouse events for drawing ───────────────────────────────────────
+  // Load template metadata + fields
   useEffect(() => {
-    if (!drawing) return
+    fetch(`/api/admin/mediathek/get?id=${id}`, { headers: authHeaders })
+      .then(r => r.json())
+      .then(d => {
+        if (d.template) {
+          setTemplate(d.template)
+          setFields(d.template.fields || [])
+        }
+      })
+  }, [id])
 
-    const getOverlay = (pageIdx) => document.querySelector(`[data-po="${pageIdx}"]`)
-
-    const pct = (clientX, clientY, pageIdx) => {
-      const rect = getOverlay(pageIdx)?.getBoundingClientRect()
-      if (!rect) return null
-      return {
-        x: Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100)),
-        y: Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100)),
+  // Load + render PDF
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const pdf = await pdfjsLib.getDocument({
+          url: `/api/admin/mediathek/pdf?id=${id}`,
+          httpHeaders: authHeaders,
+          withCredentials: false,
+          password: '',
+          cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
+          cMapPacked: true,
+          standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`,
+        }).promise
+        if (cancelled) return
+        pdfDocRef.current = pdf
+        setNumPages(pdf.numPages)
+        setPdfState('rendering')
+      } catch (err) {
+        if (!cancelled) setPdfState('error')
       }
     }
+    load()
+    return () => { cancelled = true }
+  }, [id, token])
 
+  useEffect(() => {
+    if (pdfState !== 'rendering' || !pdfDocRef.current) return
+    let cancelled = false
+    const renderAll = async () => {
+      const pdf = pdfDocRef.current
+      const maxWidth = Math.min(window.innerWidth - 80, 900)
+      for (let i = 1; i <= pdf.numPages; i++) {
+        if (cancelled) break
+        const page = await pdf.getPage(i)
+        const canvas = canvasRefs.current[i - 1]
+        if (!canvas) continue
+        const vp = page.getViewport({ scale: 1 })
+        const scale = maxWidth / vp.width
+        const scaled = page.getViewport({ scale })
+        canvas.width = scaled.width
+        canvas.height = scaled.height
+        canvas.style.width = `${scaled.width}px`
+        canvas.style.height = `${scaled.height}px`
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: scaled }).promise
+      }
+      if (!cancelled) setPdfState('done')
+    }
+    renderAll()
+    return () => { cancelled = true }
+  }, [pdfState, numPages])
+
+  // Keyboard: Escape cancels drawing / deselects
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape') { setDrawMode(false); setDrawState(null); setPendingField(null); setEditingField(null); setSelectedFieldId(null) }
+      if (e.key === 'Delete' && selectedFieldId) deleteField(selectedFieldId)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [selectedFieldId])
+
+  // Sync manipulation ref (allows global handlers to see latest state)
+  useEffect(() => { manipRef.current = manipState }, [manipState])
+
+  // Global drag/resize handlers (mounted once, always read from ref)
+  useEffect(() => {
     const onMove = (e) => {
-      const c = pct(e.clientX, e.clientY, drawing.pageIdx)
-      if (c) setDrawing(prev => prev ? { ...prev, cx: c.x, cy: c.y } : null)
-    }
+      const ms = manipRef.current
+      if (!ms) return
+      const overlay = overlayRefs.current[ms.page]
+      if (!overlay) return
+      const rect = overlay.getBoundingClientRect()
+      const cx = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
+      const cy = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
+      const dx = cx - ms.startX
+      const dy = cy - ms.startY
+      const o = ms.origField
+      const MIN = 1.5
 
-    const onUp = (e) => {
-      if (!drawing) return
-      const c = pct(e.clientX, e.clientY, drawing.pageIdx)
-      const ex = c?.x ?? drawing.cx
-      const ey = c?.y ?? drawing.cy
-
-      const fx = Math.min(drawing.sx, ex)
-      const fy = Math.min(drawing.sy, ey)
-      const fw = Math.abs(ex - drawing.sx)
-      const fh = Math.abs(ey - drawing.sy)
-
-      const overlay = getOverlay(drawing.pageIdx)
-
-      if (placingOption) {
-        // Finalize option position
-        const safeW = Math.max(fw, 1.5)
-        const safeH = Math.max(fh, 1)
-        const { fieldId, optionId } = placingOption
-        setFields(prev => prev.map(f => {
-          if (f.id !== fieldId) return f
-          return {
-            ...f,
-            options: (f.options || []).map(opt =>
-              opt.id === optionId
-                ? { ...opt, page: drawing.pageIdx + 1, x: fx, y: fy, width: safeW, height: safeH }
-                : opt
-            ),
-          }
-        }))
-        // Show option name popup
-        if (overlay) {
-          const pos = computePopupPos(overlay, fx, fy, safeW, safeH)
-          const currentLabel = fields.find(f => f.id === fieldId)?.options?.find(o => o.id === optionId)?.label || ''
-          setOptionPopup({ fieldId, optionId, label: currentLabel, x: pos.x, y: pos.y })
+      let patch
+      if (ms.type === 'move') {
+        patch = {
+          x: Math.max(0, Math.min(100 - o.width,  o.x + dx)),
+          y: Math.max(0, Math.min(100 - o.height, o.y + dy)),
         }
-        setPlacingOption(null)
-      } else if (activeTool) {
-        // Default sizes on click (tiny draw)
-        let finalX = fx, finalY = fy, finalW = fw, finalH = fh
-        if (fw < 1 || fh < 0.5) {
-          const dw = activeTool === 'signature' ? 35 : activeTool === 'checkbox' ? 30 : 22
-          const dh = activeTool === 'signature' ? 9 : activeTool === 'checkbox' ? 20 : 4.5
-          finalX = Math.min(drawing.sx, 100 - dw)
-          finalY = Math.min(drawing.sy, 100 - dh)
-          finalW = dw; finalH = dh
-        }
-
-        const id = crypto.randomUUID()
-        const newField = {
-          id, type: activeTool,
-          page: drawing.pageIdx + 1,
-          x: finalX, y: finalY, width: finalW, height: finalH,
-          label: '', required: false, prefillKey: '',
-          ...(activeTool === 'checkbox' ? { options: [], multiple: false } : {}),
-        }
-        setFields(prev => [...prev, newField])
-        setSelectedFieldId(id)
-        setActiveTool(null)
-
-        // Show field name popup
-        if (overlay) {
-          const pos = computePopupPos(overlay, finalX, finalY, finalW, finalH)
-          setFieldPopup({ fieldId: id, x: pos.x, y: pos.y, isCheckboxGroup: activeTool === 'checkbox' })
-        }
+      } else {
+        const h = ms.type
+        const re = o.x + o.width   // fixed right edge (for w-side handles)
+        const be = o.y + o.height  // fixed bottom edge (for n-side handles)
+        let nx = o.x, ny = o.y, nw = o.width, nh = o.height
+        if (h.includes('w')) { nx = Math.max(0, Math.min(re - MIN, o.x + dx)); nw = re - nx }
+        if (h.includes('e')) { nw = Math.max(MIN, Math.min(100 - o.x, o.width + dx)) }
+        if (h.includes('n')) { ny = Math.max(0, Math.min(be - MIN, o.y + dy)); nh = be - ny }
+        if (h.includes('s')) { nh = Math.max(MIN, Math.min(100 - o.y, o.height + dy)) }
+        patch = { x: nx, y: ny, width: nw, height: nh }
       }
-
-      setDrawing(null)
+      setFields(prev => prev.map(f => f.id === ms.fieldId ? { ...f, ...patch } : f))
     }
-
+    const onUp = () => {
+      if (!manipRef.current) return
+      manipRef.current = null
+      setManipState(null)
+    }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [drawing, activeTool, placingOption, fields])
+  }, [])
 
-  // ── Field ops ─────────────────────────────────────────────────────────────
-  const updateField = (updated) => setFields(prev => prev.map(f => f.id === updated.id ? updated : f))
-  const deleteField = (id) => {
-    setFields(prev => prev.filter(f => f.id !== id))
-    if (selectedFieldId === id) setSelectedFieldId(null)
-    if (fieldPopup?.fieldId === id) setFieldPopup(null)
+  // Focus label input when pending field or edit dialog appears
+  useEffect(() => {
+    if (pendingField) {
+      setPendingLabel('')
+      setPendingRole('fkvi')
+      setPendingRequired(false)
+      setPendingAutoFill(null)
+      setTimeout(() => labelInputRef.current?.focus(), 50)
+    }
+  }, [pendingField])
+
+  useEffect(() => {
+    if (editingField) {
+      setPendingLabel(editingField.label || '')
+      setPendingRole(editingField.role || 'fkvi')
+      setPendingRequired(editingField.required || false)
+      setPendingAutoFill(editingField.autoFill || null)
+      setTimeout(() => labelInputRef.current?.focus(), 50)
+    }
+  }, [editingField])
+
+  const getOverlayPct = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    return {
+      x: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)),
+    }
   }
-  const selectedField = fields.find(f => f.id === selectedFieldId) || null
+
+  const getPctFromMouseEvent = (field, e) => {
+    const overlay = overlayRefs.current[field.page]
+    if (!overlay) return { x: 0, y: 0 }
+    const rect = overlay.getBoundingClientRect()
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    }
+  }
+
+  const startMove = (field, e) => {
+    if (drawMode) return
+    e.preventDefault()
+    setSelectedFieldId(field.id)
+    const { x, y } = getPctFromMouseEvent(field, e)
+    const ms = { type: 'move', fieldId: field.id, page: field.page, startX: x, startY: y, origField: { ...field } }
+    manipRef.current = ms
+    setManipState(ms)
+  }
+
+  const startResize = (field, handleId, e) => {
+    e.preventDefault()
+    const { x, y } = getPctFromMouseEvent(field, e)
+    const ms = { type: handleId, fieldId: field.id, page: field.page, startX: x, startY: y, origField: { ...field } }
+    manipRef.current = ms
+    setManipState(ms)
+  }
+
+  const handleMouseDown = (e, pageIdx) => {
+    if (!drawMode) { setSelectedFieldId(null); return }
+    e.preventDefault()
+    const { x, y } = getOverlayPct(e)
+    setDrawState({ page: pageIdx, startX: x, startY: y, currentX: x, currentY: y })
+  }
+
+  const handleMouseMove = (e, pageIdx) => {
+    if (!drawState || drawState.page !== pageIdx) return
+    e.preventDefault()
+    const { x, y } = getOverlayPct(e)
+    setDrawState(s => ({ ...s, currentX: x, currentY: y }))
+  }
+
+  const handleMouseUp = (e, pageIdx) => {
+    if (!drawState || drawState.page !== pageIdx) return
+    e.preventDefault()
+    const { startX, startY, currentX, currentY } = drawState
+    const x = Math.min(startX, currentX)
+    const y = Math.min(startY, currentY)
+    const width = Math.abs(currentX - startX)
+    const height = Math.abs(currentY - startY)
+    setDrawState(null)
+    if (width < 2 || height < 1) return
+    setPendingField({ id: crypto.randomUUID(), type: drawType, page: pageIdx, x, y, width, height })
+  }
+
+  const confirmField = () => {
+    if (!pendingField && !editingField) return
+    const sourceField = pendingField || editingField
+    const label = pendingLabel.trim() || getType(sourceField.type).label
+    const autoFill = (pendingRole !== 'fkvi' && sourceField.type !== 'signature') ? (pendingAutoFill || null) : null
+    const fieldData = { ...sourceField, label, role: pendingRole, required: pendingRequired, autoFill }
+    if (editingField) {
+      setFields(prev => prev.map(f => f.id === editingField.id ? fieldData : f))
+      setEditingField(null)
+    } else {
+      setFields(prev => [...prev, fieldData])
+      setPendingField(null)
+    }
+    setPendingLabel('')
+    setPendingRequired(false)
+    setPendingAutoFill(null)
+  }
+
+  const openEditDialog = (field) => {
+    setSelectedFieldId(null)
+    setEditingField({ ...field })
+  }
+
+  const closeDialog = () => {
+    setPendingField(null)
+    setEditingField(null)
+    setPendingLabel('')
+    setPendingRequired(false)
+    setPendingAutoFill(null)
+  }
+
+  const deleteField = (fieldId) => {
+    setFields(prev => prev.filter(f => f.id !== fieldId))
+    setSelectedFieldId(null)
+  }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/dokumente/save-fields', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ templateId, fields }),
+      const res = await fetch('/api/admin/mediathek/save-fields', {
+        method: 'PUT',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, fields }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Fehler')
-      toast({ title: 'Gespeichert', variant: 'success' })
-    } catch (err) { toast({ title: 'Fehler', description: err.message, variant: 'destructive' }) }
-    finally { setSaving(false) }
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: 'Felder gespeichert' })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally { setSaving(false) }
   }
 
-  const scrollToPage = (page) => {
-    setCurrentPage(page)
-    document.querySelector(`[data-po="${page - 1}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const drawPreviewRect = (drawState) => {
+    if (!drawState) return null
+    const x = Math.min(drawState.startX, drawState.currentX)
+    const y = Math.min(drawState.startY, drawState.currentY)
+    const w = Math.abs(drawState.currentX - drawState.startX)
+    const h = Math.abs(drawState.currentY - drawState.startY)
+    const ft = getType(drawType)
+    return { left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`, border: `2px dashed ${ft.color}`, background: `${ft.color}18` }
   }
 
-  const isDrawing = !!activeTool || !!placingOption
+  const activeFt = getType(drawType)
 
-  if (loadError) return (
-    <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4 text-gray-500">
-      <AlertCircle className="h-10 w-10 text-red-400" />
-      <p className="text-sm">{loadError}</p>
-      <Button variant="outline" onClick={() => navigate('/admin/mediathek')}><ArrowLeft className="h-4 w-4 mr-2" />Zurück</Button>
-    </div>
-  )
-
-  const isLoading = !template || pdfLoading
+  // Set global cursor during drag/resize to prevent flicker
+  useEffect(() => {
+    if (!manipState) { document.body.style.cursor = ''; return }
+    document.body.style.cursor = manipState.type === 'move' ? 'grabbing' : `${manipState.type}-resize`
+    return () => { document.body.style.cursor = '' }
+  }, [manipState])
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="min-h-screen bg-gray-50" onClick={() => { if (!manipRef.current) setSelectedFieldId(null) }}>
 
-      {/* ── Top bar ── */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-200 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => navigate('/admin/mediathek')} className="text-gray-400 hover:text-gray-600">
-            <ArrowLeft className="h-5 w-5" />
+      {/* Top bar */}
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center gap-3">
+          <button onClick={() => navigate(`/admin/mediathek/${id}`)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+            <ArrowLeft className="w-4 h-4" />Zurück
           </button>
-          <div className="min-w-0">
-            <h1 className="font-semibold text-gray-900 text-sm truncate">{template?.name || 'Lade...'}</h1>
-            <p className="text-xs text-gray-400 truncate">{template?.file_name || ''}</p>
+          <div className="w-px h-4 bg-gray-200" />
+          <FileEdit className="w-4 h-4 text-gray-400" />
+          <span className="font-medium text-sm text-gray-900 flex-1 truncate">{template?.name || '…'}</span>
+
+          {/* Field type selector */}
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+            {FIELD_TYPES.map(ft => {
+              const Icon = ft.Icon
+              const active = drawType === ft.value && drawMode
+              return (
+                <button
+                  key={ft.value}
+                  onClick={() => { setDrawType(ft.value); setDrawMode(true); setSelectedFieldId(null) }}
+                  title={ft.label}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    active
+                      ? 'text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-800 hover:bg-white'
+                  )}
+                  style={active ? { background: ft.color } : {}}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{ft.label}</span>
+                </button>
+              )
+            })}
           </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {numPages > 1 && (
-            <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
-              <button onClick={() => scrollToPage(Math.max(1, currentPage - 1))} disabled={currentPage <= 1}
-                className="px-2 py-1.5 hover:bg-gray-50 disabled:opacity-40"><ChevronLeft className="h-3.5 w-3.5" /></button>
-              <span className="px-2 text-xs text-gray-600">{currentPage} / {numPages}</span>
-              <button onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))} disabled={currentPage >= numPages}
-                className="px-2 py-1.5 hover:bg-gray-50 disabled:opacity-40"><ChevronRight className="h-3.5 w-3.5" /></button>
-            </div>
+
+          {drawMode && (
+            <button onClick={() => { setDrawMode(false); setDrawState(null) }} className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100">
+              ✕ Abbrechen
+            </button>
           )}
-          <Button size="sm" onClick={handleSave} disabled={saving || isLoading} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
-            {saving ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Speichern...</> : <><Save className="h-3.5 w-3.5 mr-1.5" />Speichern</>}
-          </Button>
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 bg-fkvi-blue text-white text-sm font-medium rounded-xl hover:bg-fkvi-blue/90 transition-colors disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Speichern
+          </button>
         </div>
       </div>
 
-      {/* ── Body ── */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* ── PDF area ── */}
-        <div className="flex-1 overflow-y-auto bg-gray-200 relative">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full gap-3 text-gray-500">
-              <Loader2 className="h-6 w-6 animate-spin" /><span className="text-sm">PDF wird geladen...</span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-8 py-4 px-4">
-              {pageAspects.map((aspect, idx) => (
-                <div key={idx} className="flex flex-col items-stretch">
-                  <div
-                    className="relative shadow-lg w-full bg-white"
-                    style={{ paddingBottom: `${(aspect.height / aspect.width) * 100}%` }}
-                  >
-                    <canvas
-                      ref={el => { canvasRefs.current[idx] = el }}
-                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                    />
-                    {/* Interaction overlay */}
-                    <div
-                      data-po={idx}
-                      style={{ position: 'absolute', inset: 0, cursor: isDrawing ? 'crosshair' : 'default' }}
-                      onMouseDown={e => {
-                        if (!isDrawing) return
-                        e.preventDefault()
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        const x = (e.clientX - rect.left) / rect.width * 100
-                        const y = (e.clientY - rect.top) / rect.height * 100
-                        setDrawing({ sx: x, sy: y, cx: x, cy: y, pageIdx: idx })
-                      }}
-                      onClick={e => { if (!isDrawing && e.target === e.currentTarget) setSelectedFieldId(null) }}
-                    >
-                      {/* Rubber band */}
-                      {drawing?.pageIdx === idx && (
-                        <div style={{
-                          position: 'absolute',
-                          left: `${Math.min(drawing.sx, drawing.cx)}%`,
-                          top: `${Math.min(drawing.sy, drawing.cy)}%`,
-                          width: `${Math.abs(drawing.cx - drawing.sx)}%`,
-                          height: `${Math.abs(drawing.cy - drawing.sy)}%`,
-                          pointerEvents: 'none',
-                        }} className={`border-2 border-dashed rounded ${
-                          placingOption ? 'border-orange-500 bg-orange-500/10' : 'border-[#1a3a5c] bg-[#1a3a5c]/10'
-                        }`} />
-                      )}
-
-                      {/* Regular fields */}
-                      {fields.filter(f => f.page === idx + 1 && f.type !== 'checkbox').map(field => (
-                        <FieldOverlay key={field.id} field={field}
-                          isSelected={selectedFieldId === field.id}
-                          onClick={setSelectedFieldId} onDelete={deleteField} />
-                      ))}
-
-                      {/* Checkbox group boxes */}
-                      {fields.filter(f => f.page === idx + 1 && f.type === 'checkbox').map(field => (
-                        <FieldOverlay key={field.id} field={field}
-                          isSelected={selectedFieldId === field.id}
-                          onClick={setSelectedFieldId} onDelete={deleteField} />
-                      ))}
-
-                      {/* Checkbox option markers */}
-                      {fields.filter(f => f.type === 'checkbox').flatMap(field =>
-                        (field.options || [])
-                          .filter(opt => opt.page === idx + 1 && opt.x !== undefined)
-                          .map(opt => (
-                            <OptionMarker key={opt.id} option={opt} field={field}
-                              isGroupSelected={selectedFieldId === field.id}
-                              onClick={setSelectedFieldId} />
-                          ))
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-center text-xs text-gray-400 mt-2">Seite {idx + 1}</p>
-                </div>
-              ))}
-              {pageRendering && (
-                <div className="absolute inset-0 bg-white/30 flex items-center justify-center pointer-events-none">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#1a3a5c]" />
-                </div>
-              )}
-            </div>
-          )}
+      {/* Draw mode hint */}
+      {drawMode && (
+        <div className="bg-blue-50 border-b border-blue-100 px-6 py-2 text-center">
+          <p className="text-xs text-blue-600 font-medium">
+            <span style={{ color: activeFt.color }}>● {activeFt.label}</span>
+            {' '}— Klicke und ziehe auf der PDF, um ein Feld zu platzieren
+          </p>
         </div>
+      )}
 
-        {/* ── Sidebar ── */}
-        <div className="w-[272px] shrink-0 bg-white border-l border-gray-200 flex flex-col overflow-hidden">
-          <div className="overflow-y-auto flex-1 p-4 space-y-4">
+      {/* PDF + overlay */}
+      <div className="max-w-5xl mx-auto px-6 py-8">
 
-            {/* Option placement banner */}
-            {placingOption && (
-              <div className="bg-orange-50 border-2 border-orange-400 rounded-xl px-3 py-3">
-                <p className="text-sm font-bold text-orange-700 flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4 shrink-0" />
-                  Jetzt zeichnen!
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  Zeichne die Position für: <strong>{placingOption.label || 'Option'}</strong>
-                </p>
-                <button onClick={() => setPlacingOption(null)}
-                  className="mt-2 text-[10px] text-orange-500 hover:text-orange-700 underline">Abbrechen</button>
+        {pdfState === 'loading' && (
+          <div className="flex items-center justify-center py-32 text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin mr-2" /><span className="text-sm">Lade PDF…</span>
+          </div>
+        )}
+
+        {numPages > 0 && (
+          <div className="flex flex-col items-center gap-5">
+            {Array.from({ length: numPages }, (_, i) => (
+              <div key={i} className="relative"
+                style={{
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)',
+                  borderRadius: 6, overflow: 'hidden', lineHeight: 0,
+                }}
+              >
+                <canvas
+                  ref={el => { canvasRefs.current[i] = el }}
+                  style={{ display: 'block' }}
+                />
+
+                {/* Interactive overlay */}
+                <div
+                  ref={el => { overlayRefs.current[i] = el }}
+                  style={{
+                    position: 'absolute', inset: 0,
+                    cursor: drawMode ? 'crosshair' : manipState ? (manipState.type === 'move' ? 'grabbing' : manipState.type + '-resize') : 'default',
+                    userSelect: 'none',
+                  }}
+                  onMouseDown={e => handleMouseDown(e, i)}
+                  onMouseMove={e => handleMouseMove(e, i)}
+                  onMouseUp={e => handleMouseUp(e, i)}
+                  onMouseLeave={e => { if (drawState?.page === i) handleMouseUp(e, i) }}
+                >
+                  {/* Drawing preview */}
+                  {drawState?.page === i && drawPreviewRect(drawState) && (
+                    <div style={{ position: 'absolute', borderRadius: 2, ...drawPreviewRect(drawState) }} />
+                  )}
+
+                  {/* Placed fields */}
+                  {fields.filter(f => f.page === i).map(field => (
+                    <FieldBox
+                      key={field.id}
+                      field={field}
+                      selected={selectedFieldId === field.id}
+                      onClick={(fid) => { if (!drawMode && !manipRef.current) setSelectedFieldId(fid) }}
+                      onDelete={deleteField}
+                      onEdit={openEditDialog}
+                      onMoveStart={!drawMode ? startMove : null}
+                      onResizeStart={!drawMode ? startResize : null}
+                    />
+                  ))}
+                </div>
               </div>
-            )}
+            ))}
+          </div>
+        )}
 
-            {/* Tool selector */}
-            {!placingOption && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Werkzeug</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {FIELD_TYPES.map(t => {
-                    const Icon = t.icon
-                    const active = activeTool === t.key
+        {fields.length > 0 && (
+          <div className="mt-8 bg-white rounded-2xl border border-gray-100 p-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{fields.length} Felder</p>
+            <div className="flex flex-wrap gap-2">
+              {fields.map(f => {
+                const ft = getType(f.type)
+                const Icon = ft.Icon
+                return (
+                  <div key={f.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium" style={{ background: getRole(f.role || 'fkvi').bg, color: getRole(f.role || 'fkvi').color }}>
+                    <Icon className="w-3 h-3" />
+                    {f.label}
+                    {f.required && <span style={{ color: '#ef4444' }}>*</span>}
+                    {f.autoFill && <Zap className="w-2.5 h-2.5" style={{ color: '#f59e0b' }} title={`Auto: ${f.autoFill}`} />}
+                    <span className="opacity-60">({getRole(f.role || 'fkvi').label})</span>
+                    <button onClick={() => openEditDialog(f)} className="ml-1 opacity-50 hover:opacity-100">
+                      <Pencil className="w-2.5 h-2.5" />
+                    </button>
+                    <button onClick={() => deleteField(f.id)} className="opacity-50 hover:opacity-100">
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Label dialog (new field or edit) */}
+      {(pendingField || editingField) && (() => {
+        const dialogField = pendingField || editingField
+        const isEditing = !!editingField
+        const autoFillProps = getAutoFillProps(pendingRole)
+        const canAutoFill = dialogField.type !== 'signature' && autoFillProps !== null
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-[340px] space-y-4" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
+                {(() => { const ft = getType(dialogField.type); const Icon = ft.Icon; return <><div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: ft.bg }}><Icon className="w-4 h-4" style={{ color: ft.color }} /></div><div><p className="font-semibold text-gray-900 text-sm">{ft.label}</p><p className="text-xs text-gray-400">{isEditing ? 'Feld bearbeiten' : 'Feldbezeichnung eingeben'}</p></div></> })()}
+              </div>
+
+              <input
+                ref={labelInputRef}
+                value={pendingLabel}
+                onChange={e => setPendingLabel(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') confirmField(); if (e.key === 'Escape') closeDialog() }}
+                placeholder="z. B. Vorname, Unterschrift..."
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+
+              {/* Field type selector (only for new fields) */}
+              {!isEditing && (
+                <div className="flex gap-2">
+                  {FIELD_TYPES.map(ft => {
+                    const Icon = ft.Icon
                     return (
-                      <button key={t.key}
-                        onClick={() => setActiveTool(active ? null : t.key)}
-                        className={`flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border transition-all ${
-                          active ? `${t.bg} ${t.border} ${t.text}` : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                        }`}
+                      <button
+                        key={ft.value}
+                        onClick={() => setPendingField(f => ({ ...f, type: ft.value }))}
+                        className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-xs font-medium transition-all"
+                        style={dialogField.type === ft.value ? { background: ft.color, color: 'white' } : { background: ft.bg, color: ft.color }}
                       >
-                        <Icon className="h-3.5 w-3.5 shrink-0" />{t.label}
+                        <Icon className="w-4 h-4" />
+                        {ft.label.split(' ')[0]}
                       </button>
                     )
                   })}
                 </div>
-                {activeTool && (
-                  <p className="text-xs text-[#0d9488] mt-2 font-medium">
-                    Auf dem PDF einzeichnen
-                  </p>
-                )}
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Properties */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Eigenschaften</p>
-              <FieldProperties
-                field={selectedField}
-                onChange={updateField}
-                onDelete={deleteField}
-                onDrawOption={(fieldId, optionId, label) => {
-                  setPlacingOption({ fieldId, optionId, label })
-                  setActiveTool(null)
-                }}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Field list */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Felder ({fields.length})
-              </p>
-              {fields.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Noch keine Felder</p>
-              ) : (
-                <ul className="space-y-1">
-                  {fields.map((f, i) => {
-                    const c = cfg(f.type)
-                    const Icon = c.icon
-                    const isSel = selectedFieldId === f.id
-                    return (
-                      <li key={f.id}>
-                        <button
-                          onClick={() => setSelectedFieldId(f.id)}
-                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all text-left ${
-                            isSel ? `${c.bg} ${c.border} border` : 'hover:bg-gray-50 border border-transparent'
-                          }`}
-                        >
-                          <span className="text-gray-400 w-4 text-right shrink-0">{i + 1}</span>
-                          <Icon className={`h-3.5 w-3.5 shrink-0 ${c.text}`} />
-                          <span className="flex-1 truncate text-gray-700">
-                            {f.label || <span className="text-gray-400 italic">{c.label}</span>}
-                          </span>
-                          <span className="text-gray-400 shrink-0">S.{f.page}</span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
               )}
+
+              {/* Role selector */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-gray-500">Auszufüllen von</p>
+                <div className="flex gap-2">
+                  {ROLES.map(rl => (
+                    <button
+                      key={rl.value}
+                      onClick={() => { setPendingRole(rl.value); setPendingAutoFill(null) }}
+                      className="flex-1 py-1.5 rounded-xl text-xs font-medium transition-all"
+                      style={pendingRole === rl.value ? { background: rl.color, color: 'white' } : { background: rl.bg, color: rl.color }}
+                    >
+                      {rl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Required toggle */}
+              {dialogField.type !== 'signature' && (
+                <div className="flex items-center justify-between py-0.5">
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">Pflichtfeld</p>
+                    <p className="text-xs text-gray-400">Muss vom Empfänger ausgefüllt werden</p>
+                  </div>
+                  <button
+                    onClick={() => setPendingRequired(r => !r)}
+                    className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+                    style={{ background: pendingRequired ? '#3b82f6' : '#e5e7eb' }}
+                  >
+                    <span
+                      className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+                      style={{ transform: pendingRequired ? 'translateX(18px)' : 'translateX(2px)' }}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* Auto-fill selector */}
+              {canAutoFill && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="w-3 h-3 text-amber-500" />
+                    <p className="text-xs font-medium text-gray-700">Automatisch vorausfüllen</p>
+                  </div>
+                  <select
+                    value={pendingAutoFill || ''}
+                    onChange={e => setPendingAutoFill(e.target.value || null)}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-700"
+                  >
+                    <option value="">— Kein automatisches Ausfüllen —</option>
+                    {autoFillProps.map(p => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={closeDialog} className="flex-1 py-2 text-sm text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                  Abbrechen
+                </button>
+                <button onClick={confirmField} className="flex-1 py-2 text-sm font-medium text-white rounded-xl transition-colors" style={{ background: getType(dialogField.type).color }}>
+                  {isEditing ? 'Speichern' : 'Hinzufügen'}
+                </button>
+              </div>
             </div>
           </div>
-
-          <div className="p-4 border-t border-gray-200 shrink-0">
-            <Button onClick={handleSave} disabled={saving || isLoading} className="w-full bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Speichern</>}
-            </Button>
-            <p className="text-xs text-gray-400 text-center mt-2">{fields.length} Feld{fields.length !== 1 ? 'er' : ''}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Inline field name popup (Portal) ── */}
-      {fieldPopup && (
-        <FieldNamePopup
-          x={fieldPopup.x}
-          y={fieldPopup.y}
-          isCheckboxGroup={fieldPopup.isCheckboxGroup}
-          label={fields.find(f => f.id === fieldPopup.fieldId)?.label || ''}
-          onChange={val => updateField({ ...fields.find(f => f.id === fieldPopup.fieldId), label: val })}
-          onDone={() => setFieldPopup(null)}
-        />
-      )}
-
-      {/* ── Option name popup (Portal) ── */}
-      {optionPopup && (
-        <OptionNamePopup
-          x={optionPopup.x}
-          y={optionPopup.y}
-          label={optionPopup.label}
-          onChange={val => {
-            setOptionPopup(prev => ({ ...prev, label: val }))
-            setFields(prev => prev.map(f => {
-              if (f.id !== optionPopup.fieldId) return f
-              return { ...f, options: (f.options || []).map(o => o.id === optionPopup.optionId ? { ...o, label: val } : o) }
-            }))
-          }}
-          onDone={() => setOptionPopup(null)}
-        />
-      )}
+        )
+      })()}
     </div>
   )
 }

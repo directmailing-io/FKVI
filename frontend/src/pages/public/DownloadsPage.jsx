@@ -1,167 +1,429 @@
 import { useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CheckCircle2, FileDown, Loader2, ArrowRight, Lock, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, ArrowRight, Loader2, Lock, ShieldCheck, BookOpen, Route, Languages, Briefcase, AlertTriangle } from 'lucide-react'
+
+const LANGUAGES = [
+  { code: 'de', flag: '🇩🇪', nativeLabel: 'Deutsch' },
+  { code: 'en', flag: '🇬🇧', nativeLabel: 'English' },
+  { code: 'fr', flag: '🇫🇷', nativeLabel: 'Français' },
+  { code: 'ar', flag: '🇸🇦', nativeLabel: 'عربي' },
+  { code: 'vi', flag: '🇻🇳', nativeLabel: 'Tiếng Việt' },
+]
+
+const T = {
+  de: {
+    dir: 'ltr',
+    back: '← Zurück zur Startseite',
+    badge: 'Kostenlose Informationsbroschüre',
+    h1a: 'Deine Informationsbroschüre',
+    h1b: 'für den Start in Deutschland',
+    subtitle: 'Alles, was du als Pflegefachkraft aus dem Ausland wissen musst – kompakt, verständlich und in deiner Sprache.',
+    langLabel: 'Wähle deine Sprache',
+    contentLabel: 'Das erwartet dich in der Broschüre',
+    points: [
+      { title: 'Der Vermittlungsprozess', desc: 'Anwerbung, Einreisewege und das Anerkennungsverfahren verständlich erklärt.' },
+      { title: 'Sprache & Qualifikation', desc: 'Welches Sprachniveau du brauchst und wie die Gleichwertigkeit deiner Ausbildung geprüft wird.' },
+      { title: 'Arbeiten in Deutschland', desc: 'Arbeitsvertrag, Tarif, Arbeitszeiten und Mitbestimmung im Betrieb.' },
+      { title: 'Deine Rechte & Pflichten', desc: 'Sozialversicherung, Familiennachzug und neutrale Beratungsstellen.' },
+    ],
+    privacy: 'Deine Daten werden vertraulich behandelt und nicht weitergegeben.',
+    formTitle: 'Jetzt kostenlos anfordern',
+    formSubtitle: (flag, label) => `Du erhältst die Broschüre auf ${flag} ${label} per E-Mail.`,
+    emailNote: 'Hinweis: Unsere Bestätigungs-E-Mails werden auf Deutsch versendet. Falls du kein Deutsch sprichst, empfehlen wir dir, einen Übersetzer hinzuzuziehen.',
+    firstName: 'Vorname',
+    lastName: 'Nachname',
+    phone: 'Telefonnummer',
+    email: 'E-Mail-Adresse',
+    firstNamePh: 'Max',
+    lastNamePh: 'Mustermann',
+    phonePh: '+49 123 456789',
+    emailPh: 'deine@email.de',
+    gdpr: 'Ich stimme der Verarbeitung meiner Daten gemäß der',
+    gdprLink: 'Datenschutzerklärung',
+    gdprSuffix: 'zu.',
+    agreeError: 'Bitte stimme der Datenschutzerklärung zu.',
+    alreadyError: 'Diese E-Mail-Adresse hat bereits Zugang zur Broschüre erhalten. Bitte prüfe dein Postfach.',
+    genericError: 'Bitte versuche es erneut.',
+    btnSending: 'Wird gesendet...',
+    btnRequest: 'Broschüre anfordern',
+    trust: 'Double-Opt-in · DSGVO-konform · Kostenlos',
+    successTitle: 'Fast geschafft!',
+    successText: (email) => `Wir haben dir eine Bestätigungs-E-Mail an ${email} geschickt. Klicke auf den Link in der E-Mail, um deine Broschüre zu öffnen.`,
+    noEmail: 'Keine E-Mail erhalten? Prüfe deinen Spam-Ordner.',
+  },
+  en: {
+    dir: 'ltr',
+    back: '← Back to homepage',
+    badge: 'Free information brochure',
+    h1a: 'Your information brochure',
+    h1b: 'for starting in Germany',
+    subtitle: 'Everything you need to know as a nursing professional from abroad – compact, clear, and in your language.',
+    langLabel: 'Choose your language',
+    contentLabel: "What's inside the brochure",
+    points: [
+      { title: 'The placement process', desc: 'Recruitment, entry routes, and the recognition procedure explained clearly.' },
+      { title: 'Language & qualifications', desc: 'What language level you need and how the equivalence of your training is assessed.' },
+      { title: 'Working in Germany', desc: 'Employment contract, pay scales, working hours, and co-determination at the workplace.' },
+      { title: 'Your rights & duties', desc: 'Social insurance, family reunification, and neutral advisory services.' },
+    ],
+    privacy: 'Your data is treated confidentially and not passed on to third parties.',
+    formTitle: 'Request for free now',
+    formSubtitle: (flag, label) => `You will receive the brochure in ${flag} ${label} by email.`,
+    emailNote: 'Please note: Our confirmation emails are sent in German. If you do not speak German, we recommend using a translator.',
+    firstName: 'First name',
+    lastName: 'Last name',
+    phone: 'Phone number',
+    email: 'Email address',
+    firstNamePh: 'Max',
+    lastNamePh: 'Mustermann',
+    phonePh: '+49 123 456789',
+    emailPh: 'your@email.com',
+    gdpr: 'I agree to the processing of my data in accordance with the',
+    gdprLink: 'Privacy Policy',
+    gdprSuffix: '.',
+    agreeError: 'Please agree to the privacy policy.',
+    alreadyError: 'This email address already has access to the brochure. Please check your inbox.',
+    genericError: 'Please try again.',
+    btnSending: 'Sending...',
+    btnRequest: 'Request brochure',
+    trust: 'Double opt-in · GDPR compliant · Free',
+    successTitle: 'Almost there!',
+    successText: (email) => `We sent a confirmation email to ${email}. Click the link in the email to open your brochure.`,
+    noEmail: 'No email received? Check your spam folder.',
+  },
+  fr: {
+    dir: 'ltr',
+    back: '← Retour à la page d\'accueil',
+    badge: 'Brochure d\'information gratuite',
+    h1a: 'Votre brochure d\'information',
+    h1b: 'pour commencer en Allemagne',
+    subtitle: 'Tout ce que vous devez savoir en tant que professionnel·le de santé venu·e de l\'étranger – concis, clair et dans votre langue.',
+    langLabel: 'Choisissez votre langue',
+    contentLabel: 'Ce que contient la brochure',
+    points: [
+      { title: 'Le processus de placement', desc: 'Recrutement, voies d\'entrée et procédure de reconnaissance expliqués clairement.' },
+      { title: 'Langue & qualifications', desc: 'Le niveau de langue requis et comment l\'équivalence de votre formation est évaluée.' },
+      { title: 'Travailler en Allemagne', desc: 'Contrat de travail, conventions collectives, temps de travail et cogestion en entreprise.' },
+      { title: 'Vos droits & obligations', desc: 'Assurance sociale, regroupement familial et services de conseil neutres.' },
+    ],
+    privacy: 'Vos données sont traitées de manière confidentielle et ne sont pas transmises à des tiers.',
+    formTitle: 'Demandez gratuitement maintenant',
+    formSubtitle: (flag, label) => `Vous recevrez la brochure en ${flag} ${label} par e-mail.`,
+    emailNote: 'Remarque : Nos e-mails de confirmation sont envoyés en allemand. Si vous ne parlez pas allemand, nous vous recommandons de faire appel à un traducteur.',
+    firstName: 'Prénom',
+    lastName: 'Nom',
+    phone: 'Numéro de téléphone',
+    email: 'Adresse e-mail',
+    firstNamePh: 'Marie',
+    lastNamePh: 'Dupont',
+    phonePh: '+49 123 456789',
+    emailPh: 'votre@email.fr',
+    gdpr: 'J\'accepte le traitement de mes données conformément à la',
+    gdprLink: 'Politique de confidentialité',
+    gdprSuffix: '.',
+    agreeError: 'Veuillez accepter la politique de confidentialité.',
+    alreadyError: 'Cette adresse e-mail a déjà accès à la brochure. Veuillez vérifier votre boîte de réception.',
+    genericError: 'Veuillez réessayer.',
+    btnSending: 'Envoi en cours...',
+    btnRequest: 'Demander la brochure',
+    trust: 'Double opt-in · Conforme RGPD · Gratuit',
+    successTitle: 'Presque terminé\u00a0!',
+    successText: (email) => `Nous vous avons envoyé un e-mail de confirmation à ${email}. Cliquez sur le lien dans l'e-mail pour ouvrir votre brochure.`,
+    noEmail: 'Vous n\'avez pas reçu d\'e-mail\u00a0? Vérifiez votre dossier spam.',
+  },
+  ar: {
+    dir: 'rtl',
+    back: 'العودة إلى الصفحة الرئيسية →',
+    badge: 'كتيب معلومات مجاني',
+    h1a: 'كتيبك المعلوماتي',
+    h1b: 'للبدء في ألمانيا',
+    subtitle: 'كل ما تحتاج معرفته كممرض/ة متخصص/ة قادم/ة من الخارج – موجز وواضح وبلغتك.',
+    langLabel: 'اختر لغتك',
+    contentLabel: 'ما يتضمنه الكتيب',
+    points: [
+      { title: 'عملية التوظيف والتأهيل', desc: 'التوظيف وطرق الدخول وإجراءات الاعتراف بالمؤهلات موضحة بشكل واضح ومبسط.' },
+      { title: 'اللغة والمؤهلات', desc: 'المستوى اللغوي المطلوب وكيفية تقييم مدى معادلة مؤهلاتك التعليمية.' },
+      { title: 'العمل في ألمانيا', desc: 'عقد العمل والأجور وساعات العمل والمشاركة في قرارات المؤسسة.' },
+      { title: 'حقوقك وواجباتك', desc: 'التأمين الاجتماعي ولمّ شمل الأسرة والجهات الاستشارية المحايدة.' },
+    ],
+    privacy: 'تُعامَل بياناتك بسرية تامة ولا تُشارك مع أطراف ثالثة.',
+    formTitle: 'اطلب مجاناً الآن',
+    formSubtitle: (flag, label) => `ستتلقى الكتيب باللغة ${flag} ${label} عبر البريد الإلكتروني.`,
+    emailNote: 'ملاحظة: يتم إرسال رسائل التأكيد باللغة الألمانية. إذا كنت لا تتحدث الألمانية، نوصيك باستخدام مترجم.',
+    firstName: 'الاسم الأول',
+    lastName: 'اسم العائلة',
+    phone: 'رقم الهاتف',
+    email: 'البريد الإلكتروني',
+    firstNamePh: 'محمد',
+    lastNamePh: 'العمري',
+    phonePh: '+49 123 456789',
+    emailPh: 'بريدك@email.com',
+    gdpr: 'أوافق على معالجة بياناتي وفقاً لـ',
+    gdprLink: 'سياسة الخصوصية',
+    gdprSuffix: '.',
+    agreeError: 'يرجى الموافقة على سياسة الخصوصية.',
+    alreadyError: 'هذا البريد الإلكتروني لديه بالفعل صلاحية الوصول إلى الكتيب. يرجى مراجعة صندوق الوارد.',
+    genericError: 'يرجى المحاولة مرة أخرى.',
+    btnSending: 'جارٍ الإرسال...',
+    btnRequest: 'اطلب الكتيب',
+    trust: 'موافقة مزدوجة · متوافق مع GDPR · مجاني',
+    successTitle: '!اكتمل تقريباً',
+    successText: (email) => `أرسلنا إليك رسالة تأكيد على ${email}. انقر على الرابط في البريد الإلكتروني لفتح كتيبك.`,
+    noEmail: 'لم تتلقَّ بريداً إلكترونياً؟ تحقق من مجلد البريد غير المرغوب فيه.',
+  },
+  vi: {
+    dir: 'ltr',
+    back: '← Quay lại trang chủ',
+    badge: 'Tài liệu thông tin miễn phí',
+    h1a: 'Tài liệu thông tin của bạn',
+    h1b: 'để bắt đầu tại Đức',
+    subtitle: 'Tất cả những gì bạn cần biết với tư cách là chuyên gia điều dưỡng từ nước ngoài – súc tích, rõ ràng và bằng ngôn ngữ của bạn.',
+    langLabel: 'Chọn ngôn ngữ của bạn',
+    contentLabel: 'Nội dung tài liệu',
+    points: [
+      { title: 'Quy trình tuyển dụng', desc: 'Tuyển dụng, con đường nhập cảnh và thủ tục công nhận bằng cấp được giải thích rõ ràng.' },
+      { title: 'Ngôn ngữ & bằng cấp', desc: 'Trình độ ngôn ngữ bạn cần và cách đánh giá tương đương bằng cấp đào tạo của bạn.' },
+      { title: 'Làm việc tại Đức', desc: 'Hợp đồng lao động, thang lương, giờ làm việc và quyền tham gia quản lý nơi làm việc.' },
+      { title: 'Quyền & nghĩa vụ của bạn', desc: 'Bảo hiểm xã hội, đoàn tụ gia đình và các dịch vụ tư vấn trung lập.' },
+    ],
+    privacy: 'Dữ liệu của bạn được bảo mật và không được chia sẻ với bên thứ ba.',
+    formTitle: 'Yêu cầu miễn phí ngay bây giờ',
+    formSubtitle: (flag, label) => `Bạn sẽ nhận được tài liệu bằng ${flag} ${label} qua email.`,
+    emailNote: 'Lưu ý: Email xác nhận của chúng tôi được gửi bằng tiếng Đức. Nếu bạn không nói được tiếng Đức, chúng tôi khuyên bạn nên nhờ người phiên dịch hỗ trợ.',
+    firstName: 'Tên',
+    lastName: 'Họ',
+    phone: 'Số điện thoại',
+    email: 'Địa chỉ email',
+    firstNamePh: 'Nguyễn',
+    lastNamePh: 'Văn A',
+    phonePh: '+49 123 456789',
+    emailPh: 'email@cua-ban.com',
+    gdpr: 'Tôi đồng ý với việc xử lý dữ liệu của mình theo',
+    gdprLink: 'Chính sách bảo mật',
+    gdprSuffix: '.',
+    agreeError: 'Vui lòng đồng ý với chính sách bảo mật.',
+    alreadyError: 'Địa chỉ email này đã có quyền truy cập tài liệu. Vui lòng kiểm tra hộp thư đến.',
+    genericError: 'Vui lòng thử lại.',
+    btnSending: 'Đang gửi...',
+    btnRequest: 'Yêu cầu tài liệu',
+    trust: 'Xác nhận kép · Tuân thủ GDPR · Miễn phí',
+    successTitle: 'Gần xong rồi!',
+    successText: (email) => `Chúng tôi đã gửi email xác nhận đến ${email}. Nhấp vào liên kết trong email để mở tài liệu của bạn.`,
+    noEmail: 'Không nhận được email? Kiểm tra thư mục spam.',
+  },
+}
+
+const POINT_ICONS = [
+  { Icon: Route,       color: 'text-teal-600',   bg: 'bg-teal-50'   },  // Vermittlungsprozess
+  { Icon: Languages,   color: 'text-blue-600',   bg: 'bg-blue-50'   },  // Sprache & Qualifikation
+  { Icon: Briefcase,   color: 'text-indigo-600', bg: 'bg-indigo-50' },  // Arbeiten in Deutschland
+  { Icon: ShieldCheck, color: 'text-purple-600', bg: 'bg-purple-50' },  // Rechte & Pflichten
+]
 
 export default function DownloadsPage() {
-  const [form, setForm] = useState({ first_name: '', last_name: '', company_name: '', phone: '', email: '' })
+  const [language, setLanguage] = useState('de')
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '' })
   const [agreed, setAgreed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
 
+  const t = T[language] || T.de
+  const currentLang = LANGUAGES.find(l => l.code === language)
+
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+
+  const handleLangSwitch = code => {
+    setLanguage(code)
+    setError('')
+  }
 
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
-    if (!agreed) { setError('Bitte stimmen Sie der Datenschutzerklärung zu.'); return }
+    if (!agreed) { setError(t.agreeError); return }
     setLoading(true)
     try {
       const res = await fetch('/api/brochure/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, language }),
       })
       const data = await res.json()
       if (!res.ok) {
         if (data.error === 'already_confirmed') {
-          setError('Diese E-Mail-Adresse hat bereits Zugang zur Broschüre erhalten. Bitte prüfen Sie Ihr Postfach.')
+          setError(t.alreadyError)
           return
         }
-        throw new Error(data.error || 'Unbekannter Fehler')
+        throw new Error(data.error || t.genericError)
       }
       setSubmitted(true)
     } catch (err) {
-      setError(err.message || 'Bitte versuchen Sie es erneut.')
+      setError(err.message || t.genericError)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#f8fafc]" dir={t.dir}>
+      <Helmet>
+        <title>Kostenlose Informationsbroschüre für Pflegefachkräfte | FKVI</title>
+        <meta name="description" content="Kostenlose Informationsbroschüre für Pflegefachkräfte aus dem Ausland. Alles über Ihren Weg nach Deutschland – Vermittlungsprozess, Unterkunft, Begleitung – in Deutsch, Englisch, Französisch, Arabisch & Vietnamesisch." />
+        <link rel="canonical" href="https://fkvi-plattform.de/downloads" />
+        <meta property="og:title" content="Kostenlose Informationsbroschüre für Pflegefachkräfte | FKVI" />
+        <meta property="og:description" content="Alles, was Pflegefachkräfte aus dem Ausland für ihren Start in Deutschland wissen müssen – kompakt und mehrsprachig." />
+        <meta property="og:url" content="https://fkvi-plattform.de/downloads" />
+        <meta name="robots" content="index, follow" />
+      </Helmet>
       {/* Header */}
-      <header className="border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
-          <Link to="/" className="overflow-hidden flex items-center" style={{ height: 72 }}>
-            <img src="/logo.svg" alt="FKVI" style={{ height: 192, marginTop: -56, mixBlendMode: 'multiply' }} />
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <Link to="/">
+            <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-[52px] w-auto" />
           </Link>
-          <div className="flex items-center gap-3">
-            <Link to="/matching/login">
-              <Button variant="outline" size="sm">Unternehmens-Login</Button>
-            </Link>
-          </div>
+          <Link to="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+            {t.back}
+          </Link>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-16">
-        <div className="grid lg:grid-cols-2 gap-16 items-start">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-12 lg:py-16">
+        <div className="grid lg:grid-cols-5 gap-10 items-start">
 
           {/* Left: Info */}
-          <div>
-            <div className="inline-flex items-center gap-2 bg-fkvi-blue/8 text-fkvi-blue text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-              <FileDown className="h-3.5 w-3.5" />
-              Kostenloser Download
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-4">
-              FKVI Broschüre &amp;<br />
-              <span className="text-fkvi-blue">Informationsmappe</span>
-            </h1>
-            <p className="text-gray-500 text-lg leading-relaxed mb-8">
-              Erfahren Sie alles über unseren Vermittlungsprozess, Qualitätsstandards und wie wir deutsche
-              Unternehmen mit qualifizierten Fachkräften aus dem Ausland verbinden.
-            </p>
+          <div className="lg:col-span-3 lg:sticky lg:top-28 space-y-8">
 
-            <div className="space-y-4">
-              {[
-                { icon: '📋', label: 'Vermittlungsprozess im Detail', desc: 'Schritt-für-Schritt erklärt' },
-                { icon: '✅', label: 'Qualitätssicherung & Prüfverfahren', desc: 'Unsere Standards auf einen Blick' },
-                { icon: '📊', label: 'Kosten & Konditionen', desc: 'Transparente Preisgestaltung' },
-                { icon: '🤝', label: 'Vermittlungsvertrag', desc: 'Rechtliche Grundlagen' },
-              ].map(item => (
-                <div key={item.label} className="flex items-start gap-3">
-                  <span className="text-xl mt-0.5">{item.icon}</span>
-                  <div>
-                    <p className="font-semibold text-gray-800 text-sm">{item.label}</p>
-                    <p className="text-gray-400 text-xs">{item.desc}</p>
+            <div>
+              <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-200 mb-4">
+                <BookOpen className="h-3.5 w-3.5" />
+                {t.badge}
+              </span>
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-3">
+                {t.h1a}<br />
+                <span className="text-teal-600">{t.h1b}</span>
+              </h1>
+              <p className="text-gray-500 leading-relaxed">{t.subtitle}</p>
+            </div>
+
+            {/* Language selector */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t.langLabel}</p>
+              <div className="flex flex-wrap gap-2">
+                {LANGUAGES.map(lang => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLangSwitch(lang.code)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition-all ${
+                      language === lang.code
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-teal-300 hover:bg-teal-50/50'
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{lang.flag}</span>
+                    <span>{lang.nativeLabel}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Content points */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4"
+              style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t.contentLabel}</p>
+              {t.points.map((point, i) => {
+                const { Icon, color, bg } = POINT_ICONS[i]
+                return (
+                  <div key={i} className="flex gap-3">
+                    <div className={`w-8 h-8 rounded-lg ${bg} flex items-center justify-center shrink-0 mt-0.5`}>
+                      <Icon className={`h-4 w-4 ${color}`} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm mb-0.5">{point.title}</p>
+                      <p className="text-gray-400 text-xs leading-relaxed">{point.desc}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
-            <div className="mt-8 flex items-center gap-2 text-xs text-gray-400">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
               <Lock className="h-3.5 w-3.5 shrink-0" />
-              Ihre Daten werden vertraulich behandelt und nicht an Dritte weitergegeben.
+              {t.privacy}
             </div>
           </div>
 
-          {/* Right: Form or Success */}
-          <div>
+          {/* Right: Form */}
+          <div className="lg:col-span-2">
             {submitted ? (
               <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-8 w-8 text-green-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Fast geschafft!</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">{t.successTitle}</h2>
                 <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                  Wir haben Ihnen eine Bestätigungs-E-Mail an <strong>{form.email}</strong> gesendet.
-                  Bitte klicken Sie auf den Link in der E-Mail, um Ihre Adresse zu bestätigen und
-                  sofort Zugang zur Broschüre zu erhalten.
+                  {t.successText(form.email)}
                 </p>
-                <p className="text-xs text-gray-400">
-                  Keine E-Mail erhalten? Prüfen Sie Ihren Spam-Ordner.
-                </p>
+                <p className="text-xs text-gray-400">{t.noEmail}</p>
               </div>
             ) : (
-              <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Jetzt kostenlos herunterladen</h2>
-                <p className="text-sm text-gray-400 mb-6">Nach Bestätigung Ihrer E-Mail erhalten Sie sofort Zugang.</p>
+              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                <h2 className="text-base font-bold text-gray-900 mb-1">{t.formTitle}</h2>
+                <p className="text-xs text-gray-400 mb-4">
+                  {t.formSubtitle(currentLang?.flag, currentLang?.nativeLabel)}
+                </p>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Email-in-German notice — hidden for DE */}
+                {language !== 'de' && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-4">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 leading-relaxed">{t.emailNote}</p>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-3.5">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="first_name" className="text-xs text-gray-600 mb-1.5 block">Vorname *</Label>
-                      <Input id="first_name" name="first_name" value={form.first_name} onChange={handleChange} required placeholder="Max" />
+                      <Label htmlFor="first_name" className="text-xs text-gray-600 mb-1.5 block">{t.firstName} *</Label>
+                      <Input id="first_name" name="first_name" value={form.first_name} onChange={handleChange} required placeholder={t.firstNamePh} />
                     </div>
                     <div>
-                      <Label htmlFor="last_name" className="text-xs text-gray-600 mb-1.5 block">Nachname *</Label>
-                      <Input id="last_name" name="last_name" value={form.last_name} onChange={handleChange} required placeholder="Mustermann" />
+                      <Label htmlFor="last_name" className="text-xs text-gray-600 mb-1.5 block">{t.lastName} *</Label>
+                      <Input id="last_name" name="last_name" value={form.last_name} onChange={handleChange} required placeholder={t.lastNamePh} />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="company_name" className="text-xs text-gray-600 mb-1.5 block">Unternehmen <span className="text-gray-400">(optional)</span></Label>
-                    <Input id="company_name" name="company_name" value={form.company_name} onChange={handleChange} placeholder="Muster GmbH" />
+                    <Label htmlFor="phone" className="text-xs text-gray-600 mb-1.5 block">{t.phone} *</Label>
+                    <Input id="phone" name="phone" type="tel" value={form.phone} onChange={handleChange} required placeholder={t.phonePh} />
                   </div>
 
                   <div>
-                    <Label htmlFor="phone" className="text-xs text-gray-600 mb-1.5 block">Telefonnummer *</Label>
-                    <Input id="phone" name="phone" type="tel" value={form.phone} onChange={handleChange} required placeholder="+49 123 456789" />
+                    <Label htmlFor="email" className="text-xs text-gray-600 mb-1.5 block">{t.email} *</Label>
+                    <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} required placeholder={t.emailPh} />
                   </div>
 
-                  <div>
-                    <Label htmlFor="email" className="text-xs text-gray-600 mb-1.5 block">E-Mail-Adresse *</Label>
-                    <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} required placeholder="max@muster.de" />
-                  </div>
-
-                  {/* DSGVO */}
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <div
                       onClick={() => setAgreed(a => !a)}
                       className={`mt-0.5 w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
-                        agreed ? 'bg-fkvi-blue border-fkvi-blue' : 'border-gray-300 group-hover:border-fkvi-blue/50'
+                        agreed ? 'bg-teal-600 border-teal-600' : 'border-gray-300 group-hover:border-teal-400'
                       }`}
                     >
-                      {agreed && <CheckCircle2 className="h-3 w-3 text-white" />}
+                      {agreed && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
                     </div>
                     <span className="text-xs text-gray-500 leading-relaxed">
-                      Ich stimme der Verarbeitung meiner Daten gemäß der{' '}
-                      <a href="#" className="text-fkvi-blue underline">Datenschutzerklärung</a> zu.
-                      Meine Daten werden ausschließlich zur Bereitstellung der Broschüre und
-                      ggf. zur Kontaktaufnahme durch FKVI verwendet.
+                      {t.gdpr}{' '}
+                      <Link to="/datenschutzerklaerung" className="text-teal-600 underline" target="_blank">{t.gdprLink}</Link>
+                      {' '}{t.gdprSuffix}
                     </span>
                   </label>
 
@@ -169,18 +431,18 @@ export default function DownloadsPage() {
                     <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
                   )}
 
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={loading}>
                     {loading ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird gesendet...</>
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.btnSending}</>
                     ) : (
-                      <>Broschüre anfordern <ArrowRight className="h-4 w-4 ml-2" /></>
+                      <>{t.btnRequest} <ArrowRight className="h-4 w-4 ml-2" /></>
                     )}
                   </Button>
                 </form>
 
                 <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  Double-Opt-in · DSGVO-konform · Kostenlos
+                  {t.trust}
                 </div>
               </div>
             )}
@@ -188,6 +450,14 @@ export default function DownloadsPage() {
 
         </div>
       </main>
+
+      <footer className="border-t border-gray-100 py-8 px-4 sm:px-6 text-center text-xs text-gray-400 mt-12">
+        <span>© 2026 Fachkraft Vermittlung International GmbH &amp; Co. KG</span>
+        <span className="mx-3">·</span>
+        <Link to="/impressum" className="hover:text-gray-600 transition-colors">Impressum</Link>
+        <span className="mx-3">·</span>
+        <Link to="/datenschutzerklaerung" className="hover:text-gray-600 transition-colors">Datenschutzerklärung</Link>
+      </footer>
     </div>
   )
 }

@@ -61,6 +61,9 @@ export const useAuthStore = create((set, get) => ({
   signIn: async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+    // Eagerly sync store so callers can immediately read isAdmin/companyId after await.
+    // onAuthStateChange will fire too, but takes the fast path (same user) without a DB query.
+    await get().setSession(data.session)
     return data
   },
 

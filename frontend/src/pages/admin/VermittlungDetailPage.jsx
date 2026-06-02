@@ -1,20 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PROCESS_STATUS_LABELS, formatDateTime } from '@/lib/utils'
+import { PROCESS_STATUS_LABELS, formatDateTime, cn } from '@/lib/utils'
+import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 import {
   ArrowLeft, User, Building2, Mail, Phone, CheckCircle2,
   Circle, Loader2, AlertTriangle, Send, Clock, ChevronRight,
-  ExternalLink
+  ExternalLink, FileText, Upload, X, MailX, MailCheck, FolderOpen,
+  ClipboardList, Save, Link2,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
-// Steps that trigger an automatic email to the company
+// Steps that trigger an AUTOMATIC email via update-reservation (no dialog)
+// Step 4 is handled separately via ZusageDialog → create-link API
 const EMAIL_TRIGGER_STEPS = new Set([2, 8, 9])
 
 // ─── Step dot ─────────────────────────────────────────────────────────────────
@@ -89,6 +96,390 @@ function HistoryEntry({ entry }) {
   )
 }
 
+// ─── Zusage Dialog (Step 4) ───────────────────────────────────────────────────
+const ZUSAGE_TABS = [
+  { key: 'profile', label: 'Fachkraft-Dokumente', Icon: User },
+  { key: 'templates', label: 'Vorlagen',           Icon: FolderOpen },
+  { key: 'upload',   label: 'Dateien hochladen',   Icon: Upload },
+]
+
+function ZusageDialog({ open, onClose, reservation, session, onConfirm }) {
+  // Email toggle
+  const [sendEmail, setSendEmail] = useState(true)
+  // Doc sources
+  const [docTab,      setDocTab]      = useState('profile')
+  const [profileDocs, setProfileDocs] = useState([])
+  const [templates,   setTemplates]   = useState([])
+  const [uploadFiles, setUploadFiles] = useState([]) // [{ file, name, uploading, url, error }]
+  // Selected docs (unified): [{ title, doc_type, link }]
+  const [selectedDocs, setSelectedDocs] = useState([])
+  const [expiresInDays, setExpiresInDays] = useState('30')
+  const [loadingProfile, setLoadingProfile]     = useState(false)
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [sending, setSending] = useState(false)
+  const fileInputRef = useRef(null)
+
+  // Reset when dialog opens
+  useEffect(() => {
+    if (!open) return
+    setSendEmail(true)
+    setDocTab('profile')
+    setSelectedDocs([])
+    setUploadFiles([])
+    setExpiresInDays('30')
+    loadProfileDocs()
+  }, [open, reservation?.profile_id])
+
+  const loadProfileDocs = async () => {
+    if (!reservation?.profile_id) return
+    setLoadingProfile(true)
+    const { data } = await supabase
+      .from('profile_documents')
+      .select('*')
+      .eq('profile_id', reservation.profile_id)
+      .eq('is_internal', false)
+      .order('sort_order', { ascending: true })
+    setProfileDocs(data || [])
+    setLoadingProfile(false)
+  }
+
+  const loadTemplates = async () => {
+    if (templates.length > 0) return // already loaded
+    setLoadingTemplates(true)
+    try {
+      const res = await fetch('/api/admin/company-docs/list-templates', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      })
+      const data = await res.json()
+      setTemplates(data.templates || [])
+    } catch {
+      toast({ title: 'Fehler', description: 'Vorlagen konnten nicht geladen werden.', variant: 'destructive' })
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
+
+  const handleTabChange = (tab) => {
+    setDocTab(tab)
+    if (tab === 'templates') loadTemplates()
+  }
+
+  // Toggle a doc in/out of selectedDocs (by title as key)
+  const toggleDoc = (doc) => {
+    setSelectedDocs(prev => {
+      const exists = prev.some(d => d.title === doc.title && d.link === doc.link)
+      return exists ? prev.filter(d => !(d.title === doc.title && d.link === doc.link)) : [...prev, doc]
+    })
+  }
+  const isSelected = (doc) => selectedDocs.some(d => d.title === doc.title && d.link === doc.link)
+
+  // File upload handling
+  const handleFilesPicked = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    // Add files and immediately start uploading each
+    files.forEach(f => uploadFileDirect(f))
+    e.target.value = ''
+  }
+
+  const uploadFileDirect = async (file) => {
+    const key = `${Date.now()}-${file.name}`
+    // Add as uploading immediately
+    setUploadFiles(prev => [...prev, { key, file, name: file.name, uploading: true, url: null, error: null }])
+    try {
+      // 1. Get presigned upload URL
+      const prepRes = await fetch('/api/admin/company-docs/prepare-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ filename: file.name }),
+      })
+      const prepData = await prepRes.json()
+      if (!prepRes.ok) throw new Error(prepData.error || 'Upload-Vorbereitung fehlgeschlagen')
+
+      // 2. Upload file directly to Supabase storage via presigned URL
+      const uploadRes = await fetch(prepData.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      })
+      if (!uploadRes.ok) throw new Error('Datei-Upload fehlgeschlagen')
+
+      // 3. Resolve download URL now that file exists in storage
+      const resolveRes = await fetch('/api/admin/company-docs/resolve-upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ storagePath: prepData.storagePath }),
+      })
+      const resolveData = await resolveRes.json()
+      if (!resolveRes.ok) throw new Error(resolveData.error || 'Download-URL konnte nicht erstellt werden')
+
+      const downloadUrl = resolveData.downloadUrl
+
+      setUploadFiles(prev => prev.map(f => f.key === key ? { ...f, uploading: false, url: downloadUrl } : f))
+      setSelectedDocs(prev => {
+        const doc = { title: file.name, doc_type: 'Hochgeladen', link: downloadUrl }
+        return prev.some(d => d.link === downloadUrl) ? prev : [...prev, doc]
+      })
+    } catch (err) {
+      setUploadFiles(prev => prev.map(f => f.key === key ? { ...f, uploading: false, error: err.message } : f))
+    }
+  }
+
+  // Legacy: manual upload by index (kept for the "Hochladen" retry button)
+  const uploadFile = (idx) => {
+    const item = uploadFiles[idx]
+    if (item?.file && !item.uploading && !item.url) uploadFileDirect(item.file)
+  }
+
+  const removeUploadFile = (key) => {
+    const item = uploadFiles.find(f => f.key === key)
+    if (item?.url) setSelectedDocs(prev => prev.filter(d => d.link !== item.url))
+    setUploadFiles(prev => prev.filter(f => f.key !== key))
+  }
+
+  const handleSkip = () => { onClose(); onConfirm({ emailSent: false }) }
+
+  const handleSend = async () => {
+    setSending(true)
+    try {
+      const c = reservation.companies
+      if (!c?.email) throw new Error('Kein E-Mail für dieses Unternehmen hinterlegt')
+      const res = await fetch('/api/admin/company-docs/create-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          reservationId: reservation.id,
+          profileId: reservation.profile_id,
+          companyEmail: c.email,
+          companyName: c.company_name,
+          documents: selectedDocs,
+          expiresInDays: parseInt(expiresInDays, 10),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Senden')
+      onClose()
+      onConfirm({ emailSent: true })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const c = reservation?.companies
+  const pendingUploads = uploadFiles.filter(f => !f.url && !f.error).length
+
+  return (
+    <Dialog open={open} onOpenChange={open => { if (!open && !sending) onClose() }}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Zusage erteilen – Schritt 4</DialogTitle>
+          <DialogDescription>
+            Empfänger: <strong>{c?.company_name || 'Unternehmen'}</strong>
+            {c?.email && <span className="text-gray-400"> · {c.email}</span>}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* ── E-Mail Toggle ── */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+            <button
+              onClick={() => setSendEmail(false)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                !sendEmail ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MailX className="h-4 w-4" />
+              Keine E-Mail
+            </button>
+            <button
+              onClick={() => setSendEmail(true)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
+                sendEmail ? 'bg-white shadow-sm text-[#1a3a5c]' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MailCheck className="h-4 w-4" />
+              E-Mail senden
+            </button>
+          </div>
+
+          {/* ── Email options ── */}
+          {sendEmail && (
+            <div className="space-y-3">
+              {/* Source tabs */}
+              <div className="flex border-b border-gray-200">
+                {ZUSAGE_TABS.map(({ key, label, Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleTabChange(key)}
+                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px ${
+                      docTab === key
+                        ? 'border-[#1a3a5c] text-[#1a3a5c]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab: Fachkraft-Dokumente */}
+              {docTab === 'profile' && (
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {loadingProfile ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  ) : profileDocs.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-4 text-center">Keine öffentlichen Dokumente für diese Fachkraft.</p>
+                  ) : profileDocs.map(doc => {
+                    const docObj = { title: doc.title, doc_type: doc.doc_type || '', link: doc.link || '' }
+                    const on = isSelected(docObj)
+                    return (
+                      <label key={doc.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${on ? 'border-[#1a3a5c] bg-[#1a3a5c]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={on} onChange={() => toggleDoc(docObj)} className="h-4 w-4 rounded border-gray-300 accent-[#1a3a5c]" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{doc.title}</p>
+                          {doc.doc_type && <p className="text-xs text-gray-400">{doc.doc_type}</p>}
+                        </div>
+                        <FileText className="h-4 w-4 text-gray-300 shrink-0" />
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Tab: Vorlagen */}
+              {docTab === 'templates' && (
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {loadingTemplates ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    </div>
+                  ) : templates.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-4 text-center">Keine Vorlagen verfügbar.</p>
+                  ) : templates.map(t => {
+                    const docObj = { title: t.name, doc_type: 'Vorlage', link: t.url }
+                    const on = isSelected(docObj)
+                    return (
+                      <label key={t.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${on ? 'border-[#1a3a5c] bg-[#1a3a5c]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={on} onChange={() => toggleDoc(docObj)} className="h-4 w-4 rounded border-gray-300 accent-[#1a3a5c]" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                          {t.label && <p className="text-xs text-gray-400 capitalize">{t.label}</p>}
+                        </div>
+                        <FileText className="h-4 w-4 text-gray-300 shrink-0" />
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Tab: Dateien hochladen */}
+              {docTab === 'upload' && (
+                <div className="space-y-2">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault()
+                      const files = Array.from(e.dataTransfer.files || [])
+                      files.forEach(f => uploadFileDirect(f))
+                    }}
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center cursor-pointer hover:border-[#1a3a5c]/40 hover:bg-gray-50 transition-colors"
+                  >
+                    <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Klicken oder Dateien hierher ziehen</p>
+                    <p className="text-xs text-gray-400 mt-1">PDF, Word, Bilder – mehrere Dateien möglich</p>
+                  </div>
+                  <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilesPicked} />
+
+                  {uploadFiles.length > 0 && (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {uploadFiles.map((f) => (
+                        <div key={f.key} className={`flex items-center gap-2 p-2 rounded-lg border text-sm ${f.url ? 'border-green-200 bg-green-50' : f.error ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-gray-50'}`}>
+                          <FileText className={`h-4 w-4 shrink-0 ${f.url ? 'text-green-500' : f.error ? 'text-red-400' : 'text-gray-400'}`} />
+                          <span className="flex-1 truncate text-gray-700">{f.name}</span>
+                          {f.url && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+                          {f.error && (
+                            <button onClick={() => uploadFileDirect(f.file)} className="text-xs text-[#1a3a5c] font-medium hover:underline shrink-0">
+                              Nochmal
+                            </button>
+                          )}
+                          {f.uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 shrink-0" />}
+                          {!f.uploading && (
+                            <button onClick={() => removeUploadFile(f.key)} className="text-gray-300 hover:text-gray-500 shrink-0">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Selected docs summary */}
+              {selectedDocs.length > 0 && (
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 mb-2">{selectedDocs.length} Dokument{selectedDocs.length > 1 ? 'e' : ''} ausgewählt:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedDocs.map((d, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 text-xs bg-[#1a3a5c]/8 text-[#1a3a5c] border border-[#1a3a5c]/20 rounded-full px-2 py-0.5">
+                        {d.title}
+                        <button onClick={() => setSelectedDocs(prev => prev.filter((_, j) => j !== i))} className="opacity-60 hover:opacity-100">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Link expiry */}
+              <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+                <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Link gültig für</label>
+                <select
+                  value={expiresInDays}
+                  onChange={e => setExpiresInDays(e.target.value)}
+                  className="h-8 text-sm border border-gray-200 rounded-md px-2 bg-white focus:outline-none focus:ring-1 focus:ring-[#1a3a5c]"
+                >
+                  {[7, 14, 30, 90].map(d => <option key={d} value={d}>{d} Tage</option>)}
+                </select>
+                <span className="text-xs text-gray-400">(Dokumente-Zugangslink)</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={sending} className="mr-auto">
+            Abbrechen
+          </Button>
+          {sendEmail ? (
+            <Button
+              onClick={handleSend}
+              disabled={sending || pendingUploads > 0}
+              className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90"
+            >
+              {sending
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird gesendet…</>
+                : <><Send className="h-4 w-4 mr-2" />{selectedDocs.length > 0 ? `E-Mail senden (${selectedDocs.length} Dok.) & weiter` : 'E-Mail senden & weiter'}</>
+              }
+            </Button>
+          ) : (
+            <Button onClick={handleSkip} disabled={sending} className="bg-[#1a3a5c] hover:bg-[#1a3a5c]/90">
+              Ohne E-Mail weiter →
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function VermittlungDetailPage() {
   const { id } = useParams()
@@ -102,6 +493,11 @@ export default function VermittlungDetailPage() {
   const [note, setNote] = useState('')
   const [stopDialog, setStopDialog] = useState(false)
   const [stopping, setStopping] = useState(false)
+  const [zusageDialog, setZusageDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState('prozess')
+  const [foerderfall, setFoerderfall] = useState({ arbeitsverhaeltnis: {}, verguetung: {}, massnahme: {}, foerderung: {} })
+  const [savingFF, setSavingFF] = useState(false)
+  const [showSendDialog, setShowSendDialog] = useState(false)
 
   useEffect(() => { fetchData() }, [id])
 
@@ -114,10 +510,12 @@ export default function VermittlungDetailPage() {
           .select(`
             id, process_status, created_at, updated_at,
             profile_id, company_id,
+            arbeitsverhaeltnis, verguetung, massnahme, foerderung,
             profiles (
               id, first_name, last_name, gender, age, nationality,
-              profile_image_url, nursing_education, specializations,
-              total_experience_years, german_recognition
+              profile_image_url, nursing_education,
+              total_experience_years, german_recognition,
+              ${ALL_SPECIALIZATION_FIELDS.join(', ')}
             ),
             companies (
               id, company_name, email, phone, first_name, last_name
@@ -132,7 +530,19 @@ export default function VermittlungDetailPage() {
           .order('created_at', { ascending: false }),
       ])
 
-      if (resRes.data) setReservation(resRes.data)
+      if (resRes.data) {
+        setReservation(resRes.data)
+        const ms = resRes.data.massnahme || {}
+        setFoerderfall({
+          arbeitsverhaeltnis: resRes.data.arbeitsverhaeltnis || {},
+          verguetung: resRes.data.verguetung || {},
+          massnahme: {
+            ...ms,
+            bezeichnung: ms.bezeichnung || 'Lehrgang stattl. Anerkennung ausl. Krankenpflege',
+          },
+          foerderung: resRes.data.foerderung || {},
+        })
+      }
       setHistory(histRes.data || [])
     } catch {
       // reservation will remain null, showing "not found" state
@@ -141,7 +551,10 @@ export default function VermittlungDetailPage() {
     }
   }
 
-  const handleAdvance = async () => {
+  // emailSent = true  → came from ZusageDialog with email
+  // emailSent = false → came from ZusageDialog without email
+  // emailSent = null  → normal advance (auto-email via update-reservation)
+  const handleAdvance = async ({ emailSent = null } = {}) => {
     if (!reservation) return
     const newStatus = reservation.process_status + 1
     if (newStatus > 11) return
@@ -158,14 +571,18 @@ export default function VermittlungDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      const emailSent = EMAIL_TRIGGER_STEPS.has(newStatus)
-      toast({
-        title: `Weiter zu Schritt ${newStatus}`,
-        description: emailSent
-          ? `${PROCESS_STATUS_LABELS[newStatus]} — E-Mail wurde automatisch an das Unternehmen gesendet.`
-          : PROCESS_STATUS_LABELS[newStatus],
-        variant: 'success',
-      })
+      // For step 4 the email is handled by ZusageDialog → use its result
+      // For other email-trigger steps, show the auto-send notice
+      const autoEmail = emailSent === null && EMAIL_TRIGGER_STEPS.has(newStatus)
+      const desc = emailSent === true
+        ? `${PROCESS_STATUS_LABELS[newStatus]} — Zusage-E-Mail mit Dokumenten-Link gesendet.`
+        : emailSent === false
+          ? `${PROCESS_STATUS_LABELS[newStatus]} — Ohne E-Mail weitergeführt.`
+          : autoEmail
+            ? `${PROCESS_STATUS_LABELS[newStatus]} — E-Mail automatisch an das Unternehmen gesendet.`
+            : PROCESS_STATUS_LABELS[newStatus]
+
+      toast({ title: `Weiter zu Schritt ${newStatus}`, description: desc, variant: 'success' })
       setNote('')
       await fetchData()
     } catch (err) {
@@ -216,6 +633,29 @@ export default function VermittlungDetailPage() {
     }
   }
 
+  // ── Förderfall helpers ────────────────────────────────────────────────────
+  const setFF = (section, key, value) =>
+    setFoerderfall(prev => ({ ...prev, [section]: { ...prev[section], [key]: value } }))
+
+  const handleSaveFF = async () => {
+    setSavingFF(true)
+    const { error } = await supabase
+      .from('reservations')
+      .update({
+        arbeitsverhaeltnis: foerderfall.arbeitsverhaeltnis,
+        verguetung: foerderfall.verguetung,
+        massnahme: foerderfall.massnahme,
+        foerderung: foerderfall.foerderung,
+      })
+      .eq('id', id)
+    if (error) {
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Förderfall gespeichert', variant: 'success' })
+    }
+    setSavingFF(false)
+  }
+
   if (loading) return (
     <div className="space-y-4 max-w-5xl">
       <Skeleton className="h-8 w-64" />
@@ -241,6 +681,22 @@ export default function VermittlungDetailPage() {
   const p = reservation.profiles
   const c = reservation.companies
   const step = reservation.process_status
+
+  // Foerderfall completion: key fields across all sections
+  const FF_KEY_FIELDS = [
+    foerderfall.arbeitsverhaeltnis.beginn,
+    foerderfall.arbeitsverhaeltnis.befristung,
+    foerderfall.arbeitsverhaeltnis.berufsbezeichnung,
+    foerderfall.arbeitsverhaeltnis.arbeitszeit_art,
+    foerderfall.arbeitsverhaeltnis.stunden_woche,
+    foerderfall.verguetung.grundgehalt,
+    foerderfall.verguetung.entgeltart,
+    foerderfall.massnahme.bezeichnung,
+    foerderfall.massnahme.beginn,
+    foerderfall.massnahme.bildungstraeger_name,
+  ]
+  const ffFilledCount = FF_KEY_FIELDS.filter(v => v !== undefined && v !== '' && v !== null).length
+  const ffPct = Math.round((ffFilledCount / FF_KEY_FIELDS.length) * 100)
   const isDone = step === 11
   const nextStep = step + 1
   const nextEmailTrigger = EMAIL_TRIGGER_STEPS.has(nextStep)
@@ -265,6 +721,14 @@ export default function VermittlungDetailPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSendDialog(true)}
+              className="text-purple-600 border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+            >
+              <Link2 className="h-3.5 w-3.5 mr-1.5" />Dokument senden
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -295,6 +759,343 @@ export default function VermittlungDetailPage() {
           )}
         </div>
 
+        {/* Tab bar */}
+        <div className="flex gap-1 border-b border-gray-200">
+          {[
+            { id: 'prozess', label: 'Prozessübersicht' },
+            { id: 'foerderfall', label: 'Förderfall-Daten', badge: ffPct },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+                activeTab === tab.id
+                  ? 'border-[#1a3a5c] text-[#1a3a5c]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              )}
+            >
+              <span className="flex items-center gap-1.5">
+                {tab.label}
+                {tab.badge !== undefined && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    tab.badge >= 80 ? 'bg-green-100 text-green-700' :
+                    tab.badge >= 40 ? 'bg-amber-100 text-amber-700' :
+                    'bg-gray-100 text-gray-500'
+                  }`}>
+                    {tab.badge}%
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'foerderfall' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            {/* Freigabe toggle */}
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${foerderfall.foerderung?.freigegeben ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900">Unternehmen kann Daten einsehen & ausfüllen</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {foerderfall.foerderung?.freigegeben
+                    ? 'Aktiviert — Unternehmen sieht das Formular im Status-Tracker.'
+                    : 'Deaktiviert — nur Admins sehen diese Daten.'}
+                </p>
+              </div>
+              <Switch
+                checked={!!foerderfall.foerderung?.freigegeben}
+                onCheckedChange={async (v) => {
+                  setFF('foerderung', 'freigegeben', v)
+                  await supabase.from('reservations').update({
+                    foerderung: { ...foerderfall.foerderung, freigegeben: v }
+                  }).eq('id', id)
+                }}
+              />
+            </div>
+            <Button onClick={handleSaveFF} disabled={savingFF}>
+              {savingFF ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Förderfall speichern</>}
+            </Button>
+          </div>
+
+          {/* Arbeitsverhältnis */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-gray-400" />Daten zum Arbeitsverhältnis
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Beginn des Beschäftigungsverhältnisses</Label>
+                <Input type="date" value={foerderfall.arbeitsverhaeltnis.beginn || ''} onChange={e => setFF('arbeitsverhaeltnis', 'beginn', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Befristung</Label>
+                <Select value={foerderfall.arbeitsverhaeltnis.befristung || ''} onValueChange={v => setFF('arbeitsverhaeltnis', 'befristung', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unbefristet">Unbefristet</SelectItem>
+                    <SelectItem value="befristet">Befristet</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {foerderfall.arbeitsverhaeltnis.befristung === 'befristet' && (
+                <div className="space-y-1.5">
+                  <Label>Ende der Befristung</Label>
+                  <Input type="date" value={foerderfall.arbeitsverhaeltnis.befristung_bis || ''} onChange={e => setFF('arbeitsverhaeltnis', 'befristung_bis', e.target.value)} />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>Berufsbezeichnung / Branche</Label>
+                <Input value={foerderfall.arbeitsverhaeltnis.berufsbezeichnung || ''} onChange={e => setFF('arbeitsverhaeltnis', 'berufsbezeichnung', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Arbeitszeit-Art</Label>
+                <Select value={foerderfall.arbeitsverhaeltnis.arbeitszeit_art || ''} onValueChange={v => setFF('arbeitsverhaeltnis', 'arbeitszeit_art', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vollzeit">Vollzeit</SelectItem>
+                    <SelectItem value="teilzeit">Teilzeit</SelectItem>
+                    <SelectItem value="geringfuegig">Geringfügig</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Stunden pro Woche</Label>
+                <Input type="number" value={foerderfall.arbeitsverhaeltnis.stunden_woche || ''} onChange={e => setFF('arbeitsverhaeltnis', 'stunden_woche', e.target.value)} placeholder="z.B. 40" min="0" max="60" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Stunden pro Monat</Label>
+                <Input type="number" value={foerderfall.arbeitsverhaeltnis.stunden_monat || ''} onChange={e => setFF('arbeitsverhaeltnis', 'stunden_monat', e.target.value)} placeholder="z.B. 174" min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Urlaubsanspruch (Arbeitstage/Jahr)</Label>
+                <Input type="number" value={foerderfall.arbeitsverhaeltnis.urlaubstage || ''} onChange={e => setFF('arbeitsverhaeltnis', 'urlaubstage', e.target.value)} placeholder="z.B. 28" min="0" max="50" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Arbeitsort</Label>
+                <Select value={foerderfall.arbeitsverhaeltnis.arbeitsort || ''} onValueChange={v => setFF('arbeitsverhaeltnis', 'arbeitsort', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="arbeitgebersitz">Entspricht Arbeitgebersitz</SelectItem>
+                    <SelectItem value="wechselnd">Wechselnd</SelectItem>
+                    <SelectItem value="abweichend">Abweichende Adresse</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              {[
+                { key: 'sv_pflichtig', label: 'Sozialversicherungspflichtiges Arbeitsverhältnis' },
+                { key: 'sv_pflicht_de', label: 'SV-Pflicht in Deutschland' },
+                { key: 'arbeitnehmerueberlassung', label: 'Arbeitnehmerüberlassung' },
+                { key: 'ueberstundenpflicht', label: 'Überstundenpflicht' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.arbeitsverhaeltnis[key]} onCheckedChange={v => setFF('arbeitsverhaeltnis', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Vergütung */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Vergütung</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Grundgehalt brutto (€)</Label>
+                <Input type="number" value={foerderfall.verguetung.grundgehalt || ''} onChange={e => setFF('verguetung', 'grundgehalt', e.target.value)} placeholder="z.B. 3200" min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Einheit</Label>
+                <Select value={foerderfall.verguetung.grundgehalt_einheit || ''} onValueChange={v => setFF('verguetung', 'grundgehalt_einheit', v)}>
+                  <SelectTrigger><SelectValue placeholder="pro..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monat">pro Monat</SelectItem>
+                    <SelectItem value="stunde">pro Stunde</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Entgeltart</Label>
+                <Select value={foerderfall.verguetung.entgeltart || ''} onValueChange={v => setFF('verguetung', 'entgeltart', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tariflich">Tariflich</SelectItem>
+                    <SelectItem value="ortsuesblich">Ortsüblich</SelectItem>
+                    <SelectItem value="frei">Frei verhandelt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Entgeltgruppe (bei Tarifbindung)</Label>
+                <Input value={foerderfall.verguetung.entgeltgruppe || ''} onChange={e => setFF('verguetung', 'entgeltgruppe', e.target.value)} placeholder="z.B. P8 TVöD" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Weitere Gehaltsbestandteile</Label>
+                <Input value={foerderfall.verguetung.weitere_bestandteile || ''} onChange={e => setFF('verguetung', 'weitere_bestandteile', e.target.value)} placeholder="z.B. Zulagen, Boni (Bezeichnung + Betrag)" />
+              </div>
+            </div>
+          </div>
+
+          {/* Weiterbildungsmaßnahme */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Weiterbildungsmaßnahme</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Maßnahmeziel / Bezeichnung der Weiterbildung</Label>
+                <Input value={foerderfall.massnahme.bezeichnung || ''} onChange={e => setFF('massnahme', 'bezeichnung', e.target.value)} placeholder="Lehrgang stattl. Anerkennung ausl. Krankenpflege" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Maßnahmenummer</Label>
+                <Input value={foerderfall.massnahme.massnahmenummer || ''} onChange={e => setFF('massnahme', 'massnahmenummer', e.target.value)} placeholder="123/45678/2023" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Bildungsgutscheinnummer</Label>
+                <Input value={foerderfall.massnahme.bildungsgutschein_nr || ''} onChange={e => setFF('massnahme', 'bildungsgutschein_nr', e.target.value)} placeholder="123A456789-01 (optional)" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Beginn</Label>
+                <Input type="date" value={foerderfall.massnahme.beginn || ''} onChange={e => setFF('massnahme', 'beginn', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Voraussichtliches Ende</Label>
+                <Input type="date" value={foerderfall.massnahme.ende || ''} onChange={e => setFF('massnahme', 'ende', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Umfang (Zeitstunden)</Label>
+                <Input type="number" value={foerderfall.massnahme.zeitstunden || ''} onChange={e => setFF('massnahme', 'zeitstunden', e.target.value)} placeholder="z.B. 160" min="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Freistellungsstunden</Label>
+                <Input type="number" value={foerderfall.massnahme.freistellungsstunden || ''} onChange={e => setFF('massnahme', 'freistellungsstunden', e.target.value)} placeholder="Stunden während Weiterbildung" min="0" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Bildungsträger (Name)</Label>
+                <Input value={foerderfall.massnahme.bildungstraeger_name || ''} onChange={e => setFF('massnahme', 'bildungstraeger_name', e.target.value)} placeholder="Name des Maßnahmeträgers" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Bildungsträger (Adresse)</Label>
+                <Input value={foerderfall.massnahme.bildungstraeger_adresse || ''} onChange={e => setFF('massnahme', 'bildungstraeger_adresse', e.target.value)} placeholder="Straße, PLZ, Ort" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              {[
+                { key: 'azav_zugelassen', label: 'AZAV-zugelassen' },
+                { key: 'dauer_gt120h', label: 'Dauer > 120 Stunden' },
+                { key: 'ueber_anpassung', label: 'Vermittelt Inhalte über Anpassungsfortbildung hinaus' },
+                { key: 'fuehrt_zu_abschluss', label: 'Führt zu Berufsabschluss (≥ 2-jährige Ausbildung)' },
+                { key: 'verzicht_bildungsgutschein', label: 'Verzicht auf Bildungsgutschein' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.massnahme[key]} onCheckedChange={v => setFF('massnahme', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Anerkennungsverfahren */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Anerkennungsverfahren (Drittstaatsangehörige)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Art des Verfahrens</Label>
+                <Select value={foerderfall.massnahme.anerk_art || ''} onValueChange={v => setFF('massnahme', 'anerk_art', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="betriebliche_quali">Betriebliche Qualifizierung</SelectItem>
+                    <SelectItem value="beschaeftigung_neben">Beschäftigung neben Qualifizierung</SelectItem>
+                    <SelectItem value="anerkennungspartnerschaft">Anerkennungspartnerschaft</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Antragsart</Label>
+                <Select value={foerderfall.massnahme.anerk_antragsart || ''} onValueChange={v => setFF('massnahme', 'anerk_antragsart', v)}>
+                  <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gleichwertigkeit">Gleichwertigkeit</SelectItem>
+                    <SelectItem value="berufsausuebungserlaubnis">Berufsausübungserlaubnis</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Name der Anerkennungsbehörde</Label>
+                <Input value={foerderfall.massnahme.anerk_behoerde_name || ''} onChange={e => setFF('massnahme', 'anerk_behoerde_name', e.target.value)} placeholder="z.B. Regierungspräsidium Stuttgart" />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label>Adresse Anerkennungsbehörde</Label>
+                <Input value={foerderfall.massnahme.anerk_behoerde_adresse || ''} onChange={e => setFF('massnahme', 'anerk_behoerde_adresse', e.target.value)} placeholder="Straße, PLZ, Ort" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Zielberuf nach Anerkennung</Label>
+                <Input value={foerderfall.massnahme.anerk_zielberuf || ''} onChange={e => setFF('massnahme', 'anerk_zielberuf', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Zeitraum Nachqualifizierung von</Label>
+                <Input type="date" value={foerderfall.massnahme.anerk_nachquali_von || ''} onChange={e => setFF('massnahme', 'anerk_nachquali_von', e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Zeitraum Nachqualifizierung bis</Label>
+                <Input type="date" value={foerderfall.massnahme.anerk_nachquali_bis || ''} onChange={e => setFF('massnahme', 'anerk_nachquali_bis', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              {[
+                { key: 'anerk_unterschiede', label: 'Wesentliche Unterschiede festgestellt' },
+                { key: 'anerk_ausgleich_erforderlich', label: 'Ausgleichsmaßnahmen erforderlich' },
+                { key: 'anerk_teilbescheid', label: '(Teil-)Anerkennungsbescheid liegt vor' },
+                { key: 'anerk_berufserlaubnis_erforderlich', label: 'Berufsausübungserlaubnis erforderlich' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.massnahme[key]} onCheckedChange={v => setFF('massnahme', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Förderungs- / Antragsdaten */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Förderungs- / Antragsdaten</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { key: 'transferkug', label: 'Anspruch auf Transferkurzarbeitergeld' },
+                { key: 'kug_beantragt', label: 'Kurzarbeitergeld beantragt' },
+                { key: 'eingliederungszuschuss', label: 'Eingliederungszuschuss beantragt' },
+                { key: 'zuschuss_andere_stelle', label: 'Zuschuss von anderer Stelle' },
+                { key: 'zuwendungen_dritter', label: 'Zuwendungen Dritter zu Weiterbildungskosten' },
+                { key: 'bundesrechtl_verpflichtung', label: 'Bundes-/landesrechtliche Verpflichtung zur Weiterbildung' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Switch checked={!!foerderfall.foerderung[key]} onCheckedChange={v => setFF('foerderung', key, v)} />
+                  <Label className="text-sm">{label}</Label>
+                </div>
+              ))}
+            </div>
+            {foerderfall.foerderung.zuschuss_andere_stelle && (
+              <div className="space-y-1.5">
+                <Label>Stellenbezeichnung (andere Stelle)</Label>
+                <Input value={foerderfall.foerderung.zuschuss_andere_stelle_bezeichnung || ''} onChange={e => setFF('foerderung', 'zuschuss_andere_stelle_bezeichnung', e.target.value)} placeholder="Bezeichnung der anderen Stelle" />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>Anspruch gegenüber anderer öffentl.-rechtl. Stelle</Label>
+              <Input value={foerderfall.foerderung.anspruch_oeffentlich || ''} onChange={e => setFF('foerderung', 'anspruch_oeffentlich', e.target.value)} placeholder="z.B. Rentenversicherung / Stelle + Aktenzeichen (optional)" />
+            </div>
+          </div>
+
+          <div className="flex justify-end pb-4">
+            <Button onClick={handleSaveFF} disabled={savingFF}>
+              {savingFF ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Speichern...</> : <><Save className="h-4 w-4 mr-2" />Förderfall speichern</>}
+            </Button>
+          </div>
+        </div>
+        )}
+
+        {activeTab === 'prozess' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Left: Info + History ────────────────────────────────────── */}
@@ -325,9 +1126,9 @@ export default function VermittlungDetailPage() {
                 <div className="text-xs text-gray-500 space-y-1">
                   {p?.nursing_education && <p>🎓 {p.nursing_education}</p>}
                   {p?.total_experience_years && <p>⏱ {p.total_experience_years} Jahre Erfahrung</p>}
-                  {(p?.specializations || []).length > 0 && (
+                  {getProfileSpecializations(p).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {p.specializations.slice(0, 3).map(s => (
+                      {getProfileSpecializations(p).slice(0, 3).map(s => (
                         <span key={s} className="bg-blue-50 text-blue-600 rounded-full px-2 py-0.5">{s}</span>
                       ))}
                     </div>
@@ -419,22 +1220,29 @@ export default function VermittlungDetailPage() {
                   </div>
 
                   {/* Email hint */}
-                  {nextEmailTrigger && (
+                  {nextStep === 4 ? (
+                    <div className="flex items-start gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 text-xs text-teal-700">
+                      <Send className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>Du wirst gefragt, ob und welche Dokumente per sicherem Link an <strong>{c?.email || 'das Unternehmen'}</strong> gesendet werden sollen.</span>
+                    </div>
+                  ) : nextEmailTrigger ? (
                     <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
                       <Send className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                       <span>Bei Schritt {nextStep} wird automatisch eine E-Mail an {c?.email || 'das Unternehmen'} gesendet.</span>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Advance button */}
                   <Button
-                    onClick={handleAdvance}
+                    onClick={nextStep === 4 ? () => setZusageDialog(true) : handleAdvance}
                     disabled={advancing}
                     className="w-full"
                   >
                     {advancing
                       ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Wird gespeichert...</>
-                      : <>Weiter zu Schritt {nextStep} →</>}
+                      : nextStep === 4
+                        ? <><Send className="h-4 w-4 mr-2" />Zusage senden & weiter →</>
+                        : <>Weiter zu Schritt {nextStep} →</>}
                   </Button>
 
                   {/* Back button */}
@@ -462,7 +1270,19 @@ export default function VermittlungDetailPage() {
             </div>
           </div>
         </div>
+        )}
+
       </div>
+
+
+      {/* Zusage dialog (step 4) */}
+      <ZusageDialog
+        open={zusageDialog}
+        onClose={() => setZusageDialog(false)}
+        reservation={reservation}
+        session={session}
+        onConfirm={({ emailSent }) => handleAdvance({ emailSent })}
+      />
 
       {/* Stop confirmation */}
       <Dialog open={stopDialog} onOpenChange={setStopDialog}>

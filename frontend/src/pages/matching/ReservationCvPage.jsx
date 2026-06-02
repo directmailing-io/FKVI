@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase-public'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import CvDocument from '@/components/matching/CvDocument'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Printer, Loader2, AlertCircle } from 'lucide-react'
@@ -9,7 +9,7 @@ import { ArrowLeft, Printer, Loader2, AlertCircle } from 'lucide-react'
 export default function ReservationCvPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { session } = useAuthStore()
+  const { session } = usePublicAuthStore()
 
   const [profile, setProfile] = useState(null)
   const [documents, setDocuments] = useState([])

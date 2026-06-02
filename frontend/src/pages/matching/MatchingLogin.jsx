@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,8 +13,9 @@ export default function MatchingLogin() {
   const [showPw, setShowPw]   = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
-  const { signIn } = useAuthStore()
+  const { signIn, signOut } = usePublicAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -22,7 +23,19 @@ export default function MatchingLogin() {
     setLoading(true)
     try {
       await signIn(email, password)
-      navigate('/matching')
+      // signIn eagerly syncs store — read role immediately
+      const { isAdmin, companyId } = usePublicAuthStore.getState()
+      if (isAdmin) {
+        navigate('/admin')
+        return
+      }
+      if (!companyId) {
+        await signOut()
+        setError('Für dieses Konto besteht kein Matching-Plattform-Zugang. Bitte kontaktieren Sie uns.')
+        return
+      }
+      const from = location.state?.from || '/matching'
+      navigate(from)
     } catch {
       setError('E-Mail oder Passwort ist falsch.')
     } finally {

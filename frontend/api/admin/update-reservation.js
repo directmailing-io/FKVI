@@ -174,7 +174,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        from: process.env.RESEND_FROM_EMAIL || 'Fachkraft Vermittlung International <noreply@daniel-kurzeja.de>',
         to: company?.email,
         subject: emailTpl.subject,
         html: emailTpl.body(company || {}, profileName, stepDate || null),

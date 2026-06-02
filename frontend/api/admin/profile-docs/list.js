@@ -20,37 +20,25 @@ export default withHandler(async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const token = req.headers.authorization?.replace('Bearer ', '')
-  try {
-    await requireAdmin(token)
-  } catch (e) {
+  try { await requireAdmin(token) } catch (e) {
     return res.status(e.status || 401).json({ error: e.message })
   }
 
-  const { templateId } = req.query
-  if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
+  const { profileId } = req.query
+  if (!profileId) return res.status(400).json({ error: 'profileId erforderlich' })
 
-  const { data: template, error: fetchError } = await supabaseAdmin
-    .from('document_templates')
-    .select('*')
-    .eq('id', templateId)
-    .single()
+  const { data: docs, error } = await supabaseAdmin
+    .from('profile_documents')
+    .select('id, title, doc_type, link, description, sort_order')
+    .eq('profile_id', profileId)
+    .eq('is_internal', false)
+    .not('link', 'is', null)
+    .order('sort_order')
 
-  if (fetchError || !template) {
-    return res.status(404).json({ error: 'Template nicht gefunden' })
+  if (error) {
+    console.error('profile-docs/list error:', error)
+    return res.status(500).json({ error: error.message })
   }
 
-  // Generate 1-hour signed download URL
-  const { data: signedData, error: signedError } = await supabaseAdmin.storage
-    .from('document-templates')
-    .createSignedUrl(template.storage_path, 3600)
-
-  if (signedError || !signedData) {
-    console.error('dokumente/get signed URL error:', signedError)
-    return res.status(500).json({ error: 'Download-URL konnte nicht erstellt werden' })
-  }
-
-  return res.json({
-    template,
-    pdfSignedUrl: signedData.signedUrl,
-  })
+  return res.json({ docs: docs || [] })
 })

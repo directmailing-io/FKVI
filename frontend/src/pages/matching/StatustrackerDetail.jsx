@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase-public'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { PROCESS_STATUS_LABELS, formatDateTime } from '@/lib/utils'
+import { getProfileSpecializations, getProfileEinrichtungstypen, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 import {
   ArrowLeft, User, CheckCircle2, ChevronRight, Clock,
   Globe, FileText, Award, Stethoscope, Languages, MapPin, ExternalLink,
-  Baby, Car, Heart, Briefcase, BookOpen
+  Baby, Car, Heart, Briefcase, BookOpen, ClipboardList, Save, Loader2, Download,
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { toast } from '@/hooks/use-toast'
 
 const STATUS_STEPS = Object.entries(PROCESS_STATUS_LABELS)
 
@@ -52,15 +58,90 @@ function InfoRow({ label, value }) {
   )
 }
 
+const DOC_TYPE_LABELS = {
+  lebenslauf: 'Lebenslauf',
+  zertifikat: 'Zertifikate & Qualifikationen',
+  ausbildungsnachweis: 'Ausbildungsnachweise',
+  sprachnachweis: 'Sprachnachweise',
+  sonstiges: 'Sonstige Dokumente',
+}
+
+function DocumentsTab({ documents }) {
+  if (documents.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-12 flex flex-col items-center text-center">
+        <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">
+          <FileText className="h-8 w-8 text-gray-300" />
+        </div>
+        <p className="text-gray-700 font-medium">Keine Dokumente freigegeben</p>
+        <p className="text-sm text-gray-400 mt-1 max-w-xs">
+          Sobald FKVI Ihnen Unterlagen zu diesem Kandidaten teilt, erscheinen diese hier.
+        </p>
+      </div>
+    )
+  }
+
+  // Group by doc_type
+  const grouped = documents.reduce((acc, doc) => {
+    const key = doc.doc_type || 'sonstiges'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(doc)
+    return acc
+  }, {})
+
+  return (
+    <div className="space-y-5">
+      {Object.entries(grouped).map(([type, docs]) => (
+        <div key={type} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+            <FileText className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="text-sm font-semibold text-gray-700">
+              {DOC_TYPE_LABELS[type] || type}
+            </span>
+            <span className="ml-auto text-xs text-gray-400">{docs.length} {docs.length === 1 ? 'Dokument' : 'Dokumente'}</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {docs.map((doc, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/60 transition-colors group">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-fkvi-blue/10 transition-colors">
+                  <FileText className="h-5 w-5 text-fkvi-blue" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{doc.title || 'Dokument'}</p>
+                  {doc.description && (
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{doc.description}</p>
+                  )}
+                </div>
+                <a
+                  href={doc.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-fkvi-blue/5 text-fkvi-blue text-xs font-semibold hover:bg-fkvi-blue hover:text-white transition-colors shrink-0"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Öffnen
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function StatustrackerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { companyId } = useAuthStore()
+  const { companyId } = usePublicAuthStore()
 
   const [reservation, setReservation] = useState(null)
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [documents, setDocuments] = useState([])
+  const [activeTab, setActiveTab] = useState('prozess')
+  const [ff, setFf] = useState({ arbeitsverhaeltnis: {}, verguetung: {}, massnahme: {} })
+  const [savingFf, setSavingFf] = useState(false)
 
   const fetchData = async () => {
     if (!companyId) return
@@ -72,14 +153,16 @@ export default function StatustrackerDetail() {
         .from('reservations')
         .select(`
           id, process_status, created_at, updated_at,
+          arbeitsverhaeltnis, verguetung, massnahme, foerderung,
           profiles (
             id, first_name, last_name, gender, age, nationality, marital_status,
             children_count, has_drivers_license, profile_image_url, vimeo_video_url,
             nursing_education, education_duration, graduation_year, german_recognition,
-            education_notes, specializations, additional_qualifications,
+            education_notes, additional_qualifications,
             total_experience_years, germany_experience_years, experience_areas,
             language_skills, work_time_preference, state_preferences, nationwide,
-            preferred_facility_types, fkvi_competency_proof
+            fkvi_competency_proof,
+            ${ALL_SPECIALIZATION_FIELDS.join(', ')}
           )
         `)
         .eq('id', id)
@@ -93,6 +176,13 @@ export default function StatustrackerDetail() {
     ])
     // Always update reservation — null means it was deleted (decoupled)
     setReservation(res || null)
+    if (res) {
+      setFf({
+        arbeitsverhaeltnis: res.arbeitsverhaeltnis || {},
+        verguetung: res.verguetung || {},
+        massnahme: res.massnahme || {},
+      })
+    }
     if (res && token) {
       // Fetch documents via API (service role) to bypass potential RLS restrictions
       try {
@@ -236,9 +326,193 @@ export default function StatustrackerDetail() {
         </div>
       )}
 
+      {/* ── Förderfall-Daten (company-editable when freigegeben) ── */}
+      {reservation?.foerderung?.freigegeben && (
+        <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-4 bg-purple-50 border-b border-purple-100">
+            <ClipboardList className="h-5 w-5 text-purple-600 shrink-0" />
+            <div className="flex-1">
+              <h2 className="font-semibold text-purple-900 text-sm">Förderfall-Daten ausfüllen</h2>
+              <p className="text-xs text-purple-600 mt-0.5">Bitte füllen Sie die folgenden Angaben aus. Diese Daten werden für den Förderantrag benötigt.</p>
+            </div>
+            <Button
+              size="sm"
+              disabled={savingFf}
+              onClick={async () => {
+                setSavingFf(true)
+                try {
+                  const { data: { session } } = await supabase.auth.getSession()
+                  const res = await fetch('/api/matching/save-foerderfall', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${session?.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      reservationId: id,
+                      arbeitsverhaeltnis: ff.arbeitsverhaeltnis,
+                      verguetung: ff.verguetung,
+                      massnahme: ff.massnahme,
+                    }),
+                  })
+                  const json = await res.json()
+                  if (!res.ok) toast({ title: 'Fehler beim Speichern', description: json.error, variant: 'destructive' })
+                  else toast({ title: 'Gespeichert', description: 'Ihre Angaben wurden gespeichert.', variant: 'success' })
+                } catch (e) {
+                  toast({ title: 'Fehler beim Speichern', description: e.message, variant: 'destructive' })
+                }
+                setSavingFf(false)
+              }}
+              className="bg-purple-600 hover:bg-purple-700 shrink-0"
+            >
+              {savingFf ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Speichern…</> : <><Save className="h-3.5 w-3.5 mr-1.5" />Speichern</>}
+            </Button>
+          </div>
+          <div className="p-6 space-y-6">
+            {/* Arbeitsverhältnis */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Daten zum Arbeitsverhältnis</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Beginn des Beschäftigungsverhältnisses</Label>
+                  <Input type="date" value={ff.arbeitsverhaeltnis.beginn || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, beginn: e.target.value } }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Befristung</Label>
+                  <Select value={ff.arbeitsverhaeltnis.befristung || ''} onValueChange={v => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, befristung: v } }))}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unbefristet">Unbefristet</SelectItem>
+                      <SelectItem value="befristet">Befristet</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Berufsbezeichnung</Label>
+                  <Input value={ff.arbeitsverhaeltnis.berufsbezeichnung || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, berufsbezeichnung: e.target.value } }))} placeholder="z.B. Pflegefachkraft" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Wochenstunden</Label>
+                  <Input type="number" value={ff.arbeitsverhaeltnis.stunden_woche || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, stunden_woche: e.target.value } }))} placeholder="z.B. 38,5" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Urlaubstage / Jahr</Label>
+                  <Input type="number" value={ff.arbeitsverhaeltnis.urlaubstage || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, urlaubstage: e.target.value } }))} placeholder="z.B. 28" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Arbeitsort</Label>
+                  <Input value={ff.arbeitsverhaeltnis.arbeitsort || ''} onChange={e => setFf(p => ({ ...p, arbeitsverhaeltnis: { ...p.arbeitsverhaeltnis, arbeitsort: e.target.value } }))} placeholder="PLZ, Ort" />
+                </div>
+              </div>
+            </div>
+            {/* Vergütung */}
+            <div className="space-y-3 pt-4 border-t border-gray-100">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Vergütung</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Grundgehalt brutto (€)</Label>
+                  <Input type="number" value={ff.verguetung.grundgehalt || ''} onChange={e => setFf(p => ({ ...p, verguetung: { ...p.verguetung, grundgehalt: e.target.value } }))} placeholder="z.B. 3200" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Einheit</Label>
+                  <Select value={ff.verguetung.grundgehalt_einheit || ''} onValueChange={v => setFf(p => ({ ...p, verguetung: { ...p.verguetung, grundgehalt_einheit: v } }))}>
+                    <SelectTrigger><SelectValue placeholder="pro…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monat">pro Monat</SelectItem>
+                      <SelectItem value="stunde">pro Stunde</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Entgeltart</Label>
+                  <Select value={ff.verguetung.entgeltart || ''} onValueChange={v => setFf(p => ({ ...p, verguetung: { ...p.verguetung, entgeltart: v } }))}>
+                    <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tariflich">Tariflich</SelectItem>
+                      <SelectItem value="ortsuesblich">Ortsüblich</SelectItem>
+                      <SelectItem value="frei">Frei verhandelt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Entgeltgruppe (bei Tarifbindung)</Label>
+                  <Input value={ff.verguetung.entgeltgruppe || ''} onChange={e => setFf(p => ({ ...p, verguetung: { ...p.verguetung, entgeltgruppe: e.target.value } }))} placeholder="z.B. P8 TVöD" />
+                </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs">Weitere Gehaltsbestandteile</Label>
+                  <Input value={ff.verguetung.weitere_bestandteile || ''} onChange={e => setFf(p => ({ ...p, verguetung: { ...p.verguetung, weitere_bestandteile: e.target.value } }))} placeholder="z.B. Zulagen, Boni (Bezeichnung + Betrag)" />
+                </div>
+              </div>
+            </div>
+            {/* Weiterbildungsmaßnahme */}
+            <div className="space-y-3 pt-4 border-t border-gray-100">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Weiterbildungsmaßnahme</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs">Maßnahmeziel / Bezeichnung der Weiterbildung</Label>
+                  <Input value={ff.massnahme.bezeichnung || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, bezeichnung: e.target.value } }))} placeholder="Lehrgang stattl. Anerkennung ausl. Krankenpflege" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Beginn der Maßnahme</Label>
+                  <Input type="date" value={ff.massnahme.beginn || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, beginn: e.target.value } }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Voraussichtliches Ende</Label>
+                  <Input type="date" value={ff.massnahme.ende || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, ende: e.target.value } }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Bildungsträger (Name)</Label>
+                  <Input value={ff.massnahme.bildungstraeger_name || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, bildungstraeger_name: e.target.value } }))} placeholder="Name des Maßnahmeträgers" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Bildungsträger (Adresse)</Label>
+                  <Input value={ff.massnahme.bildungstraeger_adresse || ''} onChange={e => setFf(p => ({ ...p, massnahme: { ...p.massnahme, bildungstraeger_adresse: e.target.value } }))} placeholder="Straße, PLZ, Ort" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab navigation */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <button
+          onClick={() => setActiveTab('prozess')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'prozess'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <ClipboardList className="h-4 w-4" />
+          Prozessübersicht
+        </button>
+        <button
+          onClick={() => setActiveTab('dokumente')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'dokumente'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          Dokumente
+          {documents.length > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+              activeTab === 'dokumente' ? 'bg-fkvi-blue text-white' : 'bg-gray-300 text-gray-600'
+            }`}>
+              {documents.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Full profile */}
+        {/* Left: Full profile or Documents */}
         <div className="lg:col-span-2 space-y-5">
+
+          {/* ── Prozessübersicht Tab ── */}
+          {activeTab === 'prozess' && (<>
 
           {/* Photo + basic info */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -259,7 +533,13 @@ export default function StatustrackerDetail() {
                   {p?.marital_status && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"><Heart className="h-2.5 w-2.5 inline mr-0.5" />{p.marital_status}</span>}
                   {(p?.children_count > 0) && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full"><Baby className="h-2.5 w-2.5 inline mr-0.5" />{p.children_count} {p.children_count === 1 ? 'Kind' : 'Kinder'}</span>}
                   {p?.has_drivers_license && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"><Car className="h-2.5 w-2.5 inline mr-0.5" />Führerschein</span>}
-                  {p?.fkvi_competency_proof && <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">✓ FKVI Kompetenznachweis</span>}
+                  {(() => {
+                    const cp = p?.fkvi_competency_proof
+                    const norm = !cp ? '' : (cp === 'bestanden' || cp.toLowerCase().includes('bestanden')) ? 'bestanden' : 'in_aneignung'
+                    if (norm === 'bestanden') return <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-medium">✓ FKVI Kompetenznachweis</span>
+                    if (norm === 'in_aneignung') return <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">⏳ FKVI Kompetenznachweis</span>
+                    return null
+                  })()}
                 </div>
               </div>
             </div>
@@ -289,8 +569,8 @@ export default function StatustrackerDetail() {
               <InfoRow label="Abschlussjahr" value={p?.graduation_year ? String(p.graduation_year) : null} />
               <InfoRow label="Anerkennung (DE)"
                 value={
-                  p?.german_recognition === 'anerkannt' ? '✓ Anerkannt' :
-                  p?.german_recognition === 'in_bearbeitung' ? '⏳ In Bearbeitung' :
+                  p?.german_recognition === 'anerkannt' ? 'Anerkannt' :
+                  p?.german_recognition === 'in_bearbeitung' ? 'In Bearbeitung' :
                   p?.german_recognition === 'nicht_beantragt' ? 'Noch nicht beantragt' :
                   p?.german_recognition === 'abgelehnt' ? 'Abgelehnt' :
                   p?.german_recognition
@@ -311,11 +591,11 @@ export default function StatustrackerDetail() {
               <InfoRow label="Gesamterfahrung" value={p?.total_experience_years ? `${p.total_experience_years} Jahre` : null} />
               <InfoRow label="Erfahrung in DE" value={p?.germany_experience_years ? `${p.germany_experience_years} Jahre` : null} />
             </div>
-            {(p?.specializations || []).length > 0 && (
+            {getProfileSpecializations(p).length > 0 && (
               <div>
                 <p className="text-xs text-gray-400 mb-2">Spezialisierungen</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {p.specializations.map(s => (
+                  {getProfileSpecializations(p).map(s => (
                     <span key={s} className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">{s}</span>
                   ))}
                 </div>
@@ -370,11 +650,11 @@ export default function StatustrackerDetail() {
               <InfoRow label="Bundesländer"
                 value={p?.nationwide ? 'Deutschlandweit' : (p?.state_preferences || []).join(', ')}
               />
-              {(p?.preferred_facility_types || []).length > 0 && (
+              {getProfileEinrichtungstypen(p).length > 0 && (
                 <div className="flex gap-3">
                   <span className="text-xs text-gray-400 w-36 shrink-0 pt-0.5">Einrichtungstypen</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {p.preferred_facility_types.map(t => (
+                    {getProfileEinrichtungstypen(p).map(t => (
                       <span key={t} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{t}</span>
                     ))}
                   </div>
@@ -383,40 +663,11 @@ export default function StatustrackerDetail() {
             </div>
           </div>
 
-          {/* Documents */}
-          {documents.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
-                <FileText className="h-4 w-4 text-gray-400" />
-                Dokumente
-                <span className="ml-1 text-xs font-normal text-gray-400">({documents.length})</span>
-              </h3>
-              <div className="space-y-2">
-                {documents.map((doc, i) => (
-                  <a
-                    key={i}
-                    href={doc.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-fkvi-blue/30 hover:bg-fkvi-blue/5 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 group-hover:bg-fkvi-blue/10">
-                      <FileText className="h-4 w-4 text-fkvi-blue" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{doc.title || 'Dokument'}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {doc.doc_type && <span className="text-xs text-gray-400">{doc.doc_type}</span>}
-                        {doc.description && <span className="text-xs text-gray-400 truncate">{doc.doc_type ? `· ${doc.description}` : doc.description}</span>}
-                      </div>
-                    </div>
-                    <span className="text-xs text-fkvi-blue font-medium flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      Öffnen <ExternalLink className="h-3 w-3" />
-                    </span>
-                  </a>
-                ))}
-              </div>
-            </div>
+          </>)}
+
+          {/* ── Dokumente Tab ── */}
+          {activeTab === 'dokumente' && (
+            <DocumentsTab documents={documents} />
           )}
         </div>
 

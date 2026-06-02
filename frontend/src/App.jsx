@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import { useAuthStore } from '@/store/authStore'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Toaster } from '@/components/ui/toaster'
 import { AdminRoute, CompanyRoute } from '@/components/layout/ProtectedRoute'
 import AdminLayout from '@/components/layout/AdminLayout'
@@ -16,10 +18,11 @@ import CompanyDetailPage from '@/pages/admin/CompanyDetailPage'
 import VermittlungenPage from '@/pages/admin/VermittlungenPage'
 import VermittlungDetailPage from '@/pages/admin/VermittlungDetailPage'
 import BrochuerePage from '@/pages/admin/BrochuerePage'
+import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
 import MediathekPage from '@/pages/admin/MediathekPage'
+import TemplatePreviewPage from '@/pages/admin/TemplatePreviewPage'
 import TemplateEditorPage from '@/pages/admin/TemplateEditorPage'
-import PostfachPage from '@/pages/admin/PostfachPage'
-
+import TemplateFillPage from '@/pages/admin/TemplateFillPage'
 // Public pages
 import PublicHome from '@/pages/public/PublicHome'
 import DemoPage from '@/pages/public/DemoPage'
@@ -29,7 +32,8 @@ import CvSharePage from '@/pages/public/CvSharePage'
 import DownloadsPage from '@/pages/public/DownloadsPage'
 import BrochureAccessPage from '@/pages/public/BrochureAccessPage'
 import BeratungPage from '@/pages/public/BeratungPage'
-import DokumentSignPage from '@/pages/public/DokumentSignPage'
+import ImpressumPage from '@/pages/public/ImpressumPage'
+import DatenschutzPage from '@/pages/public/DatenschutzPage'
 
 // Matching pages
 import MatchingLogin from '@/pages/matching/MatchingLogin'
@@ -43,9 +47,11 @@ import ForgotPasswordPage from '@/pages/matching/ForgotPasswordPage'
 
 export default function App() {
   const initialize = useAuthStore(s => s.initialize)
+  const initializePublic = usePublicAuthStore(s => s.initialize)
 
   useEffect(() => {
     initialize()
+    initializePublic()
   }, [])
 
   // Safety net: Radix UI sets pointer-events:none on document.body when a
@@ -67,6 +73,7 @@ export default function App() {
   }, [])
 
   return (
+    <HelmetProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -78,7 +85,8 @@ export default function App() {
         <Route path="/downloads" element={<DownloadsPage />} />
         <Route path="/downloads/zugang/:token" element={<BrochureAccessPage />} />
         <Route path="/beratung" element={<BeratungPage />} />
-        <Route path="/dokument/:token" element={<DokumentSignPage />} />
+        <Route path="/impressum" element={<ImpressumPage />} />
+        <Route path="/datenschutzerklaerung" element={<DatenschutzPage />} />
 
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -91,9 +99,12 @@ export default function App() {
         <Route path="/admin/vermittlungen" element={<AdminRoute><AdminLayout><VermittlungenPage /></AdminLayout></AdminRoute>} />
         <Route path="/admin/vermittlungen/:id" element={<AdminRoute><AdminLayout><VermittlungDetailPage /></AdminLayout></AdminRoute>} />
         <Route path="/admin/broschuere" element={<AdminRoute><AdminLayout><BrochuerePage /></AdminLayout></AdminRoute>} />
+        <Route path="/admin/einstellungen" element={<AdminRoute><AdminLayout><AdminSettingsPage /></AdminLayout></AdminRoute>} />
         <Route path="/admin/mediathek" element={<AdminRoute><AdminLayout><MediathekPage /></AdminLayout></AdminRoute>} />
-        <Route path="/admin/dokumente/editor/:templateId" element={<AdminRoute><AdminLayout><TemplateEditorPage /></AdminLayout></AdminRoute>} />
-        <Route path="/admin/postfach" element={<AdminRoute><AdminLayout><PostfachPage /></AdminLayout></AdminRoute>} />
+        <Route path="/admin/mediathek/:id" element={<AdminRoute><TemplatePreviewPage /></AdminRoute>} />
+        <Route path="/admin/mediathek/:id/edit" element={<AdminRoute><TemplateEditorPage /></AdminRoute>} />
+        <Route path="/admin/mediathek/:id/fill" element={<AdminRoute><TemplateFillPage /></AdminRoute>} />
+        <Route path="/admin/mediathek/:id/fill/:role" element={<AdminRoute><TemplateFillPage /></AdminRoute>} />
 
         {/* Matching */}
         <Route path="/matching/login" element={<MatchingLogin />} />
@@ -108,5 +119,6 @@ export default function App() {
       </Routes>
       <Toaster />
     </BrowserRouter>
+    </HelmetProvider>
   )
 }

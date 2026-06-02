@@ -17,31 +17,21 @@ async function requireAdmin(token) {
 }
 
 export default withHandler(async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method !== 'PUT') return res.status(405).json({ error: 'Method not allowed' })
 
   const token = req.headers.authorization?.replace('Bearer ', '')
-  try {
-    await requireAdmin(token)
-  } catch (e) {
-    return res.status(e.status || 401).json({ error: e.message })
-  }
+  try { await requireAdmin(token) } catch (e) { return res.status(e.status || 401).json({ error: e.message }) }
 
-  const { templateId, fields } = req.body || {}
-  if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
+  const { id, fields } = req.body || {}
+  if (!id) return res.status(400).json({ error: 'id fehlt' })
   if (!Array.isArray(fields)) return res.status(400).json({ error: 'fields muss ein Array sein' })
 
-  const { error: updateError } = await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from('document_templates')
-    .update({
-      fields,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', templateId)
+    .update({ fields })
+    .eq('id', id)
 
-  if (updateError) {
-    console.error('dokumente/save-fields error:', updateError)
-    return res.status(500).json({ error: 'Felder konnten nicht gespeichert werden' })
-  }
+  if (error) return res.status(500).json({ error: error.message })
 
-  return res.json({ success: true })
+  return res.json({ ok: true })
 })

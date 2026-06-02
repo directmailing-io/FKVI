@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
-import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, BookOpen, Clock, Eye, Send } from 'lucide-react'
+import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil, History, ArrowUpRight } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const COMPANY_TYPE_LABELS = {
@@ -40,107 +41,6 @@ const LEAD_STATUS_COLORS = {
   active: 'bg-teal-100 text-teal-700 border-teal-200',
 }
 
-function fmtDt(ts) {
-  if (!ts) return '–'
-  return new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-function getDaysRemaining(confirmedAt) {
-  if (!confirmedAt) return null
-  return Math.ceil((new Date(confirmedAt).getTime() + 7 * 864e5 - Date.now()) / 864e5)
-}
-
-function BrochureCard({ data }) {
-  const [showLog, setShowLog] = useState(false)
-
-  if (!data) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center gap-2 mb-2">
-          <BookOpen className="h-4 w-4 text-gray-300" />
-          <h2 className="font-semibold text-gray-400 text-base">Broschüre</h2>
-        </div>
-        <p className="text-sm text-gray-400">Dieser Lead ist nicht über die Broschüren-Anfrage gekommen.</p>
-      </div>
-    )
-  }
-
-  const { request, confirmation, access_log } = data
-  const days = getDaysRemaining(confirmation?.confirmed_at)
-  const contractReady = days !== null && days <= 0
-
-  return (
-    <div className={cn('bg-white rounded-xl border p-5 space-y-4', contractReady ? 'border-green-300' : 'border-violet-200')}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen className={cn('h-4 w-4', contractReady ? 'text-green-600' : 'text-violet-500')} />
-          <h2 className="font-semibold text-gray-900 text-base">Broschüre</h2>
-          {request.brochure_version && (
-            <span className="text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full">
-              v{request.brochure_version.version_number}
-            </span>
-          )}
-        </div>
-        {contractReady && (
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-green-800 bg-green-100 border border-green-300 px-2.5 py-1 rounded-full">
-            <Send className="h-3 w-3" />Vertrag zusenden!
-          </span>
-        )}
-      </div>
-
-      {/* Timeline */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-gray-50 rounded-lg px-3 py-2.5">
-          <p className="text-xs text-gray-400 mb-0.5">Registriert</p>
-          <p className="text-sm font-medium text-gray-800">{fmtDt(request.created_at)}</p>
-        </div>
-        <div className={cn('rounded-lg px-3 py-2.5', request.email_confirmed_at ? 'bg-green-50' : 'bg-gray-50')}>
-          <p className="text-xs text-gray-400 mb-0.5">E-Mail bestätigt</p>
-          <p className={cn('text-sm font-medium', request.email_confirmed_at ? 'text-green-700' : 'text-gray-400')}>
-            {request.email_confirmed_at ? fmtDt(request.email_confirmed_at) : 'Ausstehend'}
-          </p>
-        </div>
-        <div className={cn('rounded-lg px-3 py-2.5', confirmation ? 'bg-blue-50' : 'bg-gray-50')}>
-          <p className="text-xs text-gray-400 mb-0.5">Erstmals gelesen</p>
-          <p className={cn('text-sm font-medium', confirmation ? 'text-blue-700' : 'text-gray-400')}>
-            {confirmation ? fmtDt(confirmation.confirmed_at) : 'Noch nicht bestätigt'}
-          </p>
-        </div>
-        <div className={cn('rounded-lg px-3 py-2.5', contractReady ? 'bg-green-50' : days !== null ? 'bg-amber-50' : 'bg-gray-50')}>
-          <p className="text-xs text-gray-400 mb-0.5">Verbleibende Zeit</p>
-          <p className={cn('text-sm font-medium', contractReady ? 'text-green-700' : days !== null ? 'text-amber-700' : 'text-gray-400')}>
-            {contractReady ? 'Vertrag fällig' : days !== null ? `${days} ${days === 1 ? 'Tag' : 'Tage'}` : '–'}
-          </p>
-        </div>
-      </div>
-
-      {/* Access log */}
-      <div>
-        <button
-          onClick={() => setShowLog(v => !v)}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 font-medium transition-colors"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          {access_log.length} {access_log.length === 1 ? 'Zugriff' : 'Zugriffe'} auf die PDF
-          <span className="ml-1 text-gray-400">{showLog ? '▲' : '▼'}</span>
-        </button>
-        {showLog && (
-          <div className="mt-2 rounded-lg border border-gray-100 overflow-hidden divide-y divide-gray-50">
-            {access_log.length === 0 ? (
-              <p className="text-xs text-gray-400 px-3 py-2">Noch kein Zugriff.</p>
-            ) : access_log.map((entry, i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50">
-                <Clock className="h-3 w-3 text-gray-300 shrink-0" />
-                <span className="font-medium text-gray-700">{fmtDt(entry.accessed_at)}</span>
-                {entry.ip_address && <span className="text-gray-400 font-mono">{entry.ip_address}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function CompanyDetailPage() {
   const { id } = useParams()
@@ -151,6 +51,7 @@ export default function CompanyDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState('stammdaten')
   const [approving, setApproving] = useState(false)
   const [rejecting, setRejecting] = useState(false)
 
@@ -165,12 +66,11 @@ export default function CompanyDetailPage() {
   const [contacts, setContacts] = useState([])
   const [savingContacts, setSavingContacts] = useState(false)
 
-  // Brochure data
-  const [brochureData, setBrochureData] = useState(undefined) // undefined = loading, null = none
 
   useEffect(() => {
     fetchCompany()
   }, [id])
+
 
   useEffect(() => {
     const interestNotes = notesList.filter(n => n.type === 'interest_booking')
@@ -189,39 +89,30 @@ export default function CompanyDetailPage() {
       })
   }, [notesList])
 
-  const fetchBrochureData = async () => {
-    if (!session?.access_token) return
-    try {
-      const res = await fetch(`/api/admin/brochure/company-data?companyId=${id}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      const data = await res.json()
-      setBrochureData(data.request ? data : null)
-    } catch {
-      setBrochureData(null)
-    }
-  }
-
   const fetchCompany = async () => {
     setLoading(true)
-    fetchBrochureData()
-    const [{ data, error }, { data: resData }] = await Promise.all([
-      supabase.from('companies').select('*').eq('id', id).single(),
-      supabase
-        .from('reservations')
-        .select(`id, process_status, created_at, profiles (id, first_name, last_name, gender, age, nationality, nursing_education, profile_image_url)`)
-        .eq('company_id', id)
-        .order('created_at', { ascending: false }),
-    ])
-    if (error) {
-      toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
-    } else {
-      setCompany(data)
-      setNotesList(data.notes_list || [])
-      setContacts(data.additional_contacts || [])
+    try {
+      const [{ data, error }, { data: resData }] = await Promise.all([
+        supabase.from('companies').select('*').eq('id', id).single(),
+        supabase
+          .from('reservations')
+          .select(`id, process_status, created_at, profiles (id, first_name, last_name, gender, age, nationality, nursing_education, profile_image_url)`)
+          .eq('company_id', id)
+          .order('created_at', { ascending: false }),
+      ])
+      if (error) {
+        toast({ title: 'Fehler', description: error.message, variant: 'destructive' })
+      } else {
+        setCompany(data)
+        setNotesList(data.notes_list || [])
+        setContacts(data.additional_contacts || [])
+      }
+      setReservations(resData || [])
+    } catch (err) {
+      toast({ title: 'Ladefehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setLoading(false)
     }
-    setReservations(resData || [])
-    setLoading(false)
   }
 
   const updateField = async (field, value) => {
@@ -244,6 +135,19 @@ export default function CompanyDetailPage() {
       updateField(field, value)
     }
   }
+
+  const updateKlass = (key, value) => {
+    const updated = { ...(company.klassifizierung || {}), [key]: value }
+    updateField('klassifizierung', updated)
+  }
+
+  const handleKlassBlur = (key) => (e) => {
+    const value = e.target.value
+    const current = (company?.klassifizierung || {})[key]
+    if (current !== value) updateKlass(key, value)
+  }
+
+  const handleKlassToggle = (key, value) => updateKlass(key, value)
 
   const handleTypeChange = (value) => {
     updateField('company_type', value)
@@ -366,17 +270,40 @@ export default function CompanyDetailPage() {
     try {
       const res = await fetch('/api/admin/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ companyId: id }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Fehler')
-      toast({ title: 'Freigegeben', description: 'Das Unternehmen wurde freigeschaltet.' })
+      const desc = data.emailSent
+        ? `Unternehmen freigeschaltet. Zugangslink wurde an ${company?.email} gesendet.`
+        : `Freigeschaltet. E-Mail konnte nicht gesendet werden: ${data.emailError || '–'}`
+      toast({ title: 'Freigegeben', description: desc })
       fetchCompany()
     } catch (err) {
       toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
     } finally {
       setApproving(false)
+    }
+  }
+
+  // Resend access link for approved company
+  const [resendingLink, setResendingLink] = useState(false)
+  const handleResendLink = async () => {
+    setResendingLink(true)
+    try {
+      const res = await fetch('/api/admin/resend-access-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ companyId: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Fehler')
+      toast({ title: 'Link gesendet', description: `Zugangslink wurde erneut an ${company?.email} gesendet.` })
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message, variant: 'destructive' })
+    } finally {
+      setResendingLink(false)
     }
   }
 
@@ -493,6 +420,19 @@ export default function CompanyDetailPage() {
               </Button>
             </>
           )}
+          {company.status === 'approved' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={handleResendLink}
+              disabled={resendingLink}
+              title="Neuen Zugangslink per E-Mail senden"
+            >
+              {resendingLink ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
+              Zugangslink senden
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -504,10 +444,32 @@ export default function CompanyDetailPage() {
         </div>
       </div>
 
-      {/* Main layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column — 2/3 */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Tab navigation */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {[
+          { id: 'stammdaten', label: 'Stammdaten' },
+          { id: 'notizen', label: 'Notizen' },
+          { id: 'vermittlungen', label: `Vermittlungen${reservations.length > 0 ? ` (${reservations.length})` : ''}` },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+              activeTab === tab.id
+                ? 'border-[#1a3a5c] text-[#1a3a5c]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Stammdaten */}
+      {activeTab === 'stammdaten' && (
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-3 space-y-6">
 
           {/* Firmendaten */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
@@ -556,12 +518,28 @@ export default function CompanyDetailPage() {
 
             {/* Address grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-3 space-y-1.5">
-                <Label className="text-sm text-gray-600">Adresse</Label>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label className="text-sm text-gray-600">Straße</Label>
                 <Input
                   defaultValue={company.address || ''}
                   onBlur={handleBlurSave('address')}
-                  placeholder="Straße und Hausnummer"
+                  placeholder="Straße"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Hausnummer</Label>
+                <Input
+                  defaultValue={company.house_number || ''}
+                  onBlur={handleBlurSave('house_number')}
+                  placeholder="12a"
+                />
+              </div>
+              <div className="sm:col-span-3 space-y-1.5">
+                <Label className="text-sm text-gray-600">Adresszusatz</Label>
+                <Input
+                  defaultValue={company.adresszusatz || ''}
+                  onBlur={handleBlurSave('adresszusatz')}
+                  placeholder="c/o, Etage, Gebäude... (optional)"
                 />
               </div>
               <div className="space-y-1.5">
@@ -581,39 +559,24 @@ export default function CompanyDetailPage() {
                 />
               </div>
             </div>
-          </div>
 
-          {/* Hauptkontakt */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h2 className="font-semibold text-gray-900 text-base">Hauptkontakt (aus Anfrage)</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Vorname</p>
-                <p className="text-gray-900">{company.first_name || <span className="text-gray-400">—</span>}</p>
+            {/* Betriebskennzahlen */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Betriebsnummer (BA)</Label>
+                <Input
+                  defaultValue={company.betriebsnummer || ''}
+                  onBlur={handleBlurSave('betriebsnummer')}
+                  placeholder="8-stellig"
+                />
               </div>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Nachname</p>
-                <p className="text-gray-900">{company.last_name || <span className="text-gray-400">—</span>}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">E-Mail</p>
-                {company.email ? (
-                  <a href={`mailto:${company.email}`} className="text-blue-600 hover:underline flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5" />{company.email}
-                  </a>
-                ) : (
-                  <p className="text-gray-400">—</p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Telefon</p>
-                {company.phone ? (
-                  <p className="text-gray-900 flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 text-gray-400" />{company.phone}
-                  </p>
-                ) : (
-                  <p className="text-gray-400">—</p>
-                )}
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Kundennummer BA</Label>
+                <Input
+                  defaultValue={company.ba_kundennummer || ''}
+                  onBlur={handleBlurSave('ba_kundennummer')}
+                  placeholder="Optional"
+                />
               </div>
             </div>
           </div>
@@ -698,23 +661,260 @@ export default function CompanyDetailPage() {
               </div>
             )}
           </div>
+        </div>
 
-          {/* Broschüre */}
-          {brochureData !== undefined && (
-            <BrochureCard data={brochureData} />
-          )}
+        {/* Right column */}
+        <div className="lg:col-span-2 space-y-6">
 
-          {/* CRM-Notizen */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
-            <h2 className="font-semibold text-gray-900 text-base">CRM-Notizen</h2>
-            <p className="text-xs text-gray-500">Freitext-Notizen zum Unternehmen — werden automatisch gespeichert.</p>
-            <Textarea
-              defaultValue={company.crm_notes || ''}
-              onBlur={handleCrmNotesBlur}
-              placeholder="Interne Notizen, Gesprächsnotizen, nächste Schritte..."
-              rows={5}
-            />
+          {/* Hauptkontakt */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h2 className="font-semibold text-gray-900 text-base">Hauptkontakt (aus Anfrage)</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Vorname</p>
+                <p className="text-gray-900">{company.first_name || <span className="text-gray-400">—</span>}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Nachname</p>
+                <p className="text-gray-900">{company.last_name || <span className="text-gray-400">—</span>}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">E-Mail</p>
+                {company.email ? (
+                  <a href={`mailto:${company.email}`} className="text-blue-600 hover:underline flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" />{company.email}
+                  </a>
+                ) : (
+                  <p className="text-gray-400">—</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Telefon</p>
+                {company.phone ? (
+                  <p className="text-gray-900 flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-gray-400" />{company.phone}
+                  </p>
+                ) : (
+                  <p className="text-gray-400">—</p>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Klassifizierung */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h2 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-gray-400" />Unternehmensgröße / Klassifizierung
+            </h2>
+            <div className="space-y-1.5">
+              <Label className="text-sm text-gray-600">KMU-Kategorie</Label>
+              <Select
+                value={(company.klassifizierung || {}).kmu_kategorie || ''}
+                onValueChange={v => handleKlassToggle('kmu_kategorie', v)}
+              >
+                <SelectTrigger><SelectValue placeholder="Auswählen" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="klein">Klein (bis 49 Mitarbeiter)</SelectItem>
+                  <SelectItem value="mittel">Mittel (50–249 Mitarbeiter)</SelectItem>
+                  <SelectItem value="gross">Groß (ab 250 Mitarbeiter)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Beschäftigte gesamt</Label>
+                <Input
+                  type="number"
+                  defaultValue={(company.klassifizierung || {}).beschaeftigte_gesamt || ''}
+                  onBlur={handleKlassBlur('beschaeftigte_gesamt')}
+                  placeholder="Anzahl"
+                  min="0"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Jahresumsatz (€)</Label>
+                <Input
+                  type="number"
+                  defaultValue={(company.klassifizierung || {}).jahresumsatz || ''}
+                  onBlur={handleKlassBlur('jahresumsatz')}
+                  placeholder="In EUR"
+                  min="0"
+                />
+              </div>
+            </div>
+            <div className="space-y-2 pt-1">
+              <Label className="text-sm text-gray-600">Beschäftigte nach Wochenarbeitszeit (ohne Azubis/GFB)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'az_bis10', label: 'bis 10 Std.' },
+                  { key: 'az_bis20', label: 'bis 20 Std.' },
+                  { key: 'az_bis30', label: 'bis 30 Std.' },
+                  { key: 'az_ueber30', label: 'mehr als 30 Std.' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <Label className="text-xs text-gray-500">{label}</Label>
+                    <Input
+                      type="number"
+                      defaultValue={(company.klassifizierung || {})[key] || ''}
+                      onBlur={handleKlassBlur(key)}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2 pt-1">
+              {[
+                { key: 'betriebsvereinbarung_wb', label: 'Betriebsvereinbarung über berufliche Weiterbildung' },
+                { key: 'tarifvertrag_wb', label: 'Tarifvertrag mit betriebsbezogener Weiterbildung' },
+                { key: 'tarifgebunden', label: 'Tarifgebundenheit nach § 3 / § 5 TVG' },
+                { key: 'gegruendet_24m', label: 'Unternehmen in den letzten 24 Monaten gegründet' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <Switch
+                    checked={!!(company.klassifizierung || {})[key]}
+                    onCheckedChange={v => handleKlassToggle(key, v)}
+                  />
+                  <Label className="text-sm text-gray-600">{label}</Label>
+                </div>
+              ))}
+            </div>
+            {(company.klassifizierung || {}).tarifgebunden && (
+              <div className="space-y-1.5">
+                <Label className="text-sm text-gray-600">Tarifvertrag (Bezeichnung)</Label>
+                <Input
+                  defaultValue={(company.klassifizierung || {}).tarifvertrag_bezeichnung || ''}
+                  onBlur={handleKlassBlur('tarifvertrag_bezeichnung')}
+                  placeholder="z.B. TVöD, AVR..."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* Tab: Notizen */}
+      {activeTab === 'notizen' && (
+      <div className="space-y-6">
+
+          {/* Notizen & Verlauf */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h2 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-gray-400" />Notizen & Verlauf
+            </h2>
+
+            {/* Add note */}
+            <div className="space-y-2">
+              <Textarea
+                value={newNoteContent}
+                onChange={e => setNewNoteContent(e.target.value)}
+                placeholder="Neue Notiz eingeben..."
+                rows={3}
+                className="resize-none"
+              />
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={handleAddNote}
+                disabled={addingNote || !newNoteContent.trim()}
+              >
+                {addingNote
+                  ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Speichern...</>
+                  : <><Plus className="h-3.5 w-3.5 mr-2" />Notiz hinzufügen</>}
+              </Button>
+            </div>
+
+            {/* Notes list — interest_booking entries are shown in the dedicated card above */}
+            <div className="space-y-3 mt-2">
+              {notesList.filter(n => n.type !== 'interest_booking').length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Noch keine Notizen vorhanden.</p>
+                </div>
+              ) : (
+                notesList.filter(n => n.type !== 'interest_booking').map(note => note.type === 'interest_booking' ? (
+                  <div key={note.id} className="relative pl-4 border-l-2 border-teal-400 group bg-teal-50/40 rounded-r-lg pr-3 py-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CalendarCheck className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                          <span className="text-xs font-semibold text-teal-700">Terminbuchung Matching</span>
+                          <span className="text-xs text-teal-600 bg-teal-100 px-1.5 py-0.5 rounded-full border border-teal-200">
+                            {note.profile_ids?.length || 0} {note.profile_ids?.length === 1 ? 'Profil' : 'Profile'}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {(note.profile_ids || []).map(pid => {
+                            const p = interestProfiles[pid]
+                            return (
+                              <a
+                                key={pid}
+                                href={`/lebenslauf/${pid}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-lg border border-teal-100 text-xs hover:border-teal-300 hover:bg-teal-50 transition-colors group/link"
+                              >
+                                <span className="font-medium text-gray-800 flex-1">
+                                  {p
+                                    ? `${p.gender || 'Fachkraft'}${p.age ? `, ${p.age} J.` : ''}${p.nationality ? ` · ${p.nationality}` : ''}${p.nursing_education ? ` · ${p.nursing_education}` : ''}`
+                                    : `Profil ${pid.slice(0, 8)}…`}
+                                </span>
+                                <ExternalLink className="h-3 w-3 text-teal-400 opacity-0 group-hover/link:opacity-100 shrink-0" />
+                              </a>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
+                        title="Notiz löschen"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                      <span>{note.author}</span>
+                      <span>·</span>
+                      <span>{formatDateTime ? formatDateTime(note.created_at) : new Date(note.created_at).toLocaleString('de-DE')}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={note.id}
+                    className="relative pl-4 border-l-2 border-blue-200 group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap flex-1 leading-relaxed">
+                        {note.content}
+                      </p>
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
+                        title="Notiz löschen"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
+                      <span>{note.author}</span>
+                      <span>·</span>
+                      <span>{formatDateTime ? formatDateTime(note.created_at) : new Date(note.created_at).toLocaleString('de-DE')}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+      </div>
+      )}
+
+
+      {/* Tab: Vermittlungen */}
+      {activeTab === 'vermittlungen' && (
+      <div className="space-y-6">
 
           {/* Aktive Vermittlungen */}
           {reservations.length > 0 && (
@@ -865,120 +1065,17 @@ export default function CompanyDetailPage() {
               </div>
             )
           })()}
-        </div>
 
-        {/* Right column — 1/3 */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-            <h2 className="font-semibold text-gray-900 text-base flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-gray-400" />Notizen & Verlauf
-            </h2>
-
-            {/* Add note */}
-            <div className="space-y-2">
-              <Textarea
-                value={newNoteContent}
-                onChange={e => setNewNoteContent(e.target.value)}
-                placeholder="Neue Notiz eingeben..."
-                rows={3}
-                className="resize-none"
-              />
-              <Button
-                size="sm"
-                className="w-full"
-                onClick={handleAddNote}
-                disabled={addingNote || !newNoteContent.trim()}
-              >
-                {addingNote
-                  ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Speichern...</>
-                  : <><Plus className="h-3.5 w-3.5 mr-2" />Notiz hinzufügen</>}
-              </Button>
+          {reservations.length === 0 && notesList.filter(n => n.type === 'interest_booking').length === 0 && (
+            <div className="text-center py-16 text-gray-400">
+              <Activity className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">Noch keine Vermittlungen vorhanden.</p>
             </div>
-
-            {/* Notes list — interest_booking entries are shown in the dedicated card above */}
-            <div className="space-y-3 mt-2">
-              {notesList.filter(n => n.type !== 'interest_booking').length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">Noch keine Notizen vorhanden.</p>
-                </div>
-              ) : (
-                notesList.filter(n => n.type !== 'interest_booking').map(note => note.type === 'interest_booking' ? (
-                  <div key={note.id} className="relative pl-4 border-l-2 border-teal-400 group bg-teal-50/40 rounded-r-lg pr-3 py-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CalendarCheck className="h-3.5 w-3.5 text-teal-600 shrink-0" />
-                          <span className="text-xs font-semibold text-teal-700">Terminbuchung Matching</span>
-                          <span className="text-xs text-teal-600 bg-teal-100 px-1.5 py-0.5 rounded-full border border-teal-200">
-                            {note.profile_ids?.length || 0} {note.profile_ids?.length === 1 ? 'Profil' : 'Profile'}
-                          </span>
-                        </div>
-                        <div className="space-y-1">
-                          {(note.profile_ids || []).map(pid => {
-                            const p = interestProfiles[pid]
-                            return (
-                              <a
-                                key={pid}
-                                href={`/lebenslauf/${pid}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 px-2 py-1.5 bg-white rounded-lg border border-teal-100 text-xs hover:border-teal-300 hover:bg-teal-50 transition-colors group/link"
-                              >
-                                <span className="font-medium text-gray-800 flex-1">
-                                  {p
-                                    ? `${p.gender || 'Fachkraft'}${p.age ? `, ${p.age} J.` : ''}${p.nationality ? ` · ${p.nationality}` : ''}${p.nursing_education ? ` · ${p.nursing_education}` : ''}`
-                                    : `Profil ${pid.slice(0, 8)}…`}
-                                </span>
-                                <ExternalLink className="h-3 w-3 text-teal-400 opacity-0 group-hover/link:opacity-100 shrink-0" />
-                              </a>
-                            )
-                          })}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteNote(note.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
-                        title="Notiz löschen"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
-                      <span>{note.author}</span>
-                      <span>·</span>
-                      <span>{formatDateTime ? formatDateTime(note.created_at) : new Date(note.created_at).toLocaleString('de-DE')}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    key={note.id}
-                    className="relative pl-4 border-l-2 border-blue-200 group"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm text-gray-800 whitespace-pre-wrap flex-1 leading-relaxed">
-                        {note.content}
-                      </p>
-                      <button
-                        onClick={() => handleDeleteNote(note.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50"
-                        title="Notiz löschen"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
-                      <span>{note.author}</span>
-                      <span>·</span>
-                      <span>{formatDateTime ? formatDateTime(note.created_at) : new Date(note.created_at).toLocaleString('de-DE')}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+          )}
       </div>
+      )}
+
+
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteDialog} onOpenChange={open => !open && setDeleteDialog(false)}>

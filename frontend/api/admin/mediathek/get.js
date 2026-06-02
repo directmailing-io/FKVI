@@ -20,34 +20,27 @@ export default withHandler(async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const token = req.headers.authorization?.replace('Bearer ', '')
-  try {
-    await requireAdmin(token)
-  } catch (e) {
-    return res.status(e.status || 401).json({ error: e.message })
-  }
+  try { await requireAdmin(token) } catch (e) { return res.status(e.status || 401).json({ error: e.message }) }
 
-  const { data: templates, error: fetchError } = await supabaseAdmin
+  const { id } = req.query
+  if (!id) return res.status(400).json({ error: 'id fehlt' })
+
+  const { data, error } = await supabaseAdmin
     .from('document_templates')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
+    .select('id, name, file_name, storage_path, fields, page_count, created_at')
+    .eq('id', id)
+    .single()
 
-  if (fetchError) {
-    console.error('dokumente/list fetch error:', fetchError)
-    return res.status(500).json({ error: 'Templates konnten nicht geladen werden' })
+  if (error) {
+    // page_count might not exist — retry without it
+    const { data: d2, error: e2 } = await supabaseAdmin
+      .from('document_templates')
+      .select('id, name, file_name, storage_path, fields, created_at')
+      .eq('id', id)
+      .single()
+    if (e2) return res.status(404).json({ error: 'Vorlage nicht gefunden' })
+    return res.json({ template: { ...d2, fields: d2.fields || [] } })
   }
 
-  // For each template, count associated sends
-  const templatesWithCounts = await Promise.all(
-    (templates || []).map(async (tpl) => {
-      const { count } = await supabaseAdmin
-        .from('document_sends')
-        .select('id', { count: 'exact', head: true })
-        .eq('template_id', tpl.id)
-
-      return { ...tpl, sends_count: count || 0 }
-    })
-  )
-
-  return res.json({ templates: templatesWithCounts })
+  return res.json({ template: { ...data, fields: data.fields || [] } })
 })

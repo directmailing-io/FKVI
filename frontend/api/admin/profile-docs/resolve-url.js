@@ -16,43 +16,30 @@ async function requireAdmin(token) {
   return user
 }
 
+// POST { storagePath } → { downloadUrl }
+// Called AFTER file has been uploaded to generate a signed download URL
 export default withHandler(async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const token = req.headers.authorization?.replace('Bearer ', '')
-  let user
   try {
-    user = await requireAdmin(token)
+    await requireAdmin(token)
   } catch (e) {
     return res.status(e.status || 401).json({ error: e.message })
   }
 
-  const { sendId } = req.body || {}
-  if (!sendId) return res.status(400).json({ error: 'sendId ist erforderlich' })
+  const { storagePath } = req.body || {}
+  if (!storagePath) return res.status(400).json({ error: 'storagePath ist erforderlich' })
 
-  const { error: updateError } = await supabaseAdmin
-    .from('document_sends')
-    .update({
-      status: 'revoked',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', sendId)
+  // 10-year signed URL (file must exist at this point)
+  const { data, error } = await supabaseAdmin.storage
+    .from('signed-documents')
+    .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
 
-  if (updateError) {
-    console.error('dokumente/revoke update error:', updateError)
-    return res.status(500).json({ error: 'Versendung konnte nicht widerrufen werden' })
+  if (error || !data) {
+    console.error('profile-docs/resolve-url error:', error)
+    return res.status(500).json({ error: 'Download-URL konnte nicht erstellt werden' })
   }
 
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || null
-  const userAgent = req.headers['user-agent'] || null
-
-  await supabaseAdmin.from('document_audit_log').insert({
-    document_send_id: sendId,
-    event_type: 'revoked',
-    ip_address: ip,
-    user_agent: userAgent,
-    metadata: { revoked_by: user.id },
-  })
-
-  return res.json({ success: true })
+  return res.json({ downloadUrl: data.signedUrl })
 })

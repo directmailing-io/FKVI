@@ -17,32 +17,25 @@ async function requireAdmin(token) {
 }
 
 export default withHandler(async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const token = req.headers.authorization?.replace('Bearer ', '')
-  try {
-    await requireAdmin(token)
-  } catch (e) {
+  try { await requireAdmin(token) } catch (e) {
     return res.status(e.status || 401).json({ error: e.message })
   }
 
-  const { templateId, pageCount, fileSize } = req.body || {}
-  if (!templateId) return res.status(400).json({ error: 'templateId ist erforderlich' })
+  const { q } = req.query
+  if (!q || q.trim().length < 1) return res.json({ profiles: [] })
 
-  const { error: updateError } = await supabaseAdmin
-    .from('document_templates')
-    .update({
-      is_active: true,
-      page_count: pageCount || null,
-      file_size: fileSize || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', templateId)
+  const search = q.trim()
 
-  if (updateError) {
-    console.error('dokumente/confirm-upload error:', updateError)
-    return res.status(500).json({ error: 'Template konnte nicht aktualisiert werden' })
-  }
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('id, first_name, last_name, gender, profile_image_url')
+    .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
+    .limit(10)
 
-  return res.json({ success: true })
+  if (error) return res.status(500).json({ error: error.message })
+
+  return res.json({ profiles: data || [] })
 })

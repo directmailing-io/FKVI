@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   // Find request by access_token
   const { data: request, error } = await supabaseAdmin
     .from('brochure_requests')
-    .select('id, first_name, last_name, company_name, email, email_confirmed_at, brochure_version_id')
+    .select('id, first_name, last_name, company_name, email, email_confirmed_at, brochure_version_id, language')
     .eq('access_token', token)
     .single()
 
@@ -50,15 +50,35 @@ export default async function handler(req, res) {
     .eq('request_id', request.id)
     .single()
 
+  // Find available languages (which languages have at least one version)
+  const { data: allVersions } = await supabaseAdmin
+    .from('brochure_versions')
+    .select('language, version_number, id')
+    .order('version_number', { ascending: false })
+
+  const LANGS = ['de', 'en', 'fr', 'ar', 'vi']
+  const availableLanguages = []
+  const latestByLang = {}
+  for (const lang of LANGS) {
+    const v = (allVersions || []).find(x => x.language === lang)
+    if (v) {
+      availableLanguages.push(lang)
+      latestByLang[lang] = v.id
+    }
+  }
+
   return res.json({
     request: {
       first_name: request.first_name,
       last_name: request.last_name,
       company_name: request.company_name,
       email: request.email,
+      language: request.language || 'de',
     },
     version,
     already_confirmed: !!confirmation,
     confirmed_at: confirmation?.confirmed_at || null,
+    available_languages: availableLanguages,
+    latest_by_lang: latestByLang,
   })
 }

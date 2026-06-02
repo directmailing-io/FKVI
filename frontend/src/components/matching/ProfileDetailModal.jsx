@@ -1,274 +1,278 @@
 import { useState } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { Heart, Lock, User, MapPin, Briefcase, GraduationCap, Clock, Globe, CheckCircle2, FileText, Link as LinkIcon, EyeOff, Video } from 'lucide-react'
-import { cn, RECOGNITION_LABELS } from '@/lib/utils'
+import { Heart, Lock, User, CheckCircle2, FileText, EyeOff, Video,
+         MapPin, MessageSquare, Clock, Building2, Star, Award, Info } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import VideoLightbox from '@/components/VideoLightbox'
+import { getProfileSpecializations, getProfileEinrichtungstypen, getSpecializationsLabel } from '@/lib/profileOptions'
 
-// IMPORTANT: We never do `if (!profile) return null` here.
-// Radix UI sets `pointer-events: none` on document.body when a Dialog opens.
-// If the component is force-unmounted (by returning null) while the Dialog is
-// still open, Radix never runs its cleanup → body stays frozen permanently.
-// Instead we always render the Dialog wrapper and guard content with `{profile && …}`.
+// IMPORTANT: Never early-return null — Radix pointer-events cleanup won't fire.
+
+const RECOGNITION = {
+  anerkannt:       { label: 'Anerkannt in DE',            cls: 'bg-green-50 text-green-700 border-green-200' },
+  in_bearbeitung:  { label: 'Anerkennung läuft',          cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  nicht_beantragt: { label: 'Noch nicht beantragt',       cls: 'bg-gray-100 text-gray-500 border-gray-200' },
+  abgelehnt:       { label: 'Anerkennung abgelehnt',      cls: 'bg-red-50 text-red-600 border-red-200' },
+}
+
+function Chip({ children, color = 'gray' }) {
+  const cls = {
+    blue: 'bg-blue-50 text-blue-700 border-blue-100',
+    teal: 'bg-teal-50 text-teal-700 border-teal-100',
+    gray: 'bg-gray-100 text-gray-600 border-gray-200',
+  }[color]
+  return <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${cls}`}>{children}</span>
+}
+
+function DataRow({ label, children }) {
+  return (
+    <div className="py-2.5 border-b border-gray-100 last:border-0">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">{label}</p>
+      <div className="text-sm text-gray-800">{children}</div>
+    </div>
+  )
+}
 
 export default function ProfileDetailModal({ profile, open, onClose, isFavorite, onToggleFavorite, isDemo, onRegister }) {
-  const [linkCopied, setLinkCopied] = useState(false)
   const [videoOpen, setVideoOpen] = useState(false)
-
-  const cvUrl = profile ? `${window.location.origin}/lebenslauf/${profile.id}` : ''
 
   const handleOpenCv = () => {
     document.body.style.removeProperty('pointer-events')
     onClose()
-    window.open(cvUrl, '_blank')
-  }
-
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(cvUrl)
-    setLinkCopied(true)
-    setTimeout(() => setLinkCopied(false), 2500)
+    window.open(`${window.location.origin}/lebenslauf/${profile?.id}`, '_blank')
   }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent
-        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="max-w-4xl w-full p-0 gap-0 rounded-2xl overflow-hidden"
+        style={{ maxHeight: '88vh' }}
         onInteractOutside={(e) => { if (videoOpen) e.preventDefault() }}
         onEscapeKeyDown={(e) => { if (videoOpen) e.preventDefault() }}
       >
-        {profile && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between flex-wrap gap-2">
-                <span>Profil-Details</span>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={handleCopyLink} className="gap-1.5 text-xs">
-                    {linkCopied
-                      ? <><CheckCircle2 className="h-3.5 w-3.5 text-green-500" />Kopiert!</>
-                      : <><LinkIcon className="h-3.5 w-3.5" />Link teilen</>
-                    }
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleOpenCv} className="gap-1.5 text-xs">
+        {profile && (() => {
+          const specs         = getProfileSpecializations(profile)
+          const einrichtungen = getProfileEinrichtungstypen(profile)
+          const langs         = profile.language_skills || []
+          const addQuals      = profile.additional_qualifications || []
+          const expAreas      = profile.experience_areas || []
+          const states        = profile.state_preferences || []
+          const rec           = RECOGNITION[profile.german_recognition]
+          const deutschLevel  = langs.find(l => l.language === 'Deutsch')?.level
+
+          const expLine = [
+            profile.total_experience_years && `${profile.total_experience_years} J. gesamt`,
+            profile.germany_experience_years && `${profile.germany_experience_years} J. in DE`,
+          ].filter(Boolean).join(' · ')
+
+          const personal = [
+            profile.marital_status,
+            profile.children_count === 0 ? 'Keine Kinder'
+              : profile.children_count > 0 ? `${profile.children_count} Kind${profile.children_count > 1 ? 'er' : ''}` : null,
+            profile.has_drivers_license ? 'Führerschein Kl. B' : null,
+          ].filter(Boolean)
+
+          return (
+            <div className="flex" style={{ maxHeight: '88vh' }}>
+
+              {/* ══ LEFT COLUMN — Photo + Identity ══════════════════════════ */}
+              <div
+                className="w-72 shrink-0 flex flex-col relative overflow-hidden pb-6"
+                style={{ background: 'linear-gradient(170deg, #1a3a5c 0%, #134a46 55%, #0d9488 100%)' }}
+              >
+                {/* Top glow */}
+                <div className="absolute top-0 inset-x-0 h-32 opacity-25 pointer-events-none"
+                  style={{ background: 'radial-gradient(ellipse at 60% 0%, rgba(255,255,255,0.4), transparent)' }} />
+
+                {/* Action buttons top right (leave room for Radix X) */}
+                <div className="relative z-10 flex items-center gap-2 pt-4 pr-12 pl-4 justify-end">
+                  <Button size="sm" onClick={handleOpenCv}
+                    className="h-8 text-xs gap-1.5 bg-white/15 hover:bg-white/25 text-white border border-white/20 backdrop-blur-sm">
                     <FileText className="h-3.5 w-3.5" />Lebenslauf
                   </Button>
                   {isDemo ? (
-                    <Button
-                      size="sm"
-                      onClick={onRegister}
-                      className="bg-fkvi-teal hover:bg-fkvi-teal/90 text-white gap-1.5"
-                    >
-                      <Lock className="h-3.5 w-3.5" />
-                      Zugang anfragen
+                    <Button size="sm" onClick={onRegister}
+                      className="h-8 text-xs gap-1.5 bg-fkvi-teal hover:bg-fkvi-teal/90 text-white">
+                      <Lock className="h-3.5 w-3.5" />Zugang
                     </Button>
                   ) : (
-                    <Button
-                      variant={isFavorite ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => onToggleFavorite(profile.id)}
-                      className={cn(isFavorite && 'bg-red-500 hover:bg-red-600 border-red-500')}
-                    >
-                      <Heart className={cn('h-4 w-4 mr-1.5', isFavorite && 'fill-white')} />
+                    <Button size="sm" onClick={() => onToggleFavorite(profile.id)}
+                      className={cn('h-8 text-xs gap-1.5',
+                        isFavorite ? 'bg-red-500 hover:bg-red-600 text-white border-transparent'
+                          : 'bg-white/15 hover:bg-white/25 text-white border border-white/20')}
+                      variant="outline">
+                      <Heart className={cn('h-3.5 w-3.5', isFavorite && 'fill-white')} />
                       {isFavorite ? 'Vorgemerkt' : 'Vormerken'}
                     </Button>
                   )}
                 </div>
-              </DialogTitle>
-            </DialogHeader>
 
-            <div className="space-y-6">
-              {/* Anonymized header */}
-              <div className="flex gap-4">
-                <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center">
-                  {profile.profile_image_url
-                    ? <img src={profile.profile_image_url} alt="" className="w-full h-full object-cover" />
-                    : <User className="h-8 w-8 text-gray-300" />}
+                {/* Large photo */}
+                <div className="relative z-10 flex justify-center pt-6 pb-5">
+                  <div className="relative">
+                    <div className="w-36 h-36 rounded-full overflow-hidden ring-4 ring-white/20 shadow-2xl bg-white/10">
+                      {profile.profile_image_url
+                        ? <img src={profile.profile_image_url} alt="Profilbild" className="w-full h-full object-cover object-top" />
+                        : <div className="w-full h-full flex items-center justify-center">
+                            <User className="h-16 w-16 text-white/20" />
+                          </div>
+                      }
+                    </div>
+                    {/* Anonymized badge */}
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-0.5 whitespace-nowrap">
+                      <EyeOff className="h-2.5 w-2.5 text-white/60" />
+                      <span className="text-[9px] text-white/60 font-medium">Anonymisiert</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-400 flex items-center gap-1 mb-0.5">
-                    <EyeOff className="h-3 w-3" />
-                    <span className="blur-sm select-none text-gray-600 text-xs font-medium">Vorname Nachname</span>
-                    <span className="text-[9px] bg-gray-100 text-gray-400 rounded px-1" style={{ filter: 'none' }}>anon.</span>
+
+                {/* Name + basics */}
+                <div className="relative z-10 px-5 pb-5 text-center">
+                  {/* Blurred placeholder name */}
+                  <DialogTitle className="text-xl font-bold text-white leading-tight select-none" style={{ filter: 'blur(6px)' }}>
+                    Vorname Nachname
+                  </DialogTitle>
+                  {/* Job title below name */}
+                  <p className="text-sm font-semibold text-white/80 mt-2">
+                    {profile.nursing_education || 'Pflegefachkraft'}
                   </p>
-                  <h2 className="text-lg font-bold text-gray-900">
-                    {profile.gender || 'Fachkraft'}{profile.age ? `, ${profile.age} Jahre` : ''}
-                  </h2>
-                  <p className="text-gray-500">{profile.nationality}</p>
-                  {profile.german_recognition && (
-                    <Badge variant={profile.german_recognition === 'anerkannt' ? 'success' : 'warning'} className="mt-1">
-                      Anerkennung: {RECOGNITION_LABELS[profile.german_recognition]}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Video — compact button, opens lightbox */}
-              {profile.vimeo_video_url && (
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 border-fkvi-teal/30 text-fkvi-teal hover:bg-fkvi-teal/5 hover:border-fkvi-teal"
-                  onClick={() => setVideoOpen(true)}
-                >
-                  <Video className="h-4 w-4" />
-                  Vorstellungsvideo ansehen
-                </Button>
-              )}
-
-              <Separator />
-
-              {/* Personal */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {[
-                  { label: 'Familienstand', value: profile.marital_status },
-                  { label: 'Kinder', value: profile.children_count != null ? profile.children_count : null },
-                  { label: 'Führerschein', value: profile.has_drivers_license ? 'Ja (Klasse B)' : null },
-                  { label: 'Arbeitszeitpräferenz', value: profile.work_time_preference },
-                ].filter(i => i.value != null && i.value !== '').map(item => (
-                  <div key={item.label}>
-                    <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
-                    <p className="font-medium text-gray-900">{String(item.value)}</p>
-                  </div>
-                ))}
-              </div>
-
-              <Separator />
-
-              {/* Ausbildung */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-gray-900">Ausbildung</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {[
-                    { label: 'Pflegeausbildung', value: profile.nursing_education },
-                    { label: 'Ausbildungsdauer', value: profile.education_duration },
-                    { label: 'Abschlussjahr', value: profile.graduation_year },
-                  ].filter(i => i.value).map(item => (
-                    <div key={item.label}>
-                      <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
-                      <p className="font-medium text-gray-900">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-                {profile.education_notes && (
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{profile.education_notes}</p>
-                )}
-              </div>
-
-              {/* Qualifikationen */}
-              {((profile.specializations || []).length > 0 || (profile.additional_qualifications || []).length > 0) && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-900">Qualifikationen</h3>
-                    {(profile.specializations || []).length > 0 && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1.5">Spezialisierungen</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {profile.specializations.map(s => (
-                            <span key={s} className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{s}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {(profile.additional_qualifications || []).length > 0 && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1.5">Zusatzqualifikationen</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {profile.additional_qualifications.map(q => (
-                            <span key={q} className="px-2.5 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-medium">{q}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {profile.fkvi_competency_proof && (
-                      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg p-3">
-                        <CheckCircle2 className="h-4 w-4 shrink-0" />
-                        <span>Pflegekompetenznachweis FKVI: {profile.fkvi_competency_proof}</span>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Erfahrung */}
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="font-semibold text-gray-900">Berufserfahrung</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {profile.total_experience_years && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-0.5">Gesamt</p>
-                      <p className="font-medium">{profile.total_experience_years} Jahre</p>
-                    </div>
-                  )}
-                  {profile.germany_experience_years && (
-                    <div>
-                      <p className="text-xs text-gray-500 mb-0.5">In Deutschland</p>
-                      <p className="font-medium">{profile.germany_experience_years} Jahre</p>
-                    </div>
-                  )}
-                </div>
-                {(profile.experience_areas || []).length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1.5">Erfahrungsbereiche</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {profile.experience_areas.map(a => (
-                        <span key={a} className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{a}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Sprachen */}
-              {(profile.language_skills || []).length > 0 && (
-                <>
-                  <Separator />
-                  <div className="space-y-2">
-                    <h3 className="font-semibold text-gray-900">Sprachkenntnisse</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {(profile.language_skills || []).map((lang, i) => (
-                        <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg border text-sm">
-                          <Globe className="h-3.5 w-3.5 text-gray-400" />
-                          <span className="font-medium">{lang.language}</span>
-                          {lang.level && <Badge variant="outline" className="text-[10px] py-0">{lang.level}</Badge>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Präferenzen */}
-              <Separator />
-              <div className="space-y-2 text-sm">
-                <h3 className="font-semibold text-gray-900">Einsatzpräferenzen</h3>
-                {profile.nationwide && (
-                  <p className="text-green-700 font-medium flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4" />Bundesweit einsetzbar
+                  <p className="text-xs text-white/50 mt-1">
+                    {[profile.gender, profile.age && `${profile.age} J.`, profile.nationality].filter(Boolean).join(' · ')}
                   </p>
-                )}
-                {!profile.nationwide && (profile.state_preferences || []).length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Bevorzugte Bundesländer</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {profile.state_preferences.map(s => (
-                        <span key={s} className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{s}</span>
-                      ))}
+
+                  {/* Recognition */}
+                  {rec && (
+                    <div className="mt-3">
+                      <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full border', rec.cls)}>
+                        {profile.german_recognition === 'anerkannt' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                        {rec.label}
+                      </span>
                     </div>
-                  </div>
+                  )}
+                </div>
+
+                {/* Key stats */}
+                <div className="relative z-10 mx-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 divide-y divide-white/10">
+                  {expLine && (
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-2xl font-black text-white leading-none">{profile.total_experience_years || '–'}</p>
+                      <p className="text-[10px] text-white/45 mt-0.5">Jahre Berufserfahrung</p>
+                      {profile.germany_experience_years && (
+                        <p className="text-[10px] text-white/45">{profile.germany_experience_years} J. davon in DE</p>
+                      )}
+                    </div>
+                  )}
+                  {deutschLevel && (
+                    <div className="px-4 py-3 flex items-center justify-between">
+                      <span className="text-xs text-white/45">Deutsch</span>
+                      <span className="text-sm font-bold text-white">{deutschLevel}</span>
+                    </div>
+                  )}
+                  {profile.work_time_preference && (
+                    <div className="px-4 py-3 flex items-center justify-between">
+                      <span className="text-xs text-white/45">Arbeitszeit</span>
+                      <span className="text-xs font-semibold text-white text-right max-w-[100px] leading-tight">{profile.work_time_preference}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Video link */}
+                {profile.vimeo_video_url && (
+                  <button onClick={() => setVideoOpen(true)}
+                    className="relative z-10 mx-4 mt-4 mb-5 w-[calc(100%-2rem)] flex items-center justify-center gap-2 py-3 rounded-xl border border-white/25 bg-white/15 text-white text-sm font-medium hover:bg-white/25 hover:border-white/40 transition-all shadow-sm">
+                    <Video className="h-4 w-4" />Vorstellungsvideo ansehen
+                  </button>
                 )}
+
+                <div className="flex-1" />
               </div>
+
+              {/* ══ RIGHT COLUMN — Detailed info ════════════════════════════ */}
+              <div className="flex-1 overflow-y-auto bg-white">
+                <div className="px-7 py-6 space-y-0">
+
+                  {/* Region + Einrichtung side by side */}
+                  <div className="grid grid-cols-2 gap-x-6 border-b border-gray-100 pb-4 mb-0">
+                    <DataRow label="Bevorzugte Region">
+                      {profile.nationwide
+                        ? <span className="font-medium text-green-700">Bundesweit</span>
+                        : states.length > 0
+                          ? <div className="flex flex-wrap gap-1.5">{states.map(s => <Chip key={s}>{s}</Chip>)}</div>
+                          : <span className="text-gray-400">–</span>
+                      }
+                    </DataRow>
+                    {einrichtungen.length > 0 && (
+                      <DataRow label="Einrichtungstyp">
+                        <div className="flex flex-wrap gap-1.5">{einrichtungen.map(e => <Chip key={e}>{e}</Chip>)}</div>
+                      </DataRow>
+                    )}
+                  </div>
+
+                  {expAreas.length > 0 && (
+                    <DataRow label="Erfahrungsbereiche">
+                      <div className="flex flex-wrap gap-1.5">{expAreas.map(e => <Chip key={e}>{e}</Chip>)}</div>
+                    </DataRow>
+                  )}
+
+                  {specs.length > 0 && (
+                    <DataRow label={getSpecializationsLabel(profile.berufsgruppe)}>
+                      <div className="flex flex-wrap gap-1.5">{specs.map(s => <Chip key={s} color="blue">{s}</Chip>)}</div>
+                    </DataRow>
+                  )}
+
+                  {addQuals.length > 0 && (
+                    <DataRow label="Zusatzqualifikationen">
+                      <div className="flex flex-wrap gap-1.5">{addQuals.map(q => <Chip key={q} color="teal">{q}</Chip>)}</div>
+                    </DataRow>
+                  )}
+
+                  {langs.length > 0 && (
+                    <DataRow label="Sprachen">
+                      <div className="flex flex-wrap gap-x-5 gap-y-1">
+                        {langs.map((l, i) => (
+                          <span key={i} className="text-sm text-gray-800">
+                            {l.language}{l.level && <span className="text-gray-400 text-xs ml-1">({l.level})</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </DataRow>
+                  )}
+
+                  {personal.length > 0 && (
+                    <DataRow label="Persönliches">
+                      <span className="text-gray-600">{personal.join(' · ')}</span>
+                    </DataRow>
+                  )}
+
+                  {(() => {
+                    const cp = profile.fkvi_competency_proof
+                    const norm = !cp ? '' : (cp === 'bestanden' || cp.toLowerCase().includes('bestanden')) ? 'bestanden' : 'in_aneignung'
+                    if (!norm) return null
+                    return (
+                      <DataRow label="FKVI-Nachweis">
+                        {norm === 'bestanden' ? (
+                          <span className="text-green-700 font-medium flex items-center gap-1.5">
+                            <CheckCircle2 className="h-4 w-4" />Bestanden
+                          </span>
+                        ) : (
+                          <span className="text-amber-700 font-medium flex items-center gap-1.5">
+                            <CheckCircle2 className="h-4 w-4 opacity-50" />In Aneignung
+                          </span>
+                        )}
+                      </DataRow>
+                    )
+                  })()}
+
+                </div>
+              </div>
+
             </div>
-          </>
-        )}
+          )
+        })()}
       </DialogContent>
 
-      <VideoLightbox
-        url={profile?.vimeo_video_url}
-        open={videoOpen}
-        onClose={() => setVideoOpen(false)}
-      />
+      <VideoLightbox url={profile?.vimeo_video_url} open={videoOpen} onClose={() => setVideoOpen(false)} />
     </Dialog>
   )
 }

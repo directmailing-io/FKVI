@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase-public'
 import ProfileCard from '@/components/matching/ProfileCard'
 import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import {
   User, Briefcase, GraduationCap, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ALL_SPECIALIZATION_FIELDS, getProfileSpecializations } from '@/lib/profileOptions'
 import { Badge } from '@/components/ui/badge'
 
 // ─── Hardcoded dummy profiles (fake data — safe to expose in DOM) ────────────
@@ -26,7 +27,8 @@ const DUMMY_PROFILES = [
     total_experience_years: 8, germany_experience_years: 2,
     work_time_preference: 'Vollzeit',
     nursing_education: 'B. Sc. Nursing',
-    specializations: ['Intensivpflege', 'Onkologie', 'Geriatrie'],
+    berufsgruppe: 'pflegefachkraft',
+    specializations_pflegefachkraft: ['Intensivpflege', 'Onkologie', 'Geriatrie'],
     profile_image_url: '/demo/nurse-1.png', vimeo_video_url: null,
   },
   {
@@ -36,7 +38,8 @@ const DUMMY_PROFILES = [
     total_experience_years: 5, germany_experience_years: null,
     work_time_preference: 'Vollzeit',
     nursing_education: 'General Nursing (B. Sc.)',
-    specializations: ['Geriatrie', 'Demenzpflege'],
+    berufsgruppe: 'pflegefachkraft',
+    specializations_pflegefachkraft: ['Geriatrie', 'Demenzpflege'],
     profile_image_url: '/demo/nurse-2.png', vimeo_video_url: null,
   },
   {
@@ -46,7 +49,8 @@ const DUMMY_PROFILES = [
     total_experience_years: 10, germany_experience_years: 4,
     work_time_preference: 'Vollzeit',
     nursing_education: 'Registered Nurse (RN)',
-    specializations: ['Palliativpflege', 'Wundmanagement', 'Altenpflege'],
+    berufsgruppe: 'pflegefachkraft',
+    specializations_pflegefachkraft: ['Palliativpflege', 'Wundmanagement', 'Altenpflege'],
     profile_image_url: '/demo/nurse-3.png', vimeo_video_url: null,
   },
 ]
@@ -140,9 +144,9 @@ function DummyCard({ profile }) {
           )}
         </div>
 
-        {(profile.specializations || []).length > 0 && (
+        {getProfileSpecializations(profile).length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {profile.specializations.slice(0, 3).map(s => (
+            {getProfileSpecializations(profile).slice(0, 3).map(s => (
               <span key={s} className="px-2 py-0.5 bg-fkvi-blue/8 text-fkvi-blue rounded-full text-[10px] font-medium">{s}</span>
             ))}
           </div>
@@ -157,6 +161,7 @@ function DummyCard({ profile }) {
 function RegisterModal({ open, onClose }) {
   const [form, setForm] = useState({
     first_name: '', last_name: '', company_name: '', email: '', phone: '',
+    address: '', postal_code: '', city: '',
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -194,7 +199,7 @@ function RegisterModal({ open, onClose }) {
   const handleClose = () => {
     onClose()
     setTimeout(() => {
-      setForm({ first_name: '', last_name: '', company_name: '', email: '', phone: '' })
+      setForm({ first_name: '', last_name: '', company_name: '', email: '', phone: '', address: '', postal_code: '', city: '' })
       setSuccess(false)
       setError('')
     }, 300)
@@ -223,6 +228,12 @@ function RegisterModal({ open, onClose }) {
               </p>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+              <div>
+                <Label htmlFor="r_co" className="text-xs font-medium">Einrichtung / Unternehmen <span className="text-red-500">*</span></Label>
+                <Input id="r_co" value={form.company_name}
+                  onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
+                  placeholder="Pflegezentrum GmbH" className="mt-1" required autoFocus />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="r_fn" className="text-xs font-medium">Vorname *</Label>
@@ -238,10 +249,24 @@ function RegisterModal({ open, onClose }) {
                 </div>
               </div>
               <div>
-                <Label htmlFor="r_co" className="text-xs font-medium">Einrichtung / Unternehmen</Label>
-                <Input id="r_co" value={form.company_name}
-                  onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                  placeholder="Pflegezentrum GmbH" className="mt-1" />
+                <Label htmlFor="r_addr" className="text-xs font-medium">Straße &amp; Hausnummer *</Label>
+                <Input id="r_addr" value={form.address}
+                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                  placeholder="Musterstraße 12" required className="mt-1" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="r_plz" className="text-xs font-medium">PLZ *</Label>
+                  <Input id="r_plz" value={form.postal_code}
+                    onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))}
+                    placeholder="12345" required className="mt-1" />
+                </div>
+                <div>
+                  <Label htmlFor="r_city" className="text-xs font-medium">Ort *</Label>
+                  <Input id="r_city" value={form.city}
+                    onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                    placeholder="Frankfurt am Main" required className="mt-1" />
+                </div>
               </div>
               <div>
                 <Label htmlFor="r_em" className="text-xs font-medium">E-Mail-Adresse *</Label>
@@ -294,15 +319,16 @@ export default function DemoPage() {
           .from('profiles')
           .select(`
             id, gender, age, nationality, marital_status, children_count, has_drivers_license,
-            state_preferences, nationwide, preferred_facility_types, work_time_preference,
+            state_preferences, nationwide, work_time_preference,
             profile_image_url, vimeo_video_url, vimeo_video_id,
             nursing_education, education_duration, graduation_year, german_recognition, education_notes,
-            specializations, additional_qualifications,
+            additional_qualifications,
             total_experience_years, germany_experience_years, experience_areas,
-            language_skills, fkvi_competency_proof
+            language_skills, fkvi_competency_proof,
+            ${ALL_SPECIALIZATION_FIELDS.join(', ')}
           `)
           .eq('status', 'published')
-          .order('created_at', { ascending: false })
+          .order('sort_order', { ascending: true, nullsFirst: false })
           .limit(3)
         setProfiles(data || [])
       } catch {

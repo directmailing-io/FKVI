@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '@/store/authStore'
-import { supabase } from '@/lib/supabase'
+import { usePublicAuthStore } from '@/store/publicAuthStore'
+import { supabase } from '@/lib/supabase-public'
 import { cn } from '@/lib/utils'
 import { Search, Activity, LogOut, Menu, X, ChevronRight, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -137,7 +137,7 @@ function ChangePasswordDialog({ open, onClose }) {
 export default function MatchingLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [changePwOpen, setChangePwOpen] = useState(false)
-  const { user, signOut } = useAuthStore()
+  const { user, signOut } = usePublicAuthStore()
   const location = useLocation()
   const navigate = useNavigate()
 

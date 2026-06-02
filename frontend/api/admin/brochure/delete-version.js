@@ -29,18 +29,6 @@ export default async function handler(req, res) {
 
   if (vErr || !version) return res.status(404).json({ error: 'Version nicht gefunden' })
 
-  // Prevent deleting the latest version
-  const { data: latest } = await supabaseAdmin
-    .from('brochure_versions')
-    .select('id')
-    .order('version_number', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (latest?.id === versionId) {
-    return res.status(400).json({ error: 'Die aktuelle Version kann nicht gelöscht werden. Laden Sie zuerst eine neue Version hoch.' })
-  }
-
   // Delete from storage
   if (version.storage_path) {
     const { error: storageErr } = await supabaseAdmin.storage

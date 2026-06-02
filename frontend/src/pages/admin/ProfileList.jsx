@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { PROFILE_STATUS_LABELS, PROFILE_STATUS_COLORS } from '@/lib/utils'
+import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
 import { Plus, Search, User, Trash2, AlertTriangle, GripVertical, Globe } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
@@ -35,14 +36,14 @@ export default function ProfileList() {
     try {
       let { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, status, nationality, specializations, created_at, profile_image_url, sort_order')
+        .select(`id, first_name, last_name, status, nationality, created_at, profile_image_url, sort_order, ${ALL_SPECIALIZATION_FIELDS.join(', ')}`)
         .order('sort_order', { ascending: true, nullsFirst: false })
 
       // Fallback if sort_order column doesn't exist yet (migration pending)
       if (error) {
         const fallback = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, status, nationality, specializations, created_at, profile_image_url')
+          .select(`id, first_name, last_name, status, nationality, created_at, profile_image_url, ${ALL_SPECIALIZATION_FIELDS.join(', ')}`)
           .order('created_at', { ascending: false })
         data = fallback.data
       }
@@ -264,11 +265,11 @@ export default function ProfileList() {
                       <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{profile.nationality || '—'}</td>
                       <td className="px-4 py-3 hidden lg:table-cell">
                         <div className="flex flex-wrap gap-1">
-                          {(profile.specializations || []).slice(0, 2).map(s => (
+                          {getProfileSpecializations(profile).slice(0, 2).map(s => (
                             <span key={s} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">{s}</span>
                           ))}
-                          {(profile.specializations || []).length > 2 && (
-                            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs">+{profile.specializations.length - 2}</span>
+                          {getProfileSpecializations(profile).length > 2 && (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs">+{getProfileSpecializations(profile).length - 2}</span>
                           )}
                         </div>
                       </td>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase-public'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -93,12 +93,13 @@ export default function ContactPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="company_name">Firmenname</Label>
+              <Label htmlFor="company_name">Firmenname <span className="text-red-500">*</span></Label>
               <Input
                 id="company_name"
                 value={form.company_name}
                 onChange={e => set('company_name', e.target.value)}
                 placeholder="Muster GmbH"
+                required
               />
             </div>
 
