@@ -3,14 +3,11 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase-public'
 import ProfileCard from '@/components/matching/ProfileCard'
 import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import AccessRequestModal from '@/components/public/AccessRequestModal'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Search, Activity, Lock, SlidersHorizontal,
-  EyeOff, ArrowRight, CheckCircle2, Loader2, X, Menu,
+  EyeOff, ArrowRight, X, Menu,
   User, Briefcase, GraduationCap, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -156,149 +153,6 @@ function DummyCard({ profile }) {
   )
 }
 
-// ─── Registration Modal ──────────────────────────────────────────────────────
-
-function RegisterModal({ open, onClose }) {
-  const [form, setForm] = useState({
-    first_name: '', last_name: '', company_name: '', email: '', phone: '',
-    address: '', postal_code: '', city: '',
-  })
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/request-access', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        if (data.error === 'already_pending') {
-          setError('Eine Anfrage mit dieser E-Mail wurde bereits gesendet. Wir melden uns in Kürze.')
-        } else if (data.error === 'already_approved') {
-          setError('Konto bereits aktiviert. Bitte melden Sie sich direkt an.')
-        } else {
-          setError(data.error || 'Fehler. Bitte erneut versuchen.')
-        }
-        return
-      }
-      setSuccess(true)
-    } catch {
-      setError('Netzwerkfehler. Bitte erneut versuchen.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleClose = () => {
-    onClose()
-    setTimeout(() => {
-      setForm({ first_name: '', last_name: '', company_name: '', email: '', phone: '', address: '', postal_code: '', city: '' })
-      setSuccess(false)
-      setError('')
-    }, 300)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={v => !v && handleClose()}>
-      <DialogContent className="max-w-md">
-        {success ? (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Anfrage gesendet!</h3>
-            <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-xs mx-auto">
-              Wir prüfen Ihre Anfrage und senden Ihnen innerhalb von 24 Stunden die Zugangsdaten zu.
-            </p>
-            <Button onClick={handleClose} className="w-full">Schließen</Button>
-          </div>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>Kostenlosen Zugang anfragen</DialogTitle>
-              <p className="text-sm text-gray-500 mt-1">
-                Erhalten Sie Zugang zu allen Fachkräfteprofilen auf der FKVI Matching-Plattform.
-              </p>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-              <div>
-                <Label htmlFor="r_co" className="text-xs font-medium">Einrichtung / Unternehmen <span className="text-red-500">*</span></Label>
-                <Input id="r_co" value={form.company_name}
-                  onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                  placeholder="Pflegezentrum GmbH" className="mt-1" required autoFocus />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="r_fn" className="text-xs font-medium">Vorname *</Label>
-                  <Input id="r_fn" value={form.first_name}
-                    onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
-                    placeholder="Max" required className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="r_ln" className="text-xs font-medium">Nachname *</Label>
-                  <Input id="r_ln" value={form.last_name}
-                    onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
-                    placeholder="Mustermann" required className="mt-1" />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="r_addr" className="text-xs font-medium">Straße &amp; Hausnummer *</Label>
-                <Input id="r_addr" value={form.address}
-                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                  placeholder="Musterstraße 12" required className="mt-1" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="r_plz" className="text-xs font-medium">PLZ *</Label>
-                  <Input id="r_plz" value={form.postal_code}
-                    onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))}
-                    placeholder="12345" required className="mt-1" />
-                </div>
-                <div>
-                  <Label htmlFor="r_city" className="text-xs font-medium">Ort *</Label>
-                  <Input id="r_city" value={form.city}
-                    onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                    placeholder="Frankfurt am Main" required className="mt-1" />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="r_em" className="text-xs font-medium">E-Mail-Adresse *</Label>
-                <Input id="r_em" type="email" value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  placeholder="max@pflegezentrum.de" required className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="r_ph" className="text-xs font-medium">Telefonnummer *</Label>
-                <Input id="r_ph" type="tel" value={form.phone}
-                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                  placeholder="+49 123 456789" required className="mt-1" />
-              </div>
-              {error && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
-              )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird gesendet…</>
-                  : <>Zugang anfragen <ArrowRight className="h-4 w-4 ml-1.5" /></>
-                }
-              </Button>
-              <p className="text-[11px] text-gray-400 text-center">
-                Kostenlos · Kein Abo · Persönliche Beratung inklusive
-              </p>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
@@ -622,7 +476,7 @@ export default function DemoPage() {
         onRegister={() => { setDetailOpen(false); setTimeout(openRegister, 200) }}
       />
 
-      <RegisterModal open={registerOpen} onClose={() => setRegisterOpen(false)} />
+      <AccessRequestModal open={registerOpen} onClose={() => setRegisterOpen(false)} />
     </div>
   )
 }
