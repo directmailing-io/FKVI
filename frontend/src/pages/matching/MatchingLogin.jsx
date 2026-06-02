@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Loader2, ArrowLeft, Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import AccessRequestModal from '@/components/public/AccessRequestModal'
 
 export default function MatchingLogin() {
   const [email, setEmail]     = useState('')
@@ -13,6 +14,7 @@ export default function MatchingLogin() {
   const [showPw, setShowPw]   = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const [accessModalOpen, setAccessModalOpen] = useState(false)
   const { signIn, signOut } = usePublicAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
@@ -116,11 +118,16 @@ export default function MatchingLogin() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Noch keinen Zugang?{' '}
-          <Link to="/kontakt" className="text-fkvi-blue hover:underline font-medium">
+          <button
+            onClick={() => setAccessModalOpen(true)}
+            className="text-fkvi-blue hover:underline font-medium"
+          >
             Zugang anfragen
-          </Link>
+          </button>
         </p>
       </div>
+
+      <AccessRequestModal open={accessModalOpen} onClose={() => setAccessModalOpen(false)} />
     </div>
   )
 }
