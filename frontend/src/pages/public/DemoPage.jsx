@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase-public'
 import ProfileCard from '@/components/matching/ProfileCard'
 import ProfileDetailModal from '@/components/matching/ProfileDetailModal'
 import AccessRequestModal from '@/components/public/AccessRequestModal'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Search, Activity, Lock, SlidersHorizontal,
