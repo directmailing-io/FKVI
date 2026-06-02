@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FKVI Testprotokoll</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a1a2e; min-height: 100vh; }
+
+  /* Header */
+  .header { background: #1a3a5c; color: white; padding: 28px 32px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 16px rgba(0,0,0,0.18); }
+  .header-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .header h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.3px; }
+  .header p { font-size: 0.8rem; opacity: 0.7; margin-top: 2px; }
+  .progress-box { background: rgba(255,255,255,0.12); border-radius: 12px; padding: 10px 18px; text-align: center; min-width: 160px; }
+  .progress-box .nums { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+  .progress-box .label { font-size: 0.7rem; opacity: 0.75; margin-top: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .progress-bar-wrap { height: 5px; background: rgba(255,255,255,0.2); border-radius: 4px; margin-top: 6px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: #0d9488; border-radius: 4px; transition: width 0.3s; }
+
+  /* Controls */
+  .controls { max-width: 960px; margin: 20px auto 0; padding: 0 24px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .controls input { flex: 1; min-width: 200px; padding: 9px 14px; border-radius: 8px; border: 1.5px solid #dde3ea; font-size: 0.88rem; background: white; }
+  .controls input:focus { outline: none; border-color: #1a3a5c; }
+  .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: all 0.15s; }
+  .btn-reset { background: #fee2e2; color: #b91c1c; }
+  .btn-reset:hover { background: #fecaca; }
+  .btn-expand { background: #e0e7ff; color: #3730a3; }
+  .btn-expand:hover { background: #c7d2fe; }
+  .filter-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-btn { padding: 6px 12px; border-radius: 20px; border: 1.5px solid #dde3ea; background: white; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.15s; color: #64748b; }
+  .filter-btn.active { background: #1a3a5c; color: white; border-color: #1a3a5c; }
+
+  /* Main */
+  main { max-width: 960px; margin: 16px auto 60px; padding: 0 24px; }
+
+  /* Category */
+  .category { margin-bottom: 16px; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  .category-header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: white; cursor: pointer; user-select: none; border-bottom: 1px solid #f1f5f9; transition: background 0.1s; }
+  .category-header:hover { background: #f8fafc; }
+  .category-icon { font-size: 1.2rem; width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .category-title { font-size: 0.97rem; font-weight: 700; flex: 1; }
+  .category-stats { font-size: 0.75rem; color: #64748b; font-weight: 600; white-space: nowrap; }
+  .cat-ok { color: #059669; }
+  .cat-fail { color: #dc2626; }
+  .chevron { transition: transform 0.2s; color: #94a3b8; font-size: 0.85rem; }
+  .chevron.open { transform: rotate(180deg); }
+  .category-body { display: none; background: white; }
+  .category-body.open { display: block; }
+
+  /* Item */
+  .item { border-top: 1px solid #f1f5f9; padding: 14px 18px 14px 18px; display: flex; gap: 14px; align-items: flex-start; transition: background 0.1s; }
+  .item:hover { background: #fafbfc; }
+  .item.status-ok { border-left: 3px solid #10b981; }
+  .item.status-fail { border-left: 3px solid #ef4444; }
+  .item.status-none { border-left: 3px solid transparent; }
+  .item-num { font-size: 0.7rem; color: #94a3b8; font-weight: 700; min-width: 22px; margin-top: 2px; }
+  .item-content { flex: 1; min-width: 0; }
+  .item-title { font-size: 0.9rem; font-weight: 700; color: #1e293b; margin-bottom: 3px; }
+  .item-desc { font-size: 0.8rem; color: #64748b; line-height: 1.5; }
+  .item-note { margin-top: 6px; width: 100%; padding: 5px 9px; border-radius: 6px; border: 1.5px solid #e2e8f0; font-size: 0.78rem; color: #475569; resize: vertical; min-height: 32px; font-family: inherit; background: #f8fafc; }
+  .item-note:focus { outline: none; border-color: #1a3a5c; background: white; }
+  .item-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+  .check-btn { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 8px; border: 1.5px solid; cursor: pointer; font-size: 0.75rem; font-weight: 700; transition: all 0.15s; white-space: nowrap; }
+  .check-ok { border-color: #10b981; color: #059669; background: white; }
+  .check-ok:hover, .check-ok.active { background: #ecfdf5; border-color: #059669; }
+  .check-ok.active { background: #d1fae5; }
+  .check-fail { border-color: #ef4444; color: #dc2626; background: white; }
+  .check-fail:hover, .check-fail.active { background: #fef2f2; border-color: #dc2626; }
+  .check-fail.active { background: #fee2e2; }
+  .priority-badge { font-size: 0.65rem; font-weight: 800; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .prio-high { background: #fef3c7; color: #d97706; }
+  .prio-med { background: #e0e7ff; color: #4338ca; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px 20px; color: #94a3b8; font-size: 0.88rem; }
+
+  /* Summary bar */
+  .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .summary-card { flex: 1; min-width: 100px; background: white; border-radius: 10px; padding: 12px 16px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .summary-card .val { font-size: 1.6rem; font-weight: 800; }
+  .summary-card .lbl { font-size: 0.72rem; color: #64748b; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .val-total { color: #1a3a5c; }
+  .val-ok { color: #059669; }
+  .val-fail { color: #dc2626; }
+  .val-open { color: #d97706; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <h1>FKVI Testprotokoll</h1>
+      <p>Vollständige Qualitätsprüfung aller Plattform-Funktionen</p>
+    </div>
+    <div class="progress-box">
+      <div class="nums" id="progressNums">0 / 0</div>
+      <div class="label">Tests abgeschlossen</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <input type="text" id="searchInput" placeholder="Suche nach Test..." oninput="applyFilters()">
+  <div class="filter-btns">
+    <button class="filter-btn active" onclick="setFilter('all', this)">Alle</button>
+    <button class="filter-btn" onclick="setFilter('open', this)">Offen</button>
+    <button class="filter-btn" onclick="setFilter('ok', this)">OK</button>
+    <button class="filter-btn" onclick="setFilter('fail', this)">Fehler</button>
+    <button class="filter-btn" onclick="setFilter('high', this)">Kritisch</button>
+  </div>
+  <button class="btn btn-expand" onclick="toggleAll(true)">Alle aufklappen</button>
+  <button class="btn btn-expand" onclick="toggleAll(false)">Alle zuklappen</button>
+  <button class="btn btn-reset" onclick="resetAll()">Zurücksetzen</button>
+</div>
+
+<main id="main">
+  <div class="summary">
+    <div class="summary-card"><div class="val val-total" id="sumTotal">0</div><div class="lbl">Gesamt</div></div>
+    <div class="summary-card"><div class="val val-ok" id="sumOk">0</div><div class="lbl">Bestanden</div></div>
+    <div class="summary-card"><div class="val val-fail" id="sumFail">0</div><div class="lbl">Fehler</div></div>
+    <div class="summary-card"><div class="val val-open" id="sumOpen">0</div><div class="lbl">Offen</div></div>
+  </div>
+  <!-- categories rendered by JS -->
+</main>
+
+<script>
+const DATA = [
+  {
+    id: 'zugang',
+    icon: '🔐',
+    color: '#f0f4ff',
+    title: '1. Zugang & Authentifizierung',
+    items: [
+      { id: 'login', prio: 'high', title: 'Admin-Login', desc: 'Rufe die Plattform auf und melde dich mit deinen Admin-Zugangsdaten (E-Mail + Passwort) an. Du solltest danach das Dashboard sehen.' },
+      { id: 'logout', prio: 'med', title: 'Abmelden', desc: 'Klicke oben rechts auf dein Profil und dann auf "Abmelden". Du solltest auf die Login-Seite weitergeleitet werden.' },
+      { id: 'pw-change', prio: 'high', title: 'Passwort ändern', desc: 'Gehe in dein Profil (oben rechts) → Einstellungen → Passwort ändern. Gib ein neues Passwort ein, speichere es, melde dich ab und wieder mit dem neuen Passwort an.' },
+      { id: 'pw-forgot', prio: 'med', title: '"Passwort vergessen"-Funktion', desc: 'Klicke auf der Login-Seite auf "Passwort vergessen", gib deine E-Mail-Adresse ein und prüfe, ob eine Reset-E-Mail ankommt.' },
+      { id: 'session-persist', prio: 'med', title: 'Sitzung bleibt erhalten', desc: 'Melde dich an, schließe den Browser-Tab, öffne ihn wieder und rufe die Plattform auf – du solltest noch eingeloggt sein (nicht erneut nach Passwort gefragt werden).' },
+    ]
+  },
+  {
+    id: 'fachkraft-profil',
+    icon: '👤',
+    color: '#f0fdf4',
+    title: '2. Fachkraft-Profile',
+    items: [
+      { id: 'fk-list', prio: 'high', title: 'Profilliste aufrufen', desc: 'Navigiere im Menü zu "Fachkräfte". Es sollte eine Liste aller Fachkräfte erscheinen.' },
+      { id: 'fk-new', prio: 'high', title: 'Neues Profil anlegen', desc: 'Klicke auf "Neues Profil" oder "+". Fülle alle Pflichtfelder aus (Name, E-Mail, etc.) und speichere. Das Profil sollte in der Liste erscheinen.' },
+      { id: 'fk-edit', prio: 'high', title: 'Profil bearbeiten', desc: 'Öffne ein vorhandenes Profil und ändere verschiedene Felder (z.B. Telefonnummer, Adresse, Ausbildung). Speichere und prüfe, ob die Änderungen übernommen wurden.' },
+      { id: 'fk-status', prio: 'high', title: 'Profil-Status ändern', desc: 'Ändere den Status eines Profils (z.B. von "Neu" auf "Aktiv" oder "Vermittelt"). Der neue Status sollte in der Liste und im Profil angezeigt werden.' },
+      { id: 'fk-photo', prio: 'med', title: 'Profilfoto hochladen', desc: 'Öffne ein Profil und lade ein Foto hoch (JPG oder PNG). Das Foto sollte danach im Profil und in der Listenansicht erscheinen.' },
+      { id: 'fk-competency', prio: 'high', title: 'FKVI-Kompetenznachweis setzen', desc: 'Setze den FKVI-Kompetenznachweis auf "Bestanden" – im Profil sollte ein grünes Badge erscheinen. Setze ihn auf "In Aneignung" – Badge wird orange/gelb. Kein Badge bei nicht gesetzt.' },
+      { id: 'fk-search', prio: 'med', title: 'Profil suchen/filtern', desc: 'Nutze die Suche oder Filter-Funktion, um ein bestimmtes Profil zu finden (z.B. nach Name oder Status).' },
+      { id: 'fk-delete', prio: 'med', title: 'Profil löschen / archivieren', desc: 'Archiviere oder lösche ein Test-Profil. Es sollte aus der aktiven Liste verschwinden.' },
+    ]
+  },
+  {
+    id: 'fachkraft-dokumente',
+    icon: '📄',
+    color: '#fff7ed',
+    title: '3. Dokumente am Fachkraft-Profil',
+    items: [
+      { id: 'fk-doc-upload', prio: 'high', title: 'Dokument zum Profil hochladen', desc: 'Öffne ein Fachkraft-Profil und lade ein PDF-Dokument hoch (z.B. Zeugnis, Pass-Kopie). Das Dokument sollte in der Dokumentenliste des Profils erscheinen.' },
+      { id: 'fk-doc-view', prio: 'high', title: 'Hochgeladenes Dokument öffnen', desc: 'Klicke auf ein hochgeladenes Dokument im Profil. Es sollte sich im Browser öffnen oder herunterladen.' },
+      { id: 'fk-doc-delete', prio: 'med', title: 'Dokument vom Profil löschen', desc: 'Lösche ein hochgeladenes Dokument aus dem Profil. Es sollte aus der Liste verschwinden.' },
+      { id: 'fk-doc-category', prio: 'med', title: 'Dokument-Kategorie setzen', desc: 'Falls vorhanden: Weise einem hochgeladenen Dokument eine Kategorie zu (z.B. "Ausweis", "Zeugnis").' },
+      { id: 'fk-doc-send-view', prio: 'high', title: 'Dokument als Ansichts-Link verschicken', desc: 'Klicke auf "Dokument senden" bei einem hochgeladenen Profil-Dokument, wähle "Zur Ansicht senden" und erstelle den Link. Öffne den Link in einem neuen Tab – das Dokument sollte angezeigt werden.' },
+    ]
+  },
+  {
+    id: 'unternehmen',
+    icon: '🏢',
+    color: '#eff6ff',
+    title: '4. Unternehmen',
+    items: [
+      { id: 'co-list', prio: 'high', title: 'Unternehmens-Liste aufrufen', desc: 'Navigiere zu "Unternehmen". Die Liste aller Unternehmen sollte erscheinen.' },
+      { id: 'co-new', prio: 'high', title: 'Neues Unternehmen anlegen', desc: 'Klicke auf "Neues Unternehmen", fülle Name, Adresse, Kontaktdaten aus und speichere. Das Unternehmen sollte in der Liste erscheinen.' },
+      { id: 'co-edit', prio: 'high', title: 'Unternehmen bearbeiten', desc: 'Öffne ein Unternehmen und ändere Felder wie Betriebsnummer, Adresse oder BA-Kundennummer. Speichere und prüfe die Änderungen.' },
+      { id: 'co-klassifizierung', prio: 'med', title: 'Klassifizierung ausfüllen', desc: 'Im Unternehmensprofil: Fülle die Klassifizierungs-Felder aus (KMU-Kategorie, Beschäftigte, Jahresumsatz, Tarifvertrag). Speichere und prüfe.' },
+      { id: 'co-search', prio: 'med', title: 'Unternehmen suchen', desc: 'Suche nach einem Unternehmen anhand des Namens. Das richtige Ergebnis sollte erscheinen.' },
+    ]
+  },
+  {
+    id: 'vermittlung',
+    icon: '🤝',
+    color: '#fdf4ff',
+    title: '5. Vermittlung (Matching / Prozess)',
+    items: [
+      { id: 'verm-new', prio: 'high', title: 'Neue Vermittlung anlegen', desc: 'Verknüpfe eine Fachkraft mit einem Unternehmen, indem du eine neue Vermittlung anlegst. Beide sollten in der Vermittlungs-Ansicht erscheinen.' },
+      { id: 'verm-status', prio: 'high', title: 'Prozess-Status ändern (Schritt 1–11)', desc: 'Ändere den Prozess-Status der Vermittlung schrittweise (z.B. von Schritt 1 auf Schritt 2, dann 3, usw.). Jeder Schritt sollte korrekt angezeigt und gespeichert werden.' },
+      { id: 'verm-details', prio: 'high', title: 'Vermittlungs-Details ausfüllen', desc: 'Trage Daten zum Arbeitsverhältnis ein (Beginn, Berufsbezeichnung, Stunden/Woche, Gehalt, Urlaubstage). Speichere und prüfe.' },
+      { id: 'verm-massnahme', prio: 'med', title: 'Maßnahmen-Daten eintragen', desc: 'Fülle die Maßnahme-Felder aus (Bildungsträger, Maßnahmennummer, Beginn/Ende). Speichere und prüfe.' },
+      { id: 'verm-statustracker', prio: 'high', title: 'Statustracker-Ansicht prüfen', desc: 'Öffne den Statustracker einer Vermittlung. Alle Schritte und Informationen sollten korrekt und übersichtlich angezeigt werden. FKVI-Kompetenznachweis-Badge zeigt richtige Farbe.' },
+      { id: 'verm-email-trigger', prio: 'med', title: 'Automatische E-Mail bei Status-Schritt', desc: 'Ändere den Status auf einen E-Mail-Trigger-Schritt (z.B. Schritt 2, 8 oder 9). Prüfe, ob die automatische E-Mail verschickt wurde.' },
+    ]
+  },
+  {
+    id: 'template-editor',
+    icon: '📝',
+    color: '#f0fdf4',
+    title: '6. Dokumentenvorlage (Template Editor)',
+    items: [
+      { id: 'tpl-upload', prio: 'high', title: 'Neue Vorlage hochladen', desc: 'Navigiere zu "Dokumentenvorlagen" und lade eine PDF-Datei als neue Vorlage hoch. Gib einen Namen und Beschreibung ein. Die Vorlage sollte in der Liste erscheinen.' },
+      { id: 'tpl-open', prio: 'high', title: 'Vorlage im Editor öffnen', desc: 'Klicke auf eine Vorlage. Der Template-Editor sollte sich öffnen und die PDF-Seiten anzeigen.' },
+      { id: 'tpl-field-text', prio: 'high', title: 'Text-Feld hinzufügen', desc: 'Ziehe ein Text-Feld auf die PDF-Canvas. Es sollte als Rahmen erscheinen. Gib einen Label-Namen und (optional) einen Prefill-Key ein. Speichere.' },
+      { id: 'tpl-field-date', prio: 'high', title: 'Datum-Feld hinzufügen', desc: 'Füge ein Datumsfeld hinzu, positioniere es auf der PDF und speichere. Das Feld sollte korrekt auf der Seite sitzen.' },
+      { id: 'tpl-field-sig', prio: 'high', title: 'Unterschriften-Feld hinzufügen', desc: 'Füge ein Unterschriften-Feld hinzu. Setze die Zielgruppe auf "Fachkraft" oder "Admin". Speichere und prüfe.' },
+      { id: 'tpl-field-checkbox', prio: 'high', title: 'Checkbox-Gruppe hinzufügen', desc: 'Füge eine Checkbox-Gruppe hinzu. Füge mindestens 2 Optionen hinzu und positioniere jede auf der PDF-Canvas. Speichere und prüfe.' },
+      { id: 'tpl-field-initials', prio: 'med', title: 'Initialen-Feld hinzufügen', desc: 'Füge ein Initialen-Feld zur Vorlage hinzu, positioniere es und speichere.' },
+      { id: 'tpl-prefillkey', prio: 'high', title: 'Prefill-Key einem Feld zuweisen', desc: 'Wähle ein Text-Feld und wähle aus dem Dropdown einen Prefill-Key (z.B. "Vorname", "Firmenname"). Speichere die Vorlage.' },
+      { id: 'tpl-type', prio: 'high', title: 'Vorlagen-Typ setzen (Fachkraft / Unternehmen / Vermittlung)', desc: 'Setze den Typ der Vorlage (z.B. "Für Unternehmen"). Beim Versenden sollte dann im Dialog der richtige Typ angezeigt werden.' },
+      { id: 'tpl-save', prio: 'high', title: 'Vorlage speichern & erneut öffnen', desc: 'Speichere die Vorlage, schließe den Editor und öffne die Vorlage erneut. Alle Felder sollten noch an der richtigen Stelle sitzen.' },
+      { id: 'tpl-delete', prio: 'med', title: 'Vorlage löschen', desc: 'Lösche eine Test-Vorlage. Sie sollte aus der Liste verschwinden.' },
+      { id: 'tpl-no-render-error', prio: 'high', title: 'Kein "Render-Fehler" beim Öffnen', desc: 'Öffne eine Vorlage mit mehreren Seiten. Es sollte KEIN Toast mit "Render-Fehler" erscheinen. Die PDF muss vollständig und fehlerfrei geladen werden.' },
+    ]
+  },
+  {
+    id: 'doc-send-single',
+    icon: '📤',
+    color: '#fff1f2',
+    title: '7. Dokument versenden – Einzelversand',
+    items: [
+      { id: 'send-fk-blank', prio: 'high', title: 'Dokument an Fachkraft senden (ohne Vorausfüllen)', desc: 'Öffne ein Fachkraft-Profil, klicke auf "Dokument senden", wähle eine Vorlage, wähle "Ohne Vorausfüllen" und erstelle den Link. Der Link sollte funktionieren.' },
+      { id: 'send-fk-prefill', prio: 'high', title: 'Dokument an Fachkraft mit Vorausfüllen', desc: 'Sende eine Vorlage an eine Fachkraft und wähle "Felder vorausfüllen". Wähle Felder aus (z.B. Name, Adresse). Erstelle den Link und öffne ihn – die vorausgefüllten Felder müssen sichtbar auf der PDF erscheinen.' },
+      { id: 'send-fk-adminsig', prio: 'high', title: 'Dokument mit Admin-Unterschrift senden', desc: 'Sende eine Vorlage, die ein Admin-Unterschriften-Feld enthält. Im Schritt "Ihre Unterschrift" zeichne deine Unterschrift. Erstelle den Link und öffne ihn – die Admin-Unterschrift muss auf der PDF eingetragen sein.' },
+      { id: 'send-co-blank', prio: 'high', title: 'Dokument an Unternehmen senden (ohne Vorausfüllen)', desc: 'Öffne ein Unternehmen, sende eine Vorlage ohne Vorausfüllen. Link muss funktionieren.' },
+      { id: 'send-co-prefill', prio: 'high', title: 'Dokument an Unternehmen mit Vorausfüllen (Firmendaten)', desc: 'Sende eine Vorlage mit Unternehmen-Prefill-Keys an ein Unternehmen. Firmendaten (Name, Adresse, Betriebsnummer etc.) müssen in der PDF-Vorschau sichtbar vorausgefüllt sein.' },
+      { id: 'send-view', prio: 'high', title: 'Dokument als "Zur Ansicht" senden', desc: 'Wähle beim Versenden "Zur Ansicht senden". Der Empfänger soll das Dokument nur lesen und "Empfang bestätigen" können – nicht unterschreiben.' },
+      { id: 'send-url', prio: 'med', title: 'Link / Google Drive Dokument senden', desc: 'Wähle beim Versenden "Link / Google Drive" und füge eine externe URL ein (z.B. einen Google Drive Link). Der Empfänger soll das Dokument über den Link ansehen können.' },
+      { id: 'send-email', prio: 'med', title: 'Signierlink per E-Mail senden', desc: 'Nach dem Erstellen des Links: Gib eine E-Mail-Adresse ein und klicke "E-Mail senden". Die E-Mail mit dem Signierlink sollte beim Empfänger ankommen.' },
+    ]
+  },
+  {
+    id: 'doc-send-bundle',
+    icon: '📦',
+    color: '#fefce8',
+    title: '8. Dokument versenden – Paket (Bundle)',
+    items: [
+      { id: 'bundle-multi', prio: 'high', title: 'Mehrere Vorlagen gleichzeitig senden', desc: 'Öffne den Versand-Dialog und aktiviere "Weitere Dokumente hinzufügen". Füge 2-3 Vorlagen hinzu und erstelle das Paket. Der Bundle-Link sollte erstellt werden.' },
+      { id: 'bundle-prefill', prio: 'high', title: 'Bundle mit Vorausfüllen', desc: 'Sende ein Bundle mit mehreren Vorlagen und Vorausfüllen aktiv. Öffne den Bundle-Link – alle Dokumente müssen mit vorausgefüllten Werten auf der PDF erscheinen.' },
+      { id: 'bundle-verm', prio: 'high', title: 'Bundle über Vermittlung senden (UnifiedSendDialog)', desc: 'Gehe zu einer Vermittlung und sende ein Dokumenten-Paket über den dortigen Dialog. Wähle verschiedene Modus-Optionen (Ansehen / Ausfüllen). Bundle-Link muss korrekt alle Dokumente enthalten.' },
+      { id: 'bundle-open', prio: 'high', title: 'Bundle-Link öffnen', desc: 'Öffne den erstellten Bundle-Link (z.B. /bundle/TOKEN). Es sollte eine Übersichtsseite mit allen enthaltenen Dokumenten erscheinen.' },
+      { id: 'bundle-nav', prio: 'high', title: 'Zwischen Bundle-Dokumenten navigieren', desc: 'Öffne aus der Bundle-Übersicht ein einzelnes Dokument, fülle es aus/unterschreibe es und kehre zur Übersicht zurück. Der Status des Dokuments sollte sich ändern.' },
+    ]
+  },
+  {
+    id: 'sign-page',
+    icon: '✍️',
+    color: '#f0fdf4',
+    title: '9. Signierseite (DokumentSignPage)',
+    items: [
+      { id: 'sign-pdf-load', prio: 'high', title: 'PDF wird korrekt geladen', desc: 'Öffne einen Signierlink. Das PDF muss vollständig laden und angezeigt werden – kein Fehler, kein ewiger Ladekreis.' },
+      { id: 'sign-prefill-visible', prio: 'high', title: 'Vorausgefüllte Felder sind auf der PDF sichtbar', desc: 'Bei einem Dokument mit aktivem Vorausfüllen: Die eingetragenen Werte (z.B. Name, Adresse) müssen direkt im PDF-Canvas sichtbar sein – NICHT nur im Formular rechts/unten.' },
+      { id: 'sign-form-filled', prio: 'high', title: 'Formular-Felder im Sidebar sind vorausgefüllt', desc: 'Die Felder im Formular (rechte Spalte / Tab "Formular") müssen die vorausgefüllten Werte bereits enthalten, sodass der Unterzeichner sie nur noch bestätigen muss.' },
+      { id: 'sign-fill-fields', prio: 'high', title: 'Felder manuell ausfüllen', desc: 'Fülle alle sichtbaren Pflichtfelder im Formular aus (Text, Datum, Checkboxen). Der "ABSENDEN"-Button sollte grün werden, wenn alles ausgefüllt ist.' },
+      { id: 'sign-checkbox', prio: 'high', title: 'Checkbox auf der PDF klicken', desc: 'Klicke auf eine Checkbox direkt auf der PDF-Vorschau. Das X-Symbol sollte erscheinen. Das Formular rechts sollte den Wert ebenfalls zeigen.' },
+      { id: 'sign-signature', prio: 'high', title: 'Unterschrift zeichnen und einreichen', desc: 'Zeichne im Unterschriften-Feld (mit Maus oder Finger) eine Unterschrift. Klicke auf "ABSENDEN". Eine Erfolgsmeldung sollte erscheinen.' },
+      { id: 'sign-download', prio: 'high', title: 'Unterzeichnetes PDF herunterladen', desc: 'Nach dem Einreichen sollte ein Download-Button erscheinen. Lade das PDF herunter und prüfe, ob alle eingetragenen Felder und die Unterschrift enthalten sind.' },
+      { id: 'sign-view-mode', prio: 'high', title: 'Ansichts-Modus: "Empfang bestätigen"', desc: 'Öffne einen Ansichts-Link. Es darf KEIN Unterschriften-Feld geben. Nur der Button "Empfang bestätigen" muss erscheinen. Nach Klick: Bestätigungsseite.' },
+      { id: 'sign-already-signed', prio: 'med', title: 'Bereits unterzeichnetes Dokument erneut öffnen', desc: 'Öffne einen Link, der bereits unterzeichnet wurde. Es sollte eine Meldung erscheinen: "Bereits unterzeichnet" – kein erneutes Ausfüllen möglich.' },
+      { id: 'sign-expired', prio: 'med', title: 'Abgelaufener Link zeigt Fehlermeldung', desc: 'Versuche einen abgelaufenen Link zu öffnen. Die Seite soll eine klare Fehlermeldung zeigen (nicht nur einen leeren Screen).' },
+      { id: 'sign-mobile', prio: 'high', title: 'Signierseite auf Mobilgerät', desc: 'Öffne einen Signierlink auf dem Smartphone. Die Tab-Navigation (Formular / Dokument) muss funktionieren, Felder müssen ausfüllbar sein, Unterschrift muss mit Finger zeichenbar sein.' },
+    ]
+  },
+  {
+    id: 'postfach',
+    icon: '📬',
+    color: '#f0f9ff',
+    title: '10. Postfach / Signierlinks-Verwaltung',
+    items: [
+      { id: 'pf-list', prio: 'high', title: 'Versendete Dokumente auflisten', desc: 'Navigiere zum "Postfach" oder "Signierlinks". Alle bisher gesendeten Dokumente sollten mit Status (Ausstehend, Geöffnet, Unterzeichnet) angezeigt werden.' },
+      { id: 'pf-status', prio: 'high', title: 'Status-Änderung nach Unterzeichnung prüfen', desc: 'Unterzeichne ein Dokument über den Signierlink und gehe danach ins Postfach. Der Status muss sich von "Ausstehend/Geöffnet" auf "Unterzeichnet" geändert haben.' },
+      { id: 'pf-revoke', prio: 'high', title: 'Signierlink widerrufen', desc: 'Klicke bei einem noch nicht unterzeichneten Dokument auf "Widerrufen". Der Link soll danach beim Öffnen eine Fehlermeldung zeigen ("Widerrufen").' },
+      { id: 'pf-download-signed', prio: 'high', title: 'Unterzeichnetes PDF herunterladen (Admin)', desc: 'Klicke im Postfach bei einem unterzeichneten Dokument auf "Herunterladen". Das vollständige, unterzeichnete PDF soll sich öffnen / herunterladen.' },
+      { id: 'pf-filter', prio: 'med', title: 'Nach Status filtern', desc: 'Filtere die Signierlinks-Liste nach "Unterzeichnet", "Ausstehend" etc. Nur die entsprechenden Dokumente sollten angezeigt werden.' },
+    ]
+  },
+  {
+    id: 'mediathek',
+    icon: '🗂️',
+    color: '#fff7ed',
+    title: '11. Mediathek',
+    items: [
+      { id: 'med-upload', prio: 'high', title: 'Dokument in Mediathek hochladen', desc: 'Navigiere zur "Mediathek" und lade ein PDF hoch. Es sollte in der Mediathek-Übersicht erscheinen.' },
+      { id: 'med-view', prio: 'high', title: 'Mediathek-Dokument öffnen', desc: 'Klicke auf ein Dokument in der Mediathek. Es sollte sich im Browser öffnen oder herunterladen.' },
+      { id: 'med-assign', prio: 'high', title: 'Mediathek-Dokument einem Profil zuweisen', desc: 'Weise ein Mediathek-Dokument einer Fachkraft zu. Es sollte im Profil der Fachkraft unter "Dokumente" erscheinen.' },
+      { id: 'med-send', prio: 'high', title: 'Mediathek-Vorlage über UnifiedSendDialog senden', desc: 'Beim Senden über eine Vermittlung: Klicke auf "Aus Mediathek hinzufügen" und wähle eine Vorlage. Sie sollte im Bundle erscheinen und korrekt vorausgefüllt werden.' },
+      { id: 'med-delete', prio: 'med', title: 'Mediathek-Dokument löschen', desc: 'Lösche ein Test-Dokument aus der Mediathek. Es sollte aus der Liste verschwinden.' },
+    ]
+  },
+  {
+    id: 'public',
+    icon: '🌐',
+    color: '#f0fdf4',
+    title: '12. Öffentliche Website / Formulare',
+    items: [
+      { id: 'pub-home', prio: 'high', title: 'Startseite laden', desc: 'Rufe die öffentliche Startseite auf (z.B. https://fkvi.de oder die Vercel-URL). Die Seite muss vollständig laden, alle Bilder und Texte erscheinen.' },
+      { id: 'pub-contact', prio: 'high', title: 'Kontaktformular absenden', desc: 'Fülle das Kontaktformular auf der Startseite aus (Name, E-Mail, Unternehmen = Pflicht!). Klicke auf "Absenden". Eine Bestätigung sollte erscheinen.' },
+      { id: 'pub-contact-company-required', prio: 'high', title: '"Einrichtung / Unternehmen" ist Pflichtfeld', desc: 'Versuche das Kontaktformular ohne "Einrichtung / Unternehmen" abzusenden. Es darf NICHT abgesendet werden – Pflichtfeld-Markierung muss erscheinen.' },
+      { id: 'pub-demo', prio: 'med', title: 'Demo-Anfrage-Formular', desc: 'Fülle das Demo-Anfrage-Formular aus und sende es ab. Eine Bestätigung sollte erscheinen.' },
+      { id: 'pub-bewerbung', prio: 'high', title: 'Bewerbungsformular (Fachkraft)', desc: 'Rufe das Bewerbungsformular auf, fülle es vollständig aus (inkl. Unternehmen/Einrichtung) und sende es ab. Ein neues Fachkraft-Profil sollte im Admin-Bereich erscheinen.' },
+      { id: 'pub-responsive', prio: 'med', title: 'Mobile Darstellung der Website', desc: 'Rufe die Startseite auf einem Smartphone auf oder reduziere die Browser-Breite. Navigation, Texte, Formulare und Bilder müssen korrekt dargestellt werden.' },
+    ]
+  },
+  {
+    id: 'unterlagen',
+    icon: '📋',
+    color: '#fdf4ff',
+    title: '13. Unterlagen-Seite (Unternehmen)',
+    items: [
+      { id: 'ul-open', prio: 'high', title: 'Unterlagen-Seite aufrufen', desc: 'Rufe die Unterlagen-Seite für ein Unternehmen auf (/unterlagen/TOKEN oder über den Unternehmens-Bereich). Die Seite sollte geladen werden.' },
+      { id: 'ul-list', prio: 'high', title: 'Dokumente werden aufgelistet', desc: 'Auf der Unterlagen-Seite müssen alle zugewiesenen Dokumente des Unternehmens erscheinen.' },
+      { id: 'ul-download', prio: 'high', title: 'Dokument über Unterlagen-Seite herunterladen', desc: 'Klicke auf ein Dokument auf der Unterlagen-Seite und prüfe, ob es sich öffnen / herunterladen lässt.' },
+    ]
+  },
+  {
+    id: 'prefill-audit',
+    icon: '🔍',
+    color: '#fefce8',
+    title: '14. Vorausfüllen – Vollständige Prüfung aller Pfade',
+    items: [
+      { id: 'pf-fk-profile-keys', prio: 'high', title: 'Prefill: Fachkraft-Profil-Keys auf PDF sichtbar', desc: 'Erstelle eine Vorlage mit Feldern, die Prefill-Keys für Fachkraft-Daten haben (z.B. Vorname, Nachname, Adresse). Sende sie an eine Fachkraft mit Vorausfüllen. Öffne den Link → die Werte aus dem Profil müssen direkt auf der PDF sichtbar sein.' },
+      { id: 'pf-company-keys', prio: 'high', title: 'Prefill: Unternehmens-Daten auf PDF sichtbar', desc: 'Erstelle eine Vorlage mit Unternehmen-Prefill-Keys (Firmenname, Adresse, Betriebsnummer). Sende sie an ein Unternehmen mit Vorausfüllen. PDF muss die Firmendaten direkt anzeigen.' },
+      { id: 'pf-vermittlung-keys', prio: 'high', title: 'Prefill: Vermittlungs-Daten (Gehalt, Stunden etc.) auf PDF', desc: 'Sende über eine Vermittlung eine Vorlage mit Vermittlungs-Prefill-Keys (Beginn, Gehalt, Stunden/Woche). Diese Werte müssen auf der PDF-Vorschau eingetragen sein.' },
+      { id: 'pf-bundle-prefill', prio: 'high', title: 'Prefill funktioniert in Bundles', desc: 'Erstelle ein Bundle (mehrere Dokumente) mit Vorausfüllen. Bei JEDEM Dokument im Bundle müssen die vorausgefüllten Werte auf der PDF sichtbar sein.' },
+      { id: 'pf-company-fk-context', prio: 'high', title: 'Prefill: Fachkraft-Daten aus Unternehmens-Kontext', desc: 'Öffne ein Unternehmen, das eine aktive Vermittlung mit einer Fachkraft hat. Sende eine Fachkraft-Vorlage von der Unternehmens-Seite aus. Die Fachkraft-Daten müssen korrekt vorausgefüllt werden.' },
+      { id: 'pf-adminsig-bundle', prio: 'high', title: 'Admin-Unterschrift in Bundle-PDF eingebettet', desc: 'Erstelle eine Vorlage mit einem Admin-Unterschriften-Feld. Sende diese als Bundle. Öffne den Link – die Admin-Unterschrift muss direkt in der PDF sichtbar sein (nicht nur als Overlay-Option).' },
+      { id: 'pf-no-double', prio: 'med', title: 'Kein doppeltes Erscheinen von vorausgefüllten Werten', desc: 'Bei Vorausfüllen: Prüfe, ob Werte NUR einmal auf der PDF erscheinen (einmal eingebettet oder einmal als Overlay – nicht beides sichtbar doppelt).' },
+    ]
+  },
+  {
+    id: 'edge-cases',
+    icon: '⚠️',
+    color: '#fff1f2',
+    title: '15. Grenzfälle & Fehlerzustände',
+    items: [
+      { id: 'ec-pdf-native-form', prio: 'high', title: 'PDF mit nativen Formularfeldern (kein PDFDict-Fehler)', desc: 'Lade eine PDF hoch, die native PDF-Formularfelder enthält (z.B. ein Formular mit Ausfüllfeldern aus Word/Acrobat). Sende sie und zeichne sie ein. Es darf KEIN "Expected instance of PDFDict"-Fehler auftreten.' },
+      { id: 'ec-long-name', prio: 'med', title: 'Langer Dokumentname wird nicht abgeschnitten (Overflow)', desc: 'Lade ein Dokument mit sehr langem Dateinamen hoch. Im Dialog sollte der Name mit "..." abgeschnitten dargestellt werden, nicht über den Rahmen hinausgehen.' },
+      { id: 'ec-empty-signature', prio: 'med', title: 'Formular ohne Unterschrift kann nicht abgesendet werden', desc: 'Versuche ein Dokument mit Unterschriften-Feld ohne Unterschrift einzureichen. Ein Hinweis muss erscheinen, das Absenden muss blockiert werden.' },
+      { id: 'ec-required-fields', prio: 'high', title: 'Pflichtfelder werden validiert', desc: 'Versuche ein Dokument einzureichen, ohne alle Pflichtfelder auszufüllen. Die Pflichtfelder müssen rot markiert werden und das Absenden muss blockiert sein.' },
+      { id: 'ec-template-type-mismatch', prio: 'med', title: 'Warnung bei falscher Vorlagen-Zielgruppe', desc: 'Sende eine Vorlage vom Typ "Fachkraft" an ein Unternehmen. Eine Warnung sollte im Versand-Dialog erscheinen.' },
+      { id: 'ec-no-template', prio: 'med', title: 'Keine Vorlagen vorhanden – saubere Anzeige', desc: 'Wenn noch keine Vorlagen existieren, soll im Versand-Dialog eine sinnvolle Meldung erscheinen ("Keine Vorlagen vorhanden") – kein Fehler oder leere Seite.' },
+    ]
+  }
+];
+
+// State
+let state = {};
+let currentFilter = 'all';
+
+function init() {
+  // Load from localStorage
+  try { state = JSON.parse(localStorage.getItem('fkvi-test-state') || '{}'); } catch(e) { state = {}; }
+  renderAll();
+}
+
+function save() {
+  localStorage.setItem('fkvi-test-state', JSON.stringify(state));
+  updateStats();
+}
+
+function getItemState(id) {
+  return state[id] || { status: 'none', note: '' };
+}
+
+function setStatus(id, status) {
+  const s = getItemState(id);
+  s.status = (s.status === status) ? 'none' : status;
+  state[id] = s;
+  save();
+  renderItem(id);
+  renderCategoryStats();
+}
+
+function setNote(id, note) {
+  const s = getItemState(id);
+  s.note = note;
+  state[id] = s;
+  save();
+}
+
+function renderAll() {
+  const main = document.getElementById('main');
+  // Keep summary
+  const summary = main.querySelector('.summary');
+  main.innerHTML = '';
+  main.appendChild(summary);
+
+  let anyVisible = false;
+  DATA.forEach(cat => {
+    const el = renderCategory(cat);
+    if (el) { main.appendChild(el); anyVisible = true; }
+  });
+
+  if (!anyVisible) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'Keine Tests gefunden.';
+    main.appendChild(empty);
+  }
+  updateStats();
+}
+
+function matchesFilter(item) {
+  const s = getItemState(item.id);
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const matchSearch = !q || item.title.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q);
+  let matchFilter = true;
+  if (currentFilter === 'open') matchFilter = s.status === 'none';
+  if (currentFilter === 'ok') matchFilter = s.status === 'ok';
+  if (currentFilter === 'fail') matchFilter = s.status === 'fail';
+  if (currentFilter === 'high') matchFilter = item.prio === 'high';
+  return matchSearch && matchFilter;
+}
+
+function renderCategory(cat) {
+  const visibleItems = cat.items.filter(matchesFilter);
+  if (visibleItems.length === 0) return null;
+
+  const div = document.createElement('div');
+  div.className = 'category';
+  div.id = 'cat-' + cat.id;
+
+  const okCount = cat.items.filter(i => getItemState(i.id).status === 'ok').length;
+  const failCount = cat.items.filter(i => getItemState(i.id).status === 'fail').length;
+  const totalCount = cat.items.length;
+
+  const isOpen = localStorage.getItem('cat-' + cat.id) !== 'closed';
+
+  div.innerHTML = `
+    <div class="category-header" onclick="toggleCat('${cat.id}')">
+      <div class="category-icon" style="background:${cat.color}">${cat.icon}</div>
+      <div class="category-title">${cat.title}</div>
+      <div class="category-stats">
+        <span class="cat-ok">${okCount} ✓</span> &nbsp;
+        <span class="cat-fail">${failCount > 0 ? failCount + ' ✗' : ''}</span>
+        <span style="color:#94a3b8"> / ${totalCount}</span>
+      </div>
+      <span class="chevron ${isOpen ? 'open' : ''}">▼</span>
+    </div>
+    <div class="category-body ${isOpen ? 'open' : ''}" id="catbody-${cat.id}"></div>
+  `;
+
+  const body = div.querySelector('.category-body');
+  visibleItems.forEach((item, idx) => {
+    const itemEl = buildItemEl(item, idx + 1);
+    body.appendChild(itemEl);
+  });
+
+  return div;
+}
+
+function buildItemEl(item, num) {
+  const s = getItemState(item.id);
+  const div = document.createElement('div');
+  div.className = `item status-${s.status}`;
+  div.id = 'item-' + item.id;
+
+  div.innerHTML = `
+    <div class="item-num">#${num}</div>
+    <div class="item-content">
+      <div class="item-title">
+        ${item.title}
+        ${item.prio === 'high' ? '<span class="priority-badge prio-high">Kritisch</span>' : '<span class="priority-badge prio-med">Normal</span>'}
+      </div>
+      <div class="item-desc">${item.desc}</div>
+      <textarea class="item-note" placeholder="Notiz / Fehlerbeschreibung..." rows="1"
+        oninput="setNote('${item.id}', this.value)">${s.note || ''}</textarea>
+    </div>
+    <div class="item-actions">
+      <button class="check-btn check-ok ${s.status === 'ok' ? 'active' : ''}" onclick="setStatus('${item.id}', 'ok')">
+        ✓ OK
+      </button>
+      <button class="check-btn check-fail ${s.status === 'fail' ? 'active' : ''}" onclick="setStatus('${item.id}', 'fail')">
+        ✗ Fehler
+      </button>
+    </div>
+  `;
+  return div;
+}
+
+function renderItem(id) {
+  const oldEl = document.getElementById('item-' + id);
+  if (!oldEl) return;
+  const allItems = DATA.flatMap(c => c.items);
+  const item = allItems.find(i => i.id === id);
+  if (!item) return;
+  const s = getItemState(id);
+  oldEl.className = `item status-${s.status}`;
+  oldEl.querySelector('.check-ok').className = `check-btn check-ok ${s.status === 'ok' ? 'active' : ''}`;
+  oldEl.querySelector('.check-fail').className = `check-btn check-fail ${s.status === 'fail' ? 'active' : ''}`;
+}
+
+function renderCategoryStats() {
+  DATA.forEach(cat => {
+    const el = document.getElementById('cat-' + cat.id);
+    if (!el) return;
+    const okCount = cat.items.filter(i => getItemState(i.id).status === 'ok').length;
+    const failCount = cat.items.filter(i => getItemState(i.id).status === 'fail').length;
+    const totalCount = cat.items.length;
+    const statsEl = el.querySelector('.category-stats');
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <span class="cat-ok">${okCount} ✓</span> &nbsp;
+        <span class="cat-fail">${failCount > 0 ? failCount + ' ✗' : ''}</span>
+        <span style="color:#94a3b8"> / ${totalCount}</span>
+      `;
+    }
+  });
+}
+
+function updateStats() {
+  const allItems = DATA.flatMap(c => c.items);
+  const total = allItems.length;
+  const ok = allItems.filter(i => getItemState(i.id).status === 'ok').length;
+  const fail = allItems.filter(i => getItemState(i.id).status === 'fail').length;
+  const open = total - ok - fail;
+  const done = ok + fail;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  document.getElementById('sumTotal').textContent = total;
+  document.getElementById('sumOk').textContent = ok;
+  document.getElementById('sumFail').textContent = fail;
+  document.getElementById('sumOpen').textContent = open;
+  document.getElementById('progressNums').textContent = `${done} / ${total}`;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function toggleCat(id) {
+  const body = document.getElementById('catbody-' + id);
+  const header = document.querySelector('#cat-' + id + ' .category-header');
+  const chevron = header.querySelector('.chevron');
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    chevron.classList.remove('open');
+    localStorage.setItem('cat-' + id, 'closed');
+  } else {
+    body.classList.add('open');
+    chevron.classList.add('open');
+    localStorage.removeItem('cat-' + id);
+  }
+}
+
+function toggleAll(open) {
+  DATA.forEach(cat => {
+    const body = document.getElementById('catbody-' + cat.id);
+    const header = document.querySelector('#cat-' + cat.id + ' .category-header');
+    if (!body || !header) return;
+    const chevron = header.querySelector('.chevron');
+    if (open) {
+      body.classList.add('open');
+      chevron.classList.add('open');
+      localStorage.removeItem('cat-' + cat.id);
+    } else {
+      body.classList.remove('open');
+      chevron.classList.remove('open');
+      localStorage.setItem('cat-' + cat.id, 'closed');
+    }
+  });
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  renderAll();
+}
+
+function resetAll() {
+  if (!confirm('Wirklich alle Testergebnisse und Notizen löschen?')) return;
+  localStorage.removeItem('fkvi-test-state');
+  state = {};
+  renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
