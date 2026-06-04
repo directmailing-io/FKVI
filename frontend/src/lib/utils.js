@@ -68,6 +68,49 @@ export const EXPERIENCE_AREAS = [
   'Pflegeplanung',
 ]
 
+export const COUNTRIES_LIST = [
+  'Afghanistan', 'Ägypten', 'Albanien', 'Algerien', 'Angola', 'Äthiopien',
+  'Bangladesh', 'Bosnien und Herzegowina', 'Brasilien', 'Bulgarien',
+  'China', 'Deutschland', 'Ghana', 'Griechenland', 'Indien', 'Indonesien',
+  'Irak', 'Iran', 'Italien', 'Jordanien', 'Kambodscha', 'Kamerun',
+  'Kasachstan', 'Kenia', 'Kolumbien', 'Kroatien', 'Kuba',
+  'Libanon', 'Marokko', 'Mexiko', 'Moldau', 'Myanmar', 'Nepal',
+  'Nigeria', 'Nordmazedonien', 'Pakistan', 'Peru', 'Philippinen',
+  'Polen', 'Portugal', 'Rumänien', 'Russland', 'Serbien',
+  'Slowakei', 'Slowenien', 'Spanien', 'Sri Lanka', 'Syrien',
+  'Thailand', 'Tunesien', 'Türkei', 'Tschechien', 'Ukraine',
+  'Ungarn', 'Usbekistan', 'Vietnam', 'Weißrussland', 'Kosovo',
+  'Sonstiges',
+]
+
+export const LANGUAGES_LIST = [
+  'Albanisch', 'Amharisch', 'Arabisch', 'Bengalisch', 'Bosnisch',
+  'Bulgarisch', 'Chinesisch (Mandarin)', 'Chinesisch (Kantonesisch)',
+  'Deutsch', 'Englisch', 'Farsi / Persisch', 'Filipino / Tagalog',
+  'Französisch', 'Griechisch', 'Hindi', 'Indonesisch', 'Italienisch',
+  'Khmer', 'Kroatisch', 'Kurdisch', 'Malay', 'Mazedonisch',
+  'Nepalesisch', 'Polnisch', 'Portugiesisch', 'Rumänisch',
+  'Russisch', 'Serbisch', 'Singhalesisch', 'Slowakisch', 'Slowenisch',
+  'Spanisch', 'Swahili', 'Tamilisch', 'Thai', 'Tschechisch',
+  'Türkisch', 'Ukrainisch', 'Ungarisch', 'Urdu', 'Usbekisch',
+  'Vietnamesisch', 'Sonstiges',
+]
+
+export const NURSING_EDUCATION_OPTIONS = [
+  'Gesundheits- und Krankenpfleger/in',
+  'Gesundheits- und Kinderkrankenpfleger/in',
+  'Altenpfleger/in',
+  'Pflegefachmann / Pflegefachfrau (generalistisch)',
+  'Pflegeassistent/in',
+  'Krankenpflegehelfer/in',
+  'Altenpflegehelfer/in',
+  'Rettungssanitäter/in',
+  'Operationstechnische/r Assistent/in (OTA)',
+  'Anästhesietechnische/r Assistent/in (ATA)',
+  'Physiotherapeut/in',
+  'Sonstiges',
+]
+
 export const PROCESS_STATUS_LABELS = {
   1: 'Kennenlernen gestartet',
   2: 'Kennenlerngespräch terminiert',

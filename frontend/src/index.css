@@ -54,3 +54,30 @@
     animation: shimmer 1.5s infinite linear;
   }
 }
+
+/* ── @react-pdf-viewer Farbschema ────────────────────────────────────────── */
+.rpv-core__inner-page {
+  background-color: #f8fafc !important;
+}
+.rpv-toolbar,
+.rpv-default-layout__toolbar {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.rpv-default-layout__sidebar {
+  border-right: 1px solid #e2e8f0 !important;
+}
+.rpv-core__page-layer {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10) !important;
+}
+.rpv-core__minimal-button:hover {
+  background-color: #f0fdf9 !important;
+  color: #0d9488 !important;
+}
+.rpv-core__viewer {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.rpv-core__viewer::-webkit-scrollbar { width: 6px; height: 6px; }
+.rpv-core__viewer::-webkit-scrollbar-track { background: transparent; }
+.rpv-core__viewer::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }

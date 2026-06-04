@@ -78,7 +78,6 @@ export default async function handler(req, res) {
 
   const sharedDocs = []
   if (linkRows?.length > 0) {
-    // Use the most recent link's documents (or merge all unique ones)
     const seen = new Set()
     for (const row of linkRows) {
       for (const d of (row.documents || [])) {
@@ -91,7 +90,35 @@ export default async function handler(req, res) {
     }
   }
 
-  // Only return documents that were explicitly shared with this company.
-  // Profile documents are internal and must not be auto-exposed to the company.
-  return res.status(200).json({ documents: sharedDocs })
+  // Fetch non-internal entity_files for this profile (visible to company during Vermittlung)
+  let { data: entityFiles, error: efError } = await supabaseAdmin
+    .from('entity_files')
+    .select('id, title, description, url, sort_order')
+    .eq('entity_type', 'profile')
+    .eq('entity_id', reservation.profile_id)
+    .eq('is_internal', false)
+    .order('sort_order')
+  // Fallback: if is_internal column doesn't exist yet, don't expose entity_files
+  if (efError?.message?.includes('is_internal')) entityFiles = []
+
+  // Merge entity_files with profile_documents, then with sharedDocs (company_document_links)
+  // Deduplicate by URL to avoid showing the same file twice
+  const seenUrls = new Set(sharedDocs.map(d => d.link))
+  const profileFileDocs = []
+  for (const f of (docs || [])) {
+    const url = f.link
+    if (!seenUrls.has(url)) {
+      seenUrls.add(url)
+      profileFileDocs.push({ title: f.title, doc_type: f.doc_type, description: f.description, link: url })
+    }
+  }
+  for (const f of (entityFiles || [])) {
+    const url = f.url
+    if (!seenUrls.has(url)) {
+      seenUrls.add(url)
+      profileFileDocs.push({ title: f.title, description: f.description, link: url })
+    }
+  }
+
+  return res.status(200).json({ documents: [...profileFileDocs, ...sharedDocs] })
 }

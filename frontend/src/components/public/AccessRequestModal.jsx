@@ -94,6 +94,9 @@ export default function AccessRequestModal({ open, onClose }) {
                   Wir melden uns so schnell wie möglich bei <strong>{form.email}</strong> – in der Regel innerhalb von 24 Stunden.
                 </p>
               </div>
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-left leading-relaxed">
+                Bitte schauen Sie auch in Ihrem Spam-Ordner nach, falls Sie keine E-Mail von uns erhalten.
+              </p>
               <button
                 onClick={handleClose}
                 className="w-full py-2.5 rounded-xl bg-fkvi-blue text-white text-sm font-semibold hover:bg-fkvi-blue/90 transition-colors"

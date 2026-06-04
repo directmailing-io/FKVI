@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { supabase } from '@/lib/supabase-public'
+import { supabase as supabasePublic } from '@/lib/supabase-public'
+import { supabase as supabaseAdmin } from '@/lib/supabase'
 import CvDocument from '@/components/matching/CvDocument'
 import { Button } from '@/components/ui/button'
 import { Printer, Link as LinkIcon, CheckCircle2, Loader2, AlertCircle, LogIn } from 'lucide-react'
@@ -9,7 +10,9 @@ import { Printer, Link as LinkIcon, CheckCircle2, Loader2, AlertCircle, LogIn } 
 export default function CvPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user, session, loading: authLoading } = useAuthStore()
+  const [searchParams] = useSearchParams()
+  const isDemo = searchParams.get('demo') === '1'
+  const { user, session, isAdmin, loading: authLoading } = useAuthStore()
 
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -25,21 +28,20 @@ export default function CvPage() {
     }
   }, [authLoading, user, id, navigate])
 
-  // Fetch profile (using authenticated supabase client — only published profiles)
+  // Fetch profile — admins can see any status, matching users only see published
   useEffect(() => {
     if (!user) return
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .eq('status', 'published')
+    const client = isAdmin ? supabaseAdmin : supabasePublic
+    let query = client.from('profiles').select('*').eq('id', id)
+    if (!isAdmin) query = query.eq('status', 'published')
+    query
       .single()
       .then(({ data, error: err }) => {
         if (err || !data) setError('Profil nicht gefunden oder nicht veröffentlicht.')
         else setProfile(data)
       })
       .finally(() => setLoading(false))
-  }, [id, user])
+  }, [id, user, isAdmin])
 
   const handlePrint = () => window.print()
 
@@ -169,7 +171,7 @@ export default function CvPage() {
       {/* ── CV ── */}
       <div className="bg-gray-100 min-h-screen py-8 print:py-0 print:bg-white">
         <div className="mx-auto shadow-xl print:shadow-none" style={{ maxWidth: 794 }}>
-          <CvDocument profile={profile} />
+          <CvDocument profile={profile} showRealName={isAdmin && !isDemo} />
         </div>
       </div>
     </>

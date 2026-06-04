@@ -1,4 +1,5 @@
 import { getProfileSpecializations, getSpecializationsLabel } from '@/lib/profileOptions'
+import { buildProfileRef } from '@/lib/profileRef'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const TEAL      = '#0d9488'
@@ -17,8 +18,9 @@ function fmtMonthYear(str) {
 
 function fmtBirthDate(str) {
   if (!str) return null
-  try { return new Date(str).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
-  catch { return str }
+  try {
+    return new Date(str).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  } catch { return str }
 }
 
 // ─── Section heading ──────────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ function Entry({ period, title, subtitle, description, detail, isLast }) {
 
 // ─── Main CV Document ─────────────────────────────────────────────────────────
 export default function CvDocument({ profile, expiresAt, showRealName = false, documents = [] }) {
-  const refNr   = `FK-${profile.id.slice(0, 8).toUpperCase()}`
+  const refNr   = buildProfileRef(profile)
   const today   = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
   const jobTitle = profile.nursing_education || 'Pflegefachkraft'
@@ -143,7 +145,7 @@ export default function CvDocument({ profile, expiresAt, showRealName = false, d
           </h1>
           {!showRealName && (
             <p style={{ fontSize: 10, color: LABEL_COL, letterSpacing: '0.08em' }}>
-              Ref: {refNr} · anonymisiert
+              Ref: {refNr} · pseudonymisiert
             </p>
           )}
         </div>
@@ -188,10 +190,8 @@ export default function CvDocument({ profile, expiresAt, showRealName = false, d
 
         {/* Geburtsdatum */}
         {(profile.birth_date || profile.age) && (
-          <LabelRow label="Geburtsdatum">
-            {profile.birth_date
-              ? `${fmtBirthDate(profile.birth_date)}${profile.nationality ? '' : ''}`
-              : `${profile.age} Jahre`}
+          <LabelRow label="Geburtsdatum" blur={!showRealName}>
+            {profile.birth_date ? fmtBirthDate(profile.birth_date) : `${profile.age} Jahre`}
           </LabelRow>
         )}
 
@@ -272,17 +272,17 @@ export default function CvDocument({ profile, expiresAt, showRealName = false, d
             <Entry
               period={mainEduPeriod}
               title={profile.nursing_education}
-              subtitle={profile.school_education || undefined}
               description={profile.education_notes || undefined}
               isLast={!profile.school_education && eduEntries.length === 0}
             />
           )}
-          {/* School education — only if no nursing_education */}
-          {!profile.nursing_education && profile.school_education && (
+          {/* School education (Abitur / Schulabschluss) — always shown when present */}
+          {profile.school_education && (
             <Entry
-              period={profile.graduation_year ? String(profile.graduation_year) : null}
+              period={profile.school_graduation_year ? String(profile.school_graduation_year) : null}
               title={profile.school_education}
-              isLast={eduEntries.length === 0}
+              subtitle={profile.school_location || undefined}
+              isLast={!profile.nursing_education && eduEntries.length === 0}
             />
           )}
           {/* Additional education history entries */}

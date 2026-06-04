@@ -120,6 +120,7 @@ export default async function handler(req, res) {
               Bei Fragen stehen wir Ihnen gerne zur Verfügung.<br>
               <strong style="color:#6b7280">Ihr FKVI-Team</strong>
             </p>
+            <p style="margin:10px 0 0;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px">Hinweis: Sollten Sie diese E-Mail nicht in Ihrem Posteingang finden, schauen Sie bitte auch in Ihrem Spam-Ordner nach.</p>
           </td>
         </tr>
       </table>

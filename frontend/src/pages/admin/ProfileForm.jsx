@@ -16,7 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { MultiSelect } from '@/components/ui/multi-select'
 import {
   GERMAN_STATES, WORK_TIME_OPTIONS,
-  EXPERIENCE_AREAS, PROFILE_STATUS_LABELS, PROCESS_STATUS_LABELS, formatDateTime
+  EXPERIENCE_AREAS, PROFILE_STATUS_LABELS, PROCESS_STATUS_LABELS, formatDateTime,
+  COUNTRIES_LIST, LANGUAGES_LIST, NURSING_EDUCATION_OPTIONS,
 } from '@/lib/utils'
 import {
   BERUFSGRUPPEN,
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react'
 import VimeoPlayer from '@/components/VimeoPlayer'
 import CvPreviewModal from '@/components/CvPreviewModal'
+import EntityFilesTab from '@/components/admin/EntityFilesTab'
 import { toast } from '@/hooks/use-toast'
 
 // ─── Field helper — defined OUTSIDE component to avoid focus-jumping bug ──────
@@ -632,9 +634,10 @@ const EMPTY_PROFILE = {
   einrichtungstyp_pflegefachkraft: [], einrichtungstyp_pflegeassistenz: [],
   einrichtungstyp_ota: [], einrichtungstyp_ata: [], einrichtungstyp_physiotherapie: [],
   einrichtungstyp_azubi_pflege: [],
-  work_time_preference: '',
+  work_time_preference: 'Vollzeit',
   profile_image_url: '', vimeo_video_url: '', vimeo_video_id: '',
-  school_education: '', nursing_education: '', education_duration: '',
+  school_education: '', school_graduation_year: '', school_location: '',
+  nursing_education: 'Gesundheits- und Krankenpfleger/in', education_duration: '',
   graduation_year: '', german_recognition: '', education_notes: '',
   additional_qualifications: [],
   total_experience_years: '', germany_experience_years: '',
@@ -699,7 +702,7 @@ export default function ProfileForm() {
 
   useEffect(() => {
     if (isEdit) { fetchProfile() }
-  }, [id, session])
+  }, [id])
 
 
   useEffect(() => {
@@ -719,6 +722,9 @@ export default function ProfileForm() {
           merged[k] = []
         }
       })
+      // Ensure non-null defaults for fields with intended defaults
+      if (!merged.work_time_preference) merged.work_time_preference = 'Vollzeit'
+      if (!merged.nursing_education) merged.nursing_education = 'Gesundheits- und Krankenpfleger/in'
       setProfile(merged)
       setImagePreview(p.profile_image_url)
       if (p.status === 'reserved') {
@@ -749,7 +755,7 @@ export default function ProfileForm() {
   const setS = (k, v) => setProfile(prev => ({ ...prev, soziales: { ...(prev.soziales || {}), [k]: v } }))
 
   // CV helpers — work experience
-  const newWorkEntry = () => ({ id: Date.now().toString(), company: '', position: '', department: '', employment_type: 'Vollzeit', start_date: '', end_date: '', is_current: false, description: '' })
+  const newWorkEntry = () => ({ id: Date.now().toString(), company: '', position: profile.nursing_education || 'Gesundheits- und Krankenpfleger/in', department: '', employment_type: 'Vollzeit', start_date: '', end_date: '', is_current: false, description: '' })
   const addWork    = () => set('work_experience', [...(profile.work_experience || []), newWorkEntry()])
   const setWork    = (id, f, v) => set('work_experience', (profile.work_experience || []).map(e => e.id === id ? { ...e, [f]: v } : e))
   const removeWork = (id)        => set('work_experience', (profile.work_experience || []).filter(e => e.id !== id))
@@ -948,6 +954,7 @@ export default function ProfileForm() {
     const { data } = await supabase
       .from('companies')
       .select('id, company_name, email, status, first_name, last_name')
+      .or('registrant_type.is.null,registrant_type.eq.company')
       .order('company_name')
     setCompanies(data || [])
     setSelectedCompanyId('')
@@ -1459,11 +1466,12 @@ export default function ProfileForm() {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="personal">Person</TabsTrigger>
             <TabsTrigger value="lebenslauf">Lebenslauf</TabsTrigger>
             <TabsTrigger value="experience">Erfahrung</TabsTrigger>
             <TabsTrigger value="media">Medien</TabsTrigger>
+            <TabsTrigger value="dateien">Dateien</TabsTrigger>
           </TabsList>
 
           {/* ── TAB: Person ────────────────────────────────────────────── */}
@@ -1520,7 +1528,12 @@ export default function ProfileForm() {
                   <Input type="number" value={profile.age} onChange={e => set('age', e.target.value)} placeholder="z.B. 32" min="18" max="70" />
                 </Field>
                 <Field label="Nationalität" required>
-                  <Input value={profile.nationality} onChange={e => set('nationality', e.target.value)} placeholder="z.B. Philippinen" />
+                  <Select value={profile.nationality || ''} onValueChange={v => set('nationality', v)}>
+                    <SelectTrigger><SelectValue placeholder="Land auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES_LIST.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field label="Familienstand">
                   <Select value={profile.marital_status || ''} onValueChange={v => set('marital_status', v)}>
@@ -1660,12 +1673,12 @@ export default function ProfileForm() {
                 <div className="space-y-3">
                   {(profile.language_skills || []).map((lang, idx) => (
                     <div key={idx} className="flex gap-3 items-center">
-                      <Input
-                        value={lang.language}
-                        onChange={e => updateLanguage(idx, 'language', e.target.value)}
-                        placeholder="Sprache (z.B. Deutsch)"
-                        className="flex-1"
-                      />
+                      <Select value={lang.language || ''} onValueChange={v => updateLanguage(idx, 'language', v)}>
+                        <SelectTrigger className="flex-1"><SelectValue placeholder="Sprache auswählen" /></SelectTrigger>
+                        <SelectContent>
+                          {LANGUAGES_LIST.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                       <Select value={lang.level} onValueChange={v => updateLanguage(idx, 'level', v)}>
                         <SelectTrigger className="w-40"><SelectValue placeholder="Niveau" /></SelectTrigger>
                         <SelectContent>
@@ -1895,8 +1908,21 @@ export default function ProfileForm() {
                 <Field label="Schulbildung">
                   <Input value={profile.school_education} onChange={e => set('school_education', e.target.value)} placeholder="z.B. Abitur" />
                 </Field>
+                <Field label="Abschlussjahr Schulbildung">
+                  <Input type="number" value={profile.school_graduation_year || ''} onChange={e => set('school_graduation_year', e.target.value)} placeholder="z.B. 2010" min="1970" max="2030" />
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Schule (Name / Ort)">
+                    <Input value={profile.school_location || ''} onChange={e => set('school_location', e.target.value)} placeholder="z.B. Gymnasium Manila, Philippinen" />
+                  </Field>
+                </div>
                 <Field label="Pflegeausbildung">
-                  <Input value={profile.nursing_education} onChange={e => set('nursing_education', e.target.value)} placeholder="z.B. Gesundheits- und Krankenpfleger/in" />
+                  <Select value={profile.nursing_education || ''} onValueChange={v => set('nursing_education', v)}>
+                    <SelectTrigger><SelectValue placeholder="Ausbildung auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      {NURSING_EDUCATION_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field label="Ausbildungsdauer">
                   <Input value={profile.education_duration} onChange={e => set('education_duration', e.target.value)} placeholder="z.B. 3 Jahre" />
@@ -2198,6 +2224,25 @@ export default function ProfileForm() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* ── TAB: Dateien ────────────────────────────────────────────── */}
+          <TabsContent value="dateien" className="mt-6">
+            {isEdit ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <EntityFilesTab
+                  entityType="profile"
+                  entityId={id}
+                  entityName={`${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Fachkraft'}
+                  recipientName={`${profile.first_name || ''} ${profile.last_name || ''}`.trim()}
+                  recipientEmail={profile.email || ''}
+                />
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                <p className="text-sm">Bitte speichere das Profil zuerst, um Dateien hinzuzufügen.</p>
+              </div>
+            )}
           </TabsContent>
 
         </Tabs>

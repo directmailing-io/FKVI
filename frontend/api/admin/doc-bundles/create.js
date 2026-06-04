@@ -1,0 +1,52 @@
+import { createClient } from '@supabase/supabase-js'
+import { withHandler } from '../../_lib/withHandler.js'
+
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
+const PLATFORM_URL = process.env.VITE_PLATFORM_URL || 'https://frontend-nu-two-69.vercel.app'
+
+async function requireAdmin(token) {
+  if (!token) throw { status: 401, message: 'Unauthorized' }
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+  if (error || !user) throw { status: 401, message: 'Unauthorized' }
+  const { data: admin } = await supabaseAdmin
+    .from('admin_users').select('id').eq('user_id', user.id).single()
+  if (!admin) throw { status: 403, message: 'Forbidden' }
+  return user
+}
+
+export default withHandler(async (req, res) => {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  const token = req.headers.authorization?.replace('Bearer ', '')
+  let user
+  try { user = await requireAdmin(token) } catch (e) { return res.status(e.status || 401).json({ error: e.message }) }
+
+  const { entity_type, entity_id, entity_name, title, files, recipient_name, recipient_email } = req.body || {}
+  if (!entity_type || !entity_id || !files?.length) {
+    return res.status(400).json({ error: 'entity_type, entity_id und mindestens eine Datei sind erforderlich' })
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('doc_bundles')
+    .insert({
+      entity_type,
+      entity_id,
+      entity_name: entity_name || null,
+      title: title || 'Ihre Unterlagen',
+      files,
+      recipient_name: recipient_name || null,
+      recipient_email: recipient_email || null,
+      created_by: user.email || user.id,
+    })
+    .select('id, token')
+    .single()
+
+  if (error) return res.status(500).json({ error: error.message })
+
+  const bundleUrl = `${PLATFORM_URL}/unterlagen/${data.token}`
+  return res.json({ id: data.id, token: data.token, url: bundleUrl })
+})

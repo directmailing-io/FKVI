@@ -1,7 +1,7 @@
 // ─── Berufsgruppen ────────────────────────────────────────────────────────────
 export const BERUFSGRUPPEN = [
-  { value: 'pflegefachkraft', label: 'Pflegefachkraft (examiniert)' },
-  { value: 'pflegeassistenz', label: 'Pflegeassistenz / Pflegehelfer' },
+  { value: 'pflegefachkraft', label: 'Pflegefachkraft' },
+  { value: 'pflegeassistenz', label: 'Pflegeassistenz' },
   { value: 'ota', label: 'OTA – Operationstechnische Assistenz' },
   { value: 'ata', label: 'ATA – Anästhesietechnische Assistenz' },
   { value: 'physiotherapie', label: 'Physiotherapeut/in' },
@@ -82,25 +82,15 @@ export const FLEXIBEL_OPTION = 'Flexibel / Alle Einrichtungstypen'
 export const EINRICHTUNGSTYPEN_BY_BERUFSGRUPPE = {
   pflegefachkraft: [
     FLEXIBEL_OPTION,
-    // Langzeit
-    'Pflegeheim (vollstationär)', 'Kurzzeitpflege', 'Tagespflege', 'Nachtpflege',
-    'Betreutes Wohnen', 'Hospiz', 'Behinderteneinrichtung',
-    // Ambulant
-    'Ambulanter Pflegedienst', 'Sozialstation', 'Ambulante Intensivpflege / WG',
-    // Akut
-    'Krankenhaus (allgemein)', 'Universitätsklinikum', 'Fachklinik',
-    'Intensivstation (ITS)', 'IMC / Intermediate Care', 'Notaufnahme / ZNA',
-    'Stroke Unit', 'Psychiatrische Klinik',
-    // Reha
-    'Rehabilitationsklinik', 'Geriatrische Reha',
+    'Klinik / Krankenhaus',
+    'Ambulante Pflege',
+    'Langzeitpflege (stationär)',
   ],
   pflegeassistenz: [
     FLEXIBEL_OPTION,
-    'Pflegeheim (vollstationär)', 'Kurzzeitpflege', 'Tagespflege', 'Betreutes Wohnen',
-    'Behinderteneinrichtung', 'Hospiz',
-    'Ambulanter Pflegedienst', 'Sozialstation',
-    'Krankenhaus (Station)',
-    'Rehabilitationsklinik',
+    'Klinik / Krankenhaus',
+    'Ambulante Pflege',
+    'Langzeitpflege (stationär)',
   ],
   ota: [
     FLEXIBEL_OPTION,

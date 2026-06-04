@@ -98,6 +98,7 @@ const EMAIL_CONFIRM_COPY = {
     btn: 'E-Mail bestätigen',
     fallback: 'Wenn der Button nicht funktioniert, kopieren Sie bitte diesen Link in Ihren Browser:',
     ignore: 'Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.',
+    spam: 'Hinweis: Sollten Sie diese E-Mail nicht in Ihrem Posteingang finden, schauen Sie bitte auch in Ihrem Spam-Ordner nach.',
   },
   en: {
     subject: 'Please confirm your email address – FKVI Brochure',
@@ -107,6 +108,7 @@ const EMAIL_CONFIRM_COPY = {
     btn: 'Confirm email',
     fallback: 'If the button does not work, please copy this link into your browser:',
     ignore: 'If you did not request this, you can ignore this email.',
+    spam: 'Note: If you cannot find this email in your inbox, please also check your spam or junk folder.',
   },
   fr: {
     subject: 'Veuillez confirmer votre adresse e-mail – Brochure FKVI',
@@ -116,6 +118,7 @@ const EMAIL_CONFIRM_COPY = {
     btn: 'Confirmer l\'e-mail',
     fallback: 'Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :',
     ignore: 'Si vous n\'avez pas fait cette demande, vous pouvez ignorer cet e-mail.',
+    spam: 'Remarque : Si vous ne trouvez pas cet e-mail dans votre boite de reception, verifiez egalement votre dossier spam.',
   },
   ar: {
     subject: 'يرجى تأكيد عنوان بريدك الإلكتروني – كتيب FKVI',
@@ -125,6 +128,7 @@ const EMAIL_CONFIRM_COPY = {
     btn: 'تأكيد البريد الإلكتروني',
     fallback: 'إذا لم يعمل الزر، يرجى نسخ هذا الرابط في متصفحك:',
     ignore: 'إذا لم تقم بهذا الطلب، يمكنك تجاهل هذا البريد الإلكتروني.',
+    spam: 'ملاحظة: إذا لم تجد هذا البريد في صندوق الوارد، يرجى التحقق من مجلد البريد العشوائي (Spam).',
   },
   vi: {
     subject: 'Vui lòng xác nhận địa chỉ email của bạn – Tài liệu FKVI',
@@ -134,6 +138,7 @@ const EMAIL_CONFIRM_COPY = {
     btn: 'Xác nhận email',
     fallback: 'Nếu nút không hoạt động, hãy sao chép liên kết này vào trình duyệt của bạn:',
     ignore: 'Nếu bạn không yêu cầu điều này, bạn có thể bỏ qua email này.',
+    spam: 'Luu y: Neu ban khong tim thay email nay trong hop thu den, vui long kiem tra thu muc Thu rac (Spam).',
   },
 }
 
@@ -181,10 +186,9 @@ async function sendConfirmationEmail({ first_name, email, opt_in_token, lang = '
         </tr>
         <tr>
           <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:24px 40px;text-align:center">
-            <p style="margin:0;font-size:13px;color:#9ca3af">
-              ${copy.ignore}<br>
-              <strong style="color:#6b7280">FKVI-Team</strong>
-            </p>
+            <p style="margin:0 0 10px;font-size:13px;color:#9ca3af">${copy.ignore}</p>
+            <p style="margin:0 0 10px;font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px">${copy.spam}</p>
+            <p style="margin:0;font-size:13px;color:#9ca3af"><strong style="color:#6b7280">FKVI-Team</strong></p>
           </td>
         </tr>
       </table>

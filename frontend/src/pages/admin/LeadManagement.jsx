@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { formatDateTime } from '@/lib/utils'
-import { Building2, CheckCircle2, X, Trash2, Phone, Mail, Loader2, FileText, Eye, MapPin } from 'lucide-react'
+import { Building2, User, CheckCircle2, X, Trash2, Phone, Mail, Loader2, FileText, MapPin, ArrowRight } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const STATUS_CONFIG = {
@@ -18,9 +19,11 @@ const STATUS_CONFIG = {
 }
 
 export default function LeadManagement() {
+  const navigate = useNavigate()
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('pending')
+  const [typeTab, setTypeTab] = useState('all') // 'all' | 'company' | 'fachkraft'
   const [selected, setSelected] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [rejectNote, setRejectNote] = useState('')
@@ -42,7 +45,42 @@ export default function LeadManagement() {
     }
   }
 
-  const filtered = companies.filter(c => filter === 'all' || c.status === filter)
+  const isFachkraft = (c) => c.registrant_type === 'fachkraft'
+
+  const filtered = companies.filter(c => {
+    if (filter !== 'all' && c.status !== filter) return false
+    if (typeTab === 'company' && isFachkraft(c)) return false
+    if (typeTab === 'fachkraft' && !isFachkraft(c)) return false
+    return true
+  })
+
+  const handleApproveFachkraft = async (company) => {
+    setActionLoading(true)
+    try {
+      const res = await fetch('/api/admin/approve-fachkraft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ companyId: company.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({
+        title: 'Fachkraft übernommen',
+        description: `${company.first_name} ${company.last_name} wurde als Fachkraft-Profil angelegt. Bitte vervollständige die Daten.`,
+        variant: 'success',
+      })
+      fetchCompanies()
+      setSelected(null)
+      if (data.profileId) navigate(`/admin/fachkraefte/${data.profileId}`)
+    } catch (err) {
+      toast({ title: 'Fehler', description: err.message || 'Freischalten fehlgeschlagen', variant: 'destructive' })
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   const handleApprove = async (company) => {
     setActionLoading(true)
@@ -122,10 +160,31 @@ export default function LeadManagement() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Freigabezentrale</h1>
-        <p className="text-gray-500 mt-1">Unternehmensanfragen prüfen und freischalten</p>
+        <p className="text-gray-500 mt-1">Anfragen prüfen und freischalten</p>
       </div>
 
-      {/* Filter */}
+      {/* Type tabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {[
+          { key: 'all',       label: 'Alle',         icon: null },
+          { key: 'company',   label: 'Unternehmen',  icon: Building2 },
+          { key: 'fachkraft', label: 'Fachkräfte',   icon: User },
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTypeTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              typeTab === key
+                ? 'border-fkvi-blue text-fkvi-blue'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {Icon && <Icon className="h-3.5 w-3.5" />}{label}
+          </button>
+        ))}
+      </div>
+
+      {/* Status filter */}
       <div className="flex gap-2 flex-wrap">
         {[
           { key: 'pending',  label: `Ausstehend${pendingCount > 0 ? ` (${pendingCount})` : ''}` },
@@ -169,7 +228,12 @@ export default function LeadManagement() {
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">{company.company_name}</p>
+                      <div className="flex items-center gap-2">
+                        {isFachkraft(company)
+                          ? <User className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                          : <Building2 className="h-3.5 w-3.5 text-blue-400 shrink-0" />}
+                        <p className="font-semibold text-gray-900 truncate">{company.company_name}</p>
+                      </div>
                       <p className="text-sm text-gray-500 truncate">{company.first_name} {company.last_name} · {company.email}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -191,10 +255,22 @@ export default function LeadManagement() {
             <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4 sticky top-8">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{selected.company_name}</h3>
-                  <Badge variant={STATUS_CONFIG[selected.status]?.variant} className="mt-1">
-                    {STATUS_CONFIG[selected.status]?.label}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {isFachkraft(selected)
+                      ? <User className="h-4 w-4 text-teal-500" />
+                      : <Building2 className="h-4 w-4 text-blue-400" />}
+                    <h3 className="font-semibold text-gray-900">{selected.company_name}</h3>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant={STATUS_CONFIG[selected.status]?.variant}>
+                      {STATUS_CONFIG[selected.status]?.label}
+                    </Badge>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      isFachkraft(selected) ? 'bg-teal-50 text-teal-700' : 'bg-blue-50 text-blue-700'
+                    }`}>
+                      {isFachkraft(selected) ? 'Fachkraft' : 'Unternehmen'}
+                    </span>
+                  </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
                   <X className="h-4 w-4" />
@@ -249,13 +325,15 @@ export default function LeadManagement() {
                 <div className="flex gap-2 pt-2">
                   <Button
                     className="flex-1"
-                    onClick={() => handleApprove(selected)}
+                    onClick={() => isFachkraft(selected) ? handleApproveFachkraft(selected) : handleApprove(selected)}
                     disabled={actionLoading}
                     size="sm"
                   >
                     {actionLoading
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Freischalten</>}
+                      : isFachkraft(selected)
+                        ? <><ArrowRight className="h-3.5 w-3.5 mr-1" />Als Fachkraft anlegen</>
+                        : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Freischalten</>}
                   </Button>
                   <Button
                     variant="outline"

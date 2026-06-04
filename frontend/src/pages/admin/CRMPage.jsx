@@ -365,6 +365,7 @@ export default function CRMPage() {
       const { data } = await supabase
         .from('companies')
         .select('*')
+        .or('registrant_type.is.null,registrant_type.eq.company')
         .order('created_at', { ascending: false })
       setCompanies(data || [])
     } finally {

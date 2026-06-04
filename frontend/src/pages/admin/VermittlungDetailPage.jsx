@@ -16,7 +16,7 @@ import {
   ArrowLeft, User, Building2, Mail, Phone, CheckCircle2,
   Circle, Loader2, AlertTriangle, Send, Clock, ChevronRight,
   ExternalLink, FileText, Upload, X, MailX, MailCheck, FolderOpen,
-  ClipboardList, Save, Link2,
+  ClipboardList, Save, Link2, Video,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -1205,6 +1205,24 @@ export default function VermittlungDetailPage() {
                 ))}
               </div>
 
+              {/* Zoom link display for step > 2 (read-only reference) */}
+              {step > 2 && foerderfall.massnahme.meeting_url && (
+                <div className="border-t border-gray-100 pt-3 mb-2">
+                  <p className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mb-1">
+                    <Video className="h-3 w-3" />Zoom-Link
+                  </p>
+                  <a
+                    href={foerderfall.massnahme.meeting_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-fkvi-blue hover:underline flex items-center gap-1 break-all"
+                  >
+                    {foerderfall.massnahme.meeting_url}
+                    <ExternalLink className="h-3 w-3 shrink-0" />
+                  </a>
+                </div>
+              )}
+
               {!isDone && (
                 <div className="space-y-3 border-t border-gray-100 pt-4">
                   {/* Note */}
@@ -1218,6 +1236,26 @@ export default function VermittlungDetailPage() {
                       className="mt-1 text-sm"
                     />
                   </div>
+
+                  {/* Zoom link — relevant for step 2 (Kennenlerngespräch terminiert) */}
+                  {(nextStep === 2 || step === 2) && (
+                    <div>
+                      <label className="text-xs text-gray-500 font-medium flex items-center gap-1.5">
+                        <Video className="h-3 w-3" />Zoom-Link (Kennenlerngespräch)
+                      </label>
+                      <Input
+                        value={foerderfall.massnahme.meeting_url || ''}
+                        onChange={e => setFF('massnahme', 'meeting_url', e.target.value)}
+                        onBlur={async e => {
+                          const url = e.target.value.trim()
+                          const newMassnahme = { ...foerderfall.massnahme, meeting_url: url }
+                          await supabase.from('reservations').update({ massnahme: newMassnahme }).eq('id', id)
+                        }}
+                        placeholder="https://zoom.us/j/..."
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                  )}
 
                   {/* Email hint */}
                   {nextStep === 4 ? (

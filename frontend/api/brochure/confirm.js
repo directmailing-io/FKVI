@@ -85,6 +85,7 @@ export default async function handler(req, res) {
           phone: request.phone,
           status: 'pending',
           company_type: 'lead',
+          registrant_type: request.company_name ? 'company' : 'fachkraft',
         })
         .select('id')
         .single()

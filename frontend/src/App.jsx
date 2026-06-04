@@ -29,8 +29,10 @@ import DemoPage from '@/pages/public/DemoPage'
 import ContactPage from '@/pages/public/ContactPage'
 import CvPage from '@/pages/public/CvPage'
 import CvSharePage from '@/pages/public/CvSharePage'
+import CvAdminPage from '@/pages/public/CvAdminPage'
 import DownloadsPage from '@/pages/public/DownloadsPage'
 import BrochureAccessPage from '@/pages/public/BrochureAccessPage'
+import DocBundlePage from '@/pages/public/DocBundlePage'
 import BeratungPage from '@/pages/public/BeratungPage'
 import ImpressumPage from '@/pages/public/ImpressumPage'
 import DatenschutzPage from '@/pages/public/DatenschutzPage'
@@ -82,8 +84,10 @@ export default function App() {
         <Route path="/kontakt" element={<ContactPage />} />
         <Route path="/lebenslauf/:id" element={<CvPage />} />
         <Route path="/lebenslauf/share/:token" element={<CvSharePage />} />
+        <Route path="/cv-admin/:profileId" element={<CvAdminPage />} />
         <Route path="/downloads" element={<DownloadsPage />} />
         <Route path="/downloads/zugang/:token" element={<BrochureAccessPage />} />
+        <Route path="/unterlagen/:token" element={<DocBundlePage />} />
         <Route path="/beratung" element={<BeratungPage />} />
         <Route path="/impressum" element={<ImpressumPage />} />
         <Route path="/datenschutzerklaerung" element={<DatenschutzPage />} />

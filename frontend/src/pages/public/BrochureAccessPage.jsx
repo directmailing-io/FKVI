@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Loader2, AlertCircle, CheckCircle2, FileDown, ChevronDown } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, FileDown, ChevronDown, Download } from 'lucide-react'
+import { Worker, Viewer } from '@react-pdf-viewer/core'
+import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout'
+import '@react-pdf-viewer/core/lib/styles/index.css'
+import '@react-pdf-viewer/default-layout/lib/styles/index.css'
 
 const LANG_META = {
   de: { flag: '🇩🇪', label: 'Deutsch' },
@@ -22,8 +26,11 @@ const UI_T = {
     confirmBtn: 'Ja, ich habe sie gelesen und verstanden',
     saving: 'Wird gespeichert...',
     confirmedTitle: 'Lesebestätigung eingegangen',
-    confirmedSubtext: 'Du erhältst den Vermittlungsvertrag innerhalb von 7 Tagen per E-Mail.',
+    confirmedSubtext: 'Du erhältst den Vermittlungsvertrag innerhalb von 7 Tagen per E-Mail. Bitte schaue auch in deinem Spam-Ordner nach, falls du nichts erhältst.',
     downloadPdf: 'PDF herunterladen',
+    downloadRequired: 'Bitte lade die Broschüre herunter, bevor du die Seite verlässt.',
+    downloadFirst: 'Broschüre herunterladen',
+    downloadedDone: 'Heruntergeladen ✓',
   },
   en: {
     dir: 'ltr',
@@ -36,8 +43,11 @@ const UI_T = {
     confirmBtn: 'Yes, I have read and understood it',
     saving: 'Saving...',
     confirmedTitle: 'Reading confirmation received',
-    confirmedSubtext: 'You will receive the placement contract within 7 days by email.',
+    confirmedSubtext: 'You will receive the placement contract within 7 days by email. Please also check your spam folder if you do not receive anything.',
     downloadPdf: 'Download PDF',
+    downloadRequired: 'Please download the brochure before leaving this page.',
+    downloadFirst: 'Download brochure',
+    downloadedDone: 'Downloaded ✓',
   },
   fr: {
     dir: 'ltr',
@@ -50,8 +60,11 @@ const UI_T = {
     confirmBtn: "Oui, je l'ai lue et comprise",
     saving: 'Enregistrement...',
     confirmedTitle: 'Confirmation de lecture reçue',
-    confirmedSubtext: 'Vous recevrez le contrat de placement sous 7 jours par e-mail.',
+    confirmedSubtext: 'Vous recevrez le contrat de placement sous 7 jours par e-mail. Verifiez egalement votre dossier spam si vous ne recevez rien.',
     downloadPdf: 'Télécharger le PDF',
+    downloadRequired: 'Veuillez télécharger la brochure avant de quitter cette page.',
+    downloadFirst: 'Télécharger la brochure',
+    downloadedDone: 'Téléchargé ✓',
   },
   ar: {
     dir: 'rtl',
@@ -64,8 +77,11 @@ const UI_T = {
     confirmBtn: 'نعم، لقد قرأته وفهمته',
     saving: 'جارٍ الحفظ...',
     confirmedTitle: 'تم استلام تأكيد القراءة',
-    confirmedSubtext: 'ستحصل على عقد التوظيف خلال 7 أيام عبر البريد الإلكتروني.',
+    confirmedSubtext: 'ستحصل على عقد التوظيف خلال 7 أيام عبر البريد الإلكتروني. يرجى التحقق من مجلد البريد العشوائي (Spam) إذا لم تتلق شيئا.',
     downloadPdf: 'تحميل PDF',
+    downloadRequired: 'يرجى تنزيل الكتيب قبل مغادرة هذه الصفحة.',
+    downloadFirst: 'تنزيل الكتيب',
+    downloadedDone: 'تم التنزيل ✓',
   },
   vi: {
     dir: 'ltr',
@@ -78,8 +94,11 @@ const UI_T = {
     confirmBtn: 'Vâng, tôi đã đọc và hiểu',
     saving: 'Đang lưu...',
     confirmedTitle: 'Đã nhận xác nhận đã đọc',
-    confirmedSubtext: 'Bạn sẽ nhận được hợp đồng môi giới trong vòng 7 ngày qua email.',
+    confirmedSubtext: 'Ban se nhan duoc hop dong moi gioi trong vong 7 ngay qua email. Vui long kiem tra thu muc Thu rac (Spam) neu ban khong nhan duoc gi.',
     downloadPdf: 'Tải xuống PDF',
+    downloadRequired: 'Vui lòng tải xuống tài liệu trước khi rời trang này.',
+    downloadFirst: 'Tải xuống tài liệu',
+    downloadedDone: 'Đã tải xuống ✓',
   },
 }
 
@@ -96,9 +115,21 @@ export default function BrochureAccessPage() {
 
   const [confirming, setConfirming] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
+  const [downloaded, setDownloaded] = useState(false)
 
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
+
+  // Warn user if they try to leave without downloading
+  useEffect(() => {
+    if (!pdfUrl || downloaded) return
+    const handler = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [pdfUrl, downloaded])
 
   // Close dropdown on outside click (avoids z-index overlay issues)
   useEffect(() => {
@@ -164,6 +195,8 @@ export default function BrochureAccessPage() {
     setActiveLang(lang)
     setLangDropdownOpen(false)
   }
+
+  const defaultLayoutPluginInstance = defaultLayoutPlugin()
 
   const t = UI_T[activeLang] || UI_T.de
 
@@ -259,12 +292,14 @@ export default function BrochureAccessPage() {
             </div>
           </div>
         ) : (
-          <iframe
-            src={pdfUrl}
-            className="w-full border-0"
-            style={{ height: 'calc(100vh - 14px - 72px)', display: 'block' }}
-            title="FKVI Informationsbroschüre"
-          />
+          <Worker workerUrl="/pdf.worker.min.js">
+            <div style={{ height: 'calc(100vh - 56px - 72px)' }}>
+              <Viewer
+                fileUrl={pdfUrl}
+                plugins={[defaultLayoutPluginInstance]}
+              />
+            </div>
+          </Worker>
         )}
 
       </div>
@@ -292,28 +327,56 @@ export default function BrochureAccessPage() {
                   download
                   target="_blank"
                   rel="noreferrer"
-                  className="shrink-0 flex items-center gap-1.5 text-sm text-teal-600 hover:text-teal-700 font-medium border border-teal-200 bg-teal-50 hover:bg-teal-100 px-3 py-2 rounded-lg transition-colors"
+                  onClick={() => setDownloaded(true)}
+                  className={`shrink-0 flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors ${
+                    downloaded
+                      ? 'text-green-700 border border-green-200 bg-green-50'
+                      : 'text-white bg-teal-600 hover:bg-teal-700 shadow-md'
+                  }`}
                 >
-                  <FileDown className="h-4 w-4" />
-                  <span className="hidden sm:inline">{t.downloadPdf}</span>
+                  {downloaded
+                    ? <><CheckCircle2 className="h-4 w-4" /><span className="hidden sm:inline">{t.downloadedDone}</span></>
+                    : <><Download className="h-4 w-4" /><span>{t.downloadFirst}</span></>
+                  }
                 </a>
               )}
             </>
           ) : (
             <>
-              <div className="hidden sm:block flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 leading-tight">{t.readQuestion}</p>
-                <p className="text-xs text-gray-400 leading-tight mt-0.5">{t.readSubtext}</p>
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {pdfUrl && (
+                  <a
+                    href={pdfUrl}
+                    download
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setDownloaded(true)}
+                    className={`shrink-0 flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${
+                      downloaded
+                        ? 'text-green-700 border border-green-200 bg-green-50'
+                        : 'text-teal-700 border border-teal-200 bg-teal-50 hover:bg-teal-100'
+                    }`}
+                  >
+                    {downloaded
+                      ? <><CheckCircle2 className="h-4 w-4" /><span className="hidden sm:inline">{t.downloadedDone}</span></>
+                      : <><Download className="h-4 w-4" /><span className="hidden sm:inline">{t.downloadFirst}</span></>
+                    }
+                  </a>
+                )}
+                <div className="hidden sm:block min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{t.readQuestion}</p>
+                  <p className="text-xs text-gray-400 leading-tight mt-0.5">{t.readSubtext}</p>
+                </div>
               </div>
               <button
                 onClick={handleConfirm}
                 disabled={confirming}
-                className="shrink-0 sm:shrink w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors"
+                className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors"
               >
                 {confirming ? (
                   <><Loader2 className="h-4 w-4 animate-spin" />{t.saving}</>
                 ) : (
-                  <><CheckCircle2 className="h-4 w-4" />{t.confirmBtn}</>
+                  <><CheckCircle2 className="h-4 w-4" /><span className="hidden sm:inline">{t.confirmBtn}</span><span className="sm:hidden">Bestätigen</span></>
                 )}
               </button>
             </>

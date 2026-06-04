@@ -16,7 +16,7 @@ const RECOGNITION = {
 export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onViewDetail, isDemo, onRegister, isPlaced }) {
   const [videoOpen, setVideoOpen] = useState(false)
 
-  const handleOpenCv    = (e) => { e.stopPropagation(); document.body.style.removeProperty('pointer-events'); window.open(`/lebenslauf/${profile.id}`, '_blank') }
+  const handleOpenCv    = (e) => { e.stopPropagation(); document.body.style.removeProperty('pointer-events'); window.open(`/lebenslauf/${profile.id}${isDemo ? '?demo=1' : ''}`, '_blank') }
   const handleOpenVideo = (e) => { e.stopPropagation(); setVideoOpen(true) }
   const handleViewDetail = (e) => { e.stopPropagation(); onViewDetail?.(profile) }
 
@@ -105,7 +105,7 @@ export default function ProfileCard({ profile, isFavorite, onToggleFavorite, onV
             "absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all z-10",
             isFavorite
               ? "bg-red-500 text-white shadow-md"
-              : "bg-white/90 text-gray-300 hover:text-red-400 hover:bg-white hover:shadow-sm"
+              : "bg-white/90 text-gray-300 hover:text-red-400 hover:bg-white hover:shadow-sm animate-heartbeat"
           )}
         >
           <Heart className={cn("h-4 w-4", isFavorite && "fill-white")} />

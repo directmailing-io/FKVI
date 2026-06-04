@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch'
 import { formatDateTime, cn, PROCESS_STATUS_LABELS } from '@/lib/utils'
 import { ArrowLeft, Globe, Mail, Phone, Plus, Trash2, X, Save, Loader2, Building2, MessageSquare, AlertTriangle, CheckCircle2, CalendarCheck, ExternalLink, Heart, Activity, User, Eye, Send, FileText, Download, Link2, Check, Package, Upload, Pencil, History, ArrowUpRight } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import EntityFilesTab from '@/components/admin/EntityFilesTab'
 
 const COMPANY_TYPE_LABELS = {
   lead: 'Lead',
@@ -450,6 +451,7 @@ export default function CompanyDetailPage() {
           { id: 'stammdaten', label: 'Stammdaten' },
           { id: 'notizen', label: 'Notizen' },
           { id: 'vermittlungen', label: `Vermittlungen${reservations.length > 0 ? ` (${reservations.length})` : ''}` },
+          { id: 'dateien', label: 'Dateien' },
         ].map(tab => (
           <button
             key={tab.id}
@@ -1075,7 +1077,18 @@ export default function CompanyDetailPage() {
       </div>
       )}
 
-
+      {/* Tab: Dateien */}
+      {activeTab === 'dateien' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <EntityFilesTab
+            entityType="company"
+            entityId={id}
+            entityName={company?.company_name || company?.name || 'Unternehmen'}
+            recipientName={company?.contact_person || ''}
+            recipientEmail={company?.email || ''}
+          />
+        </div>
+      )}
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteDialog} onOpenChange={open => !open && setDeleteDialog(false)}>
