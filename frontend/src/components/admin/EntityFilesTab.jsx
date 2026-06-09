@@ -14,7 +14,7 @@ import {
   Eye, EyeOff,
 } from 'lucide-react'
 
-const PLATFORM_URL = import.meta.env.VITE_PLATFORM_URL || 'https://frontend-nu-two-69.vercel.app'
+const PLATFORM_URL = import.meta.env.VITE_PLATFORM_URL || 'https://fachkraft-vermittlung.de'
 
 // ─── File type icon helper ──────────────────────────────────────────────────
 function getFileIcon(url) {
@@ -123,7 +123,8 @@ function FileForm({ initial, onSave, onCancel, saving }) {
   const [title, setTitle] = useState(initial?.title || '')
   const [description, setDescription] = useState(initial?.description || '')
   const [url, setUrl] = useState(initial?.url || '')
-  const [isInternal, setIsInternal] = useState(initial?.is_internal ?? false)
+  // isVisible = true means visible to companies (is_internal = false)
+  const [isVisible, setIsVisible] = useState(!(initial?.is_internal ?? false))
 
   const isValid = title.trim() && url.trim()
 
@@ -162,29 +163,34 @@ function FileForm({ initial, onSave, onCancel, saving }) {
           className="text-sm resize-none"
         />
       </div>
-      {/* Visibility toggle — only relevant for profile entity files */}
-      <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+      {/* Visibility toggle */}
+      <div
+        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+          isVisible ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+        }`}
+        onClick={() => setIsVisible(v => !v)}
+      >
         <div className="flex items-center gap-2">
-          {isInternal
-            ? <EyeOff className="h-4 w-4 text-amber-500 shrink-0" />
-            : <Eye className="h-4 w-4 text-green-500 shrink-0" />}
+          {isVisible
+            ? <Eye className="h-4 w-4 text-green-600 shrink-0" />
+            : <EyeOff className="h-4 w-4 text-gray-400 shrink-0" />}
           <div>
-            <p className="text-xs font-semibold text-gray-800">
-              {isInternal ? 'Internes Dokument' : 'Für Unternehmen sichtbar'}
+            <p className={`text-xs font-semibold ${isVisible ? 'text-green-800' : 'text-gray-700'}`}>
+              Für Unternehmen sichtbar
             </p>
             <p className="text-[11px] text-gray-400 leading-tight">
-              {isInternal
-                ? 'Nur für Admins – nicht im Unternehmensportal sichtbar'
-                : 'Wird während aktiver Vermittlung im Statustracker angezeigt'}
+              {isVisible
+                ? 'Wird im Unternehmensportal angezeigt'
+                : 'Nur intern – nicht im Unternehmensportal sichtbar'}
             </p>
           </div>
         </div>
-        <Switch checked={isInternal} onCheckedChange={setIsInternal} />
+        <Switch checked={isVisible} onCheckedChange={setIsVisible} onClick={e => e.stopPropagation()} />
       </div>
       <div className="flex items-center gap-2 pt-1">
         <Button
           size="sm"
-          onClick={() => onSave({ title, description, url, is_internal: isInternal })}
+          onClick={() => onSave({ title, description, url, is_internal: !isVisible })}
           disabled={!isValid || saving}
           className="bg-teal-600 hover:bg-teal-700 text-white"
         >
