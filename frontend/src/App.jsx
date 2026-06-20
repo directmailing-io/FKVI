@@ -6,6 +6,7 @@ import { usePublicAuthStore } from '@/store/publicAuthStore'
 import { Toaster } from '@/components/ui/toaster'
 import { AdminRoute, CompanyRoute } from '@/components/layout/ProtectedRoute'
 import AdminLayout from '@/components/layout/AdminLayout'
+import CookieConsent from '@/components/CookieConsent'
 
 // Admin pages
 import AdminLogin from '@/pages/admin/AdminLogin'
@@ -32,10 +33,13 @@ import CvSharePage from '@/pages/public/CvSharePage'
 import CvAdminPage from '@/pages/public/CvAdminPage'
 import DownloadsPage from '@/pages/public/DownloadsPage'
 import BrochureAccessPage from '@/pages/public/BrochureAccessPage'
+import FaireAnwerbungPage from '@/pages/public/FaireAnwerbungPage'
+import ArbeitgeberRegistrierungPage from '@/pages/public/ArbeitgeberRegistrierungPage'
 import DocBundlePage from '@/pages/public/DocBundlePage'
 import BeratungPage from '@/pages/public/BeratungPage'
 import ImpressumPage from '@/pages/public/ImpressumPage'
 import DatenschutzPage from '@/pages/public/DatenschutzPage'
+import DokumentSignPage from '@/pages/public/DokumentSignPage'
 
 // Matching pages
 import MatchingLogin from '@/pages/matching/MatchingLogin'
@@ -43,6 +47,7 @@ import MatchingBrowse from '@/pages/matching/MatchingBrowse'
 import ReservedProfiles from '@/pages/matching/ReservedProfiles'
 import StatustrackerDetail from '@/pages/matching/StatustrackerDetail'
 import ReservationCvPage from '@/pages/matching/ReservationCvPage'
+import MatchingProfileCvPage from '@/pages/matching/MatchingProfileCvPage'
 import MatchingLayout from '@/components/layout/MatchingLayout'
 import SetupPasswordPage from '@/pages/matching/SetupPasswordPage'
 import ForgotPasswordPage from '@/pages/matching/ForgotPasswordPage'
@@ -87,7 +92,10 @@ export default function App() {
         <Route path="/cv-admin/:profileId" element={<CvAdminPage />} />
         <Route path="/downloads" element={<DownloadsPage />} />
         <Route path="/downloads/zugang/:token" element={<BrochureAccessPage />} />
+        <Route path="/faire-anwerbung" element={<FaireAnwerbungPage />} />
+        <Route path="/arbeitgeber-registrierung" element={<ArbeitgeberRegistrierungPage />} />
         <Route path="/unterlagen/:token" element={<DocBundlePage />} />
+        <Route path="/dokument/:token" element={<DokumentSignPage />} />
         <Route path="/beratung" element={<BeratungPage />} />
         <Route path="/impressum" element={<ImpressumPage />} />
         <Route path="/datenschutzerklaerung" element={<DatenschutzPage />} />
@@ -118,10 +126,12 @@ export default function App() {
         <Route path="/matching/reserviert" element={<CompanyRoute><MatchingLayout><ReservedProfiles /></MatchingLayout></CompanyRoute>} />
         <Route path="/matching/reserviert/:id" element={<CompanyRoute><MatchingLayout><StatustrackerDetail /></MatchingLayout></CompanyRoute>} />
         <Route path="/matching/reserviert/:id/lebenslauf" element={<CompanyRoute><ReservationCvPage /></CompanyRoute>} />
+        <Route path="/matching/profil/:id/lebenslauf" element={<CompanyRoute><MatchingProfileCvPage /></CompanyRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />
+      <CookieConsent />
     </BrowserRouter>
     </HelmetProvider>
   )

@@ -6,6 +6,7 @@ import { Phone, ChevronDown, ChevronUp, Lock, Star, Users, User, EyeOff, ArrowRi
 import AccessRequestModal from '@/components/public/AccessRequestModal'
 import { cn } from '@/lib/utils'
 import { getProfileSpecializations, ALL_SPECIALIZATION_FIELDS } from '@/lib/profileOptions'
+import { openCookieSettings } from '@/lib/cookieConsent'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const FUNNEL_DATA = {
@@ -115,10 +116,10 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundens
 
       {/* ── Main navbar ── */}
       <div className={`transition-all duration-200 ${scrolled || mobileMenuOpen ? 'bg-white shadow-sm' : 'bg-white/97 backdrop-blur-sm'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
 
           {/* Logo */}
-          <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-12 w-auto shrink-0" />
+          <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-16 w-auto shrink-0" />
 
           {/* Nav links — desktop */}
           <nav className="hidden lg:flex items-center gap-1 text-xs font-medium text-gray-600 flex-1 justify-center">
@@ -136,14 +137,15 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundens
             ))}
             <span className="w-px h-4 bg-gray-200 mx-1" />
             <Link to="/matching/login"
-              className="px-3 py-2 rounded-lg hover:bg-gray-50 hover:text-fkvi-blue transition-colors whitespace-nowrap">
-              Matching-Plattform
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-fkvi-blue/30 bg-fkvi-blue/5 hover:bg-fkvi-blue/10 text-fkvi-blue transition-colors whitespace-nowrap">
+              <span>Matching-Plattform</span>
+              <span className="text-[8px] font-bold tracking-wider bg-fkvi-blue text-white px-1.5 py-0.5 rounded-full leading-none">LOGIN</span>
             </Link>
             <span className="w-px h-4 bg-gray-200 mx-1" />
-            <Link to="/downloads"
+            <Link to="/faire-anwerbung"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-fkvi-teal/30 bg-fkvi-teal/5 hover:bg-fkvi-teal/10 text-fkvi-teal transition-colors whitespace-nowrap">
-              <span>Broschüre</span>
-              <span className="text-[8px] font-bold tracking-wider bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full leading-none">FACHKRAFT</span>
+              <span>Faire Anwerbung</span>
+              <span className="text-[8px] font-bold tracking-wider bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full leading-none">RAL</span>
             </Link>
           </nav>
 
@@ -172,10 +174,10 @@ function NavBar({ funnelRef, prozessRef, vorteileRef, kpassRef, poolRef, kundens
               <button onClick={() => { scroll(poolRef); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Fachkräfte-Pool</button>
               <button onClick={() => scroll(kundenstimmenRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Praxisberichte</button>
               <button onClick={() => scroll(prozessRef)} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Ablauf</button>
-              <button onClick={() => { navigate('/matching/login'); setMobileMenuOpen(false) }} className="text-left px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">Matching-Plattform</button>
+              <button onClick={() => { navigate('/matching/login'); setMobileMenuOpen(false) }} className="flex items-center gap-2 text-left px-3 py-2.5 rounded-xl text-sm font-medium text-fkvi-blue hover:bg-blue-50 transition-colors">Matching-Plattform <span className="text-[9px] font-bold bg-fkvi-blue text-white px-1.5 py-0.5 rounded-full">LOGIN</span></button>
               <div className="border-t border-gray-100 my-1" />
-              <Link to="/downloads" className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-fkvi-teal hover:bg-teal-50 transition-colors">
-                Broschüre <span className="text-[9px] font-bold bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full">FACHKRAFT</span>
+              <Link to="/faire-anwerbung" className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-fkvi-teal hover:bg-teal-50 transition-colors">
+                Faire Anwerbung <span className="text-[9px] font-bold bg-fkvi-teal text-white px-1.5 py-0.5 rounded-full">RAL</span>
               </Link>
               <a href="tel:+496980884364" className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-fkvi-blue transition-colors">
                 <Phone className="h-4 w-4 text-fkvi-teal" /><span>+49 69 8088 4364</span>
@@ -1331,7 +1333,7 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
 }
 
 function KundenstimmenSection({ kundenstimmenRef }) {
-  const VIMEO_TESTIMONIAL = 'https://player.vimeo.com/video/1093472894?badge=0&autopause=0&player_id=testimonial&app_id=58479&title=0&byline=0&portrait=0'
+  const VIMEO_TESTIMONIAL = 'https://player.vimeo.com/video/1200095342?h=8fc4f3562d&badge=0&autopause=0&player_id=testimonial&app_id=58479&title=0&byline=0&portrait=0'
 
   return (
     <section ref={kundenstimmenRef} className="px-4 sm:px-6 pb-8 pt-10 sm:pt-16 relative overflow-hidden"
@@ -1356,7 +1358,7 @@ function KundenstimmenSection({ kundenstimmenRef }) {
               className="absolute inset-0 w-full h-full"
               frameBorder="0"
               allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
-              title="Kundenstimme Alfred Schaub"
+              title="Kundenstimme Monja Blattau"
             />
           </div>
 
@@ -1366,25 +1368,26 @@ function KundenstimmenSection({ kundenstimmenRef }) {
 
               {/* Quote */}
               <div className="flex-1 min-w-0">
-                <div className="flex gap-0.5 mb-3">
-                  {[...Array(5)].map((_,j) => <Star key={j} className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />)}
-                </div>
                 <p className="text-gray-700 text-sm sm:text-base leading-relaxed italic">
-                  „Ich bin sehr zufrieden, weil alle Azubis einfach die Einreise geschafft haben. Sie haben für uns einen nicht unerheblichen Teil der behördlichen Arbeit, unter anderem auch in Marokko selbst vor Ort erledigt."
+                  „Am meisten begeistert hat mich, dass genau das eingehalten wurde, was uns versprochen wurde. Vom Start im Herkunftsland über die Behörden bis hin zur Wohnungssuche wurde alles übernommen."
                 </p>
               </div>
 
               {/* Attribution */}
-              <div className="sm:pl-6 sm:border-l sm:border-gray-100 shrink-0 flex sm:flex-col items-center sm:items-start gap-3 sm:gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-fkvi-blue flex items-center justify-center text-white font-bold text-xs shrink-0">AS</div>
+              <div className="sm:pl-6 sm:border-l sm:border-gray-100 shrink-0 flex sm:flex-col items-center sm:items-start gap-4 sm:gap-3">
+                <div>
+                  <p className="font-bold text-gray-900 text-sm leading-tight">Monja Blattau</p>
+                  <p className="text-xs text-gray-500 leading-snug mt-0.5">Einrichtungsleitung</p>
+                  <p className="text-xs text-gray-500 leading-snug">Seniorenresidenz Deutsche Eiche</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <img src="/logos/residenz-gruppe.webp" alt="Residenz-Gruppe"
+                    className="h-7 w-auto object-contain opacity-70" />
                   <div>
-                    <p className="font-bold text-gray-900 text-sm leading-tight">Alfred Schaub</p>
-                    <p className="text-xs text-gray-400">Seniorenresidenzen Lerchenhof</p>
+                    <p className="text-xs font-semibold text-gray-600 leading-tight">Residenz-Gruppe</p>
+                    <p className="text-xs text-gray-400 leading-tight">Seniorenresidenzen</p>
                   </div>
                 </div>
-                <img src="/logos/residenz-gruppe.webp" alt="Residenz-Gruppe – Seniorenresidenzen Lerchenhof"
-                  className="h-7 w-auto object-contain opacity-70" />
               </div>
 
             </div>
@@ -1819,7 +1822,7 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
       <div className="max-w-7xl mx-auto py-12">
         {/* Logo + Address — full width on mobile */}
         <div className="mb-8 pb-8 border-b border-white/10">
-          <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-12 w-auto mb-3"
+          <img src="/logo.png" alt="FKVI – Fachkraft Vermittlung International" className="h-24 w-auto mb-4"
             style={{ filter: 'brightness(0) invert(1)', opacity: 0.85 }} />
           <p className="text-slate-500 text-xs leading-relaxed">
             Fachkraft Vermittlung International GmbH &amp; Co. KG · Ammelburgstraße 34 · 60320 Frankfurt am Main
@@ -1853,6 +1856,7 @@ function Footer({ funnelRef, prozessRef, vorteileRef, kpassRef }) {
             <div className="space-y-2.5">
               <Link to="/impressum" className="block text-slate-400 text-sm hover:text-white transition-colors">Impressum</Link>
               <Link to="/datenschutzerklaerung" className="block text-slate-400 text-sm hover:text-white transition-colors">Datenschutzerklärung</Link>
+              <button onClick={openCookieSettings} className="block text-slate-400 text-sm hover:text-white transition-colors text-left">Cookie-Einstellungen</button>
               <Link to="/matching/login" className="block text-slate-400 text-sm hover:text-white transition-colors">Zum Login</Link>
             </div>
           </div>
