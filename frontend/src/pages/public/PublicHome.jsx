@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase-public'
 import { Phone, ChevronDown, ChevronUp, Lock, Star, Users, User, EyeOff, ArrowRight, Play, CheckCircle2, Info, X, Menu, Loader2, ShieldCheck, Building2, MapPin, Banknote, Home, Award, Heart, Globe } from 'lucide-react'
 import AccessRequestModal from '@/components/public/AccessRequestModal'
@@ -429,7 +429,7 @@ function LeistungenSection({ vorteileRef }) {
   ]
 
   return (
-    <section ref={vorteileRef} className="py-16 sm:py-24 px-4 sm:px-6 bg-[#f5f5f7]" style={{ boxShadow: "inset 0 0 120px rgba(59,130,246,0.06)" }}>
+    <section ref={vorteileRef} id="vorteile" className="py-16 sm:py-24 px-4 sm:px-6 bg-[#f5f5f7]" style={{ boxShadow: "inset 0 0 120px rgba(59,130,246,0.06)", scrollMarginTop: '80px' }}>
       <div className="max-w-7xl mx-auto">
 
         <div className="text-center mb-16">
@@ -1044,7 +1044,7 @@ function KompetenzpassCarouselSection({ kpassRef }) {
   const accentBg   = tab === 'fachlich' ? 'rgba(59,130,246,0.15)' : 'rgba(16,185,129,0.15)'
 
   return (
-    <section ref={kpassRef} style={{ background: '#0f172a' }} className="py-14 sm:py-20 px-4 sm:px-6">
+    <section ref={kpassRef} id="kompetenzpass" style={{ background: '#0f172a', scrollMarginTop: '80px' }} className="py-14 sm:py-20 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
@@ -1104,7 +1104,7 @@ function KompetenzpassSection({ funnelRef }) {
   const d = FUNNEL_DATA[mode]
 
   return (
-    <section ref={funnelRef} className="py-14 sm:py-20 px-4 sm:px-6" style={{ background: '#0f172a' }}>
+    <section ref={funnelRef} id="vermittlung" className="py-14 sm:py-20 px-4 sm:px-6" style={{ background: '#0f172a', scrollMarginTop: '80px' }}>
       <style>{`
         @media (min-width: 640px) {
           .fk-funnel-0 { width: 100%; }
@@ -1190,7 +1190,7 @@ function ProfilesSection({ profiles, profilesLoading, poolRef }) {
     <>
       <AccessRequestModal open={modalOpen} onClose={() => setModalOpen(false)} />
 
-      <section ref={poolRef} className="py-14 sm:py-24 px-4 sm:px-6 relative overflow-hidden" style={{ background: '#f8fafc' }}>
+      <section ref={poolRef} id="fachkraefte-pool" className="py-14 sm:py-24 px-4 sm:px-6 relative overflow-hidden" style={{ background: '#f8fafc', scrollMarginTop: '80px' }}>
       <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(96,165,250,0.12) 0%, rgba(147,197,253,0.05) 50%, transparent 75%)' }} />
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
@@ -1336,8 +1336,8 @@ function KundenstimmenSection({ kundenstimmenRef }) {
   const VIMEO_TESTIMONIAL = 'https://player.vimeo.com/video/1200095342?h=8fc4f3562d&badge=0&autopause=0&player_id=testimonial&app_id=58479&title=0&byline=0&portrait=0'
 
   return (
-    <section ref={kundenstimmenRef} className="px-4 sm:px-6 pb-8 pt-10 sm:pt-16 relative overflow-hidden"
-      style={{ background: '#f8fafc' }}>
+    <section ref={kundenstimmenRef} id="praxisberichte" className="px-4 sm:px-6 pb-8 pt-10 sm:pt-16 relative overflow-hidden"
+      style={{ background: '#f8fafc', scrollMarginTop: '80px' }}>
       <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(96,165,250,0.10) 0%, rgba(147,197,253,0.04) 50%, transparent 75%)' }} />
       <div className="max-w-4xl mx-auto">
 
@@ -1629,7 +1629,7 @@ function ProzessSection({ prozessRef }) {
   ]
 
   return (
-    <section ref={prozessRef} style={{ background: '#0f172a' }} className="py-14 sm:py-20 px-4 sm:px-6">
+    <section ref={prozessRef} id="ablauf" style={{ background: '#0f172a', scrollMarginTop: '80px' }} className="py-14 sm:py-20 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
@@ -1916,6 +1916,13 @@ export default function PublicHome() {
   const prozessRef = useRef(null)
   const poolRef = useRef(null)
   const kundenstimmenRef = useRef(null)
+  const location = useLocation()
+  useEffect(() => {
+    if (!location.hash) return
+    const id = location.hash.slice(1)
+    const el = document.getElementById(id)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [location.hash])
 
   useEffect(() => {
     supabase.from('profiles')

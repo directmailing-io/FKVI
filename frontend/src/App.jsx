@@ -94,6 +94,12 @@ export default function App() {
         <Route path="/downloads/zugang/:token" element={<BrochureAccessPage />} />
         <Route path="/faire-anwerbung" element={<FaireAnwerbungPage />} />
         <Route path="/arbeitgeber-registrierung" element={<ArbeitgeberRegistrierungPage />} />
+        <Route path="/vorteile" element={<Navigate to="/#vorteile" replace />} />
+        <Route path="/kompetenzpass" element={<Navigate to="/#kompetenzpass" replace />} />
+        <Route path="/vermittlung" element={<Navigate to="/#vermittlung" replace />} />
+        <Route path="/ablauf" element={<Navigate to="/#ablauf" replace />} />
+        <Route path="/fachkraefte-pool" element={<Navigate to="/#fachkraefte-pool" replace />} />
+        <Route path="/praxisberichte" element={<Navigate to="/#praxisberichte" replace />} />
         <Route path="/unterlagen/:token" element={<DocBundlePage />} />
         <Route path="/dokument/:token" element={<DokumentSignPage />} />
         <Route path="/beratung" element={<BeratungPage />} />
